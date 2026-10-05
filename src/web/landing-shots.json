@@ -1,0 +1,62 @@
+{
+  "files": {
+    "desktop": [
+      880,
+      600
+    ],
+    "phone": [
+      390,
+      640
+    ]
+  },
+  "folder": {
+    "desktop": [
+      880,
+      600
+    ],
+    "phone": [
+      390,
+      640
+    ]
+  },
+  "history-diff": {
+    "desktop": [
+      880,
+      600
+    ],
+    "phone": [
+      390,
+      640
+    ]
+  },
+  "history-versions": {
+    "desktop": [
+      460,
+      405
+    ],
+    "phone": [
+      358,
+      397
+    ]
+  },
+  "write-edit": {
+    "desktop": [
+      880,
+      600
+    ],
+    "phone": [
+      390,
+      640
+    ]
+  },
+  "write-preview": {
+    "desktop": [
+      880,
+      484
+    ],
+    "phone": [
+      390,
+      548
+    ]
+  }
+}

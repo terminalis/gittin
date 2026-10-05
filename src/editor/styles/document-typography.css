@@ -1,0 +1,135 @@
+/* GitHub document defaults, independent of Gittin's interface typography.
+ * Font stacks: https://primer.style/product/primitives/typography/
+ * Markdown scale: https://github.com/primer/css/tree/main/src/markdown
+ * Source: GitHub's code view uses 12px text on a 20px line.
+ */
+:root {
+  --font-document-sans: "Mona Sans Variable", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  --font-document-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    Consolas, "Liberation Mono", monospace;
+  --document-source-font: 400 12px/20px var(--font-document-mono);
+}
+
+/* Favourite thumbnails share Preview's Markdown typography. */
+.ProseMirror.document-markdown,
+.favourite-preview {
+  font: 400 16px/1.5 var(--font-document-sans);
+  overflow-wrap: break-word;
+}
+
+:is(.ProseMirror.document-markdown, .favourite-preview) :is(p, blockquote, ul, ol, dl, table, pre, details) {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+:is(.ProseMirror.document-markdown, .favourite-preview) :is(h1, h2, h3, h4, h5, h6) {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-family: inherit;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+:is(.document-markdown, .favourite-preview) h1 {
+  font-size: 2em;
+}
+:is(.document-markdown, .favourite-preview) h2 {
+  font-size: 1.5em;
+}
+:is(.document-markdown, .favourite-preview) h3 {
+  font-size: 1.25em;
+}
+:is(.document-markdown, .favourite-preview) h4 {
+  font-size: 1em;
+}
+:is(.document-markdown, .favourite-preview) h5 {
+  font-size: .875em;
+}
+:is(.document-markdown, .favourite-preview) h6 {
+  font-size: .85em;
+  color: var(--muted);
+}
+:is(.document-markdown, .favourite-preview) :is(h1, h2) {
+  padding-bottom: .3em;
+  border-bottom: 1px solid var(--line);
+}
+:is(.ProseMirror.document-markdown, .favourite-preview) > :first-child {
+  margin-top: 0;
+}
+:is(.ProseMirror.document-markdown, .favourite-preview) > :last-child {
+  margin-bottom: 0;
+}
+:is(.document-markdown, .favourite-preview) :is(b, strong) {
+  font-weight: 600;
+}
+:is(.document-markdown, .favourite-preview) small {
+  font-family: inherit;
+}
+
+:is(.document-markdown, .favourite-preview) :is(ul, ol) {
+  padding-left: 2em;
+}
+:is(.document-markdown, .favourite-preview) :is(ul, ol) :is(ul, ol) {
+  margin-block: 0;
+}
+:is(.document-markdown, .favourite-preview) li + li {
+  margin-top: .25em;
+}
+:is(.ProseMirror.document-markdown, .favourite-preview) li > p {
+  margin-top: 16px;
+}
+:is(.document-markdown, .favourite-preview) blockquote {
+  margin-inline: 0;
+  padding: 0 1em;
+  border-left: .25em solid var(--line);
+  color: var(--muted);
+}
+:is(.document-markdown, .favourite-preview) blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+:is(.document-markdown, .favourite-preview) :is(pre, code, tt, samp, kbd) {
+  font-family: var(--font-document-mono);
+}
+:is(.document-markdown, .favourite-preview) :is(code, tt) {
+  padding: .2em .4em;
+  font-size: 85%;
+  white-space: break-spaces;
+  background: var(--code);
+  border-radius: 6px;
+}
+:is(.document-markdown, .favourite-preview) :is(h1, h2, h3, h4, h5, h6) :is(code, tt) {
+  padding: 0 .2em;
+  font-size: inherit;
+}
+:is(.document-markdown, .favourite-preview) pre {
+  padding: 16px;
+  overflow: auto;
+  font-size: 85%;
+  line-height: 1.45;
+  background: var(--code);
+  border-radius: 6px;
+}
+:is(.document-markdown, .favourite-preview) pre :is(code, tt) {
+  padding: 0;
+  font-size: 100%;
+  line-height: inherit;
+  white-space: inherit;
+  background: transparent;
+  border: 0;
+}
+:is(.document-markdown, .favourite-preview) :is(samp, kbd) {
+  font-size: 85%;
+}
+
+/* Code Preview and the coarse Diff fallback retain source metrics. */
+.document-source pre,
+.document-diff pre {
+  font: var(--document-source-font);
+}
+.document-source code,
+.document-diff pre code {
+  font: inherit;
+}

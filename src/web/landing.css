@@ -1,0 +1,498 @@
+/* Landing: the doorway, the slide-in bar, feature sections with screenshots of the app, FAQ and closing band. */
+.landing {
+  overflow-x: clip;
+}
+
+/* Slide-in bar: hidden (and out of the tab order) while any of the doorway shows. */
+.landing-bar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  border-bottom: 1px solid var(--line);
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 20;
+  height: 64px;
+  padding: 0 var(--gutter);
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: blur(10px);
+  visibility: hidden;
+  transform: translateY(-100%);
+  transition: transform .3s cubic-bezier(.2, .8, .2, 1), visibility 0s linear .3s;
+}
+.landing-bar.shown {
+  visibility: visible;
+  transform: none;
+  transition: transform .3s cubic-bezier(.2, .8, .2, 1);
+}
+.landing-bar .brand img {
+  width: 28px;
+  height: 28px;
+}
+.landing-bar .brand strong {
+  font-size: 22px;
+}
+.landing-bar .action {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  column-gap: 10px;
+  padding: 9px 18px;
+}
+
+/* Doorway: one composition scaled to fit the screen's shape (1280×800 landscape, 768×1024 for upright tablets,
+   390×800 for upright phones). */
+.doorway {
+  --u: min(calc(100cqw / 1280), calc(100svh / 800));
+  container-type: inline-size;
+  position: relative;
+  display: grid;
+  align-items: center;
+  min-height: 100svh;
+  overflow: hidden;
+  background: var(--warm);
+}
+.doorway-stage {
+  position: relative;
+  height: calc(800 * var(--u));
+}
+/* Centred on the ring, as on the link-preview card; on phones, centred in the space above the logo. */
+.doorway-copy {
+  position: absolute;
+  left: calc(80 * var(--u));
+  top: 50%;
+  translate: 0 -50%;
+  width: calc(580 * var(--u));
+}
+.doorway h1 {
+  margin: 0;
+  font-size: calc(150 * var(--u));
+  letter-spacing: -0.045em;
+  line-height: .9;
+}
+.doorway .tagline {
+  margin: calc(34 * var(--u)) 0 0;
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: calc(30 * var(--u));
+  line-height: 1.3;
+}
+.doorway .door {
+  right: calc(-280 * var(--u));
+  top: calc(-50 * var(--u));
+}
+.doorway .explore {
+  position: absolute;
+  left: calc(80 * var(--u));
+  bottom: max(24px, calc(40 * var(--u)));
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font: 16px var(--font-secondary);
+  text-decoration: none;
+}
+.doorway .explore:hover {
+  color: var(--ink);
+}
+
+/* The enlarged logo and the ring link inside it (doorway and closing band). */
+.door {
+  position: absolute;
+  width: calc(900 * var(--u));
+  height: calc(900 * var(--u));
+}
+.door-logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(244 * var(--u));
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--accent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font: 700 calc(28 * var(--u))/1.15 var(--font-primary);
+  box-shadow: 0 calc(10 * var(--u)) calc(40 * var(--u)) #00000026;
+  transition: scale .35s cubic-bezier(.2, .8, .2, 1);
+}
+.ring .app-icon {
+  --icon: calc(32 * var(--u));
+  margin-top: calc(6 * var(--u));
+  transition: translate .35s;
+}
+.ring:hover {
+  scale: 1.07;
+}
+.ring:hover .app-icon {
+  translate: calc(6 * var(--u)) 0;
+}
+.ring:focus-visible {
+  outline-offset: 6px;
+}
+.landing-portal {
+  position: fixed;
+  z-index: 100;
+  border-radius: 50%;
+  background: var(--bg);
+  transform: scale(0);
+  pointer-events: none;
+}
+
+/* Feature sections: text and demo side by side, alternating sides and bands. */
+.feature {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 80px;
+  align-items: center;
+  padding: 140px var(--gutter);
+}
+.feature.alt {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  background: var(--warm);
+}
+.feature.alt .feature-text {
+  order: 2;
+}
+.feature-number {
+  display: block;
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: .05em;
+  color: var(--accent);
+}
+.feature h2 {
+  margin: 14px 0 24px;
+  font-size: clamp(34px, 4.6vw, 58px);
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+}
+.feature-text p {
+  margin: 0;
+  font: 20px/1.5 var(--font-secondary);
+}
+.feature-text ul {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  margin: 22px 0 0;
+  padding: 0;
+  color: var(--muted);
+  font: 17px/1.4 var(--font-secondary);
+}
+.feature-text li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.feature-text li::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  translate: 0 -2px;
+}
+
+/* Demos: screenshots of the real app, framed like a window. Pairs overlap: the second shot sits lower right. */
+.shot {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 24px 70px #00000024, 0 2px 6px #00000010;
+}
+.shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.shot-dark {
+  display: none;
+}
+:root[data-theme="dark"] .shot-light {
+  display: none;
+}
+:root[data-theme="dark"] .shot-dark {
+  display: block;
+}
+.demo-pair {
+  display: grid;
+}
+.demo-pair > .shot {
+  grid-area: 1 / 1;
+}
+.demo-pair > .shot-back {
+  width: 84%;
+  justify-self: start;
+  align-self: start;
+}
+.demo-pair > .shot-front {
+  width: 60%;
+  justify-self: end;
+  align-self: end;
+  margin-top: 34%;
+}
+.demo-history > .shot-front {
+  width: 46%;
+  margin-top: 30%;
+}
+.demo.unavailable {
+  display: none;
+}
+
+/* FAQ: always open. */
+.landing-faq {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+  gap: 80px;
+  padding: 130px var(--gutter);
+}
+.landing-faq h2 {
+  margin: 0;
+  font-size: clamp(32px, 3.6vw, 46px);
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+.landing-faq dl {
+  margin: 0;
+}
+.landing-faq dl > div {
+  padding: 22px 0;
+  border-top: 1px solid var(--line);
+}
+.landing-faq dl > div:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.landing-faq dt {
+  margin-bottom: 8px;
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: 21px;
+}
+.landing-faq dd {
+  margin: 0;
+  color: var(--muted);
+  font: 18px/1.5 var(--font-secondary);
+}
+
+/* Closing band: the logo returns at the left, its ring holding Open Gittin again.
+   Narrower than about 1080px, the band scales with the window, so the logo keeps clear of the words. */
+.farewell {
+  --u: min(0.845px, calc(100vw / 1280));
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  min-height: calc(663 * var(--u));
+  overflow: hidden;
+  background: var(--warm);
+}
+.farewell .door {
+  left: calc(-308 * var(--u));
+  top: 50%;
+  translate: 0 -50%;
+}
+.farewell-text {
+  grid-column: 2;
+  padding: 64px var(--gutter) 64px 0;
+}
+.farewell h2 {
+  margin: 0;
+  font-size: clamp(36px, 4.4vw, 56px);
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+.farewell p {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font: 19px var(--font-secondary);
+}
+
+.landing > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 30px var(--gutter);
+  border-top: 1px solid var(--line);
+  font: 15px var(--font-secondary);
+}
+.landing-legal {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 24px;
+}
+
+/* Upright tablets: the doorway's portrait arrangement, with the logo filling the lower part of the screen. */
+@media (orientation: portrait) and (min-width: 600px) and (min-aspect-ratio: 3 / 5) {
+  .doorway {
+    --u: min(calc(100cqw / 768), calc(100svh / 1024));
+  }
+  .doorway-stage {
+    height: calc(1024 * var(--u));
+  }
+  .doorway-copy {
+    left: calc(64 * var(--u));
+    top: calc(212 * var(--u));
+    width: calc(640 * var(--u));
+  }
+  .doorway h1 {
+    font-size: calc(160 * var(--u));
+  }
+  .doorway .tagline {
+    margin-top: calc(30 * var(--u));
+    font-size: calc(34 * var(--u));
+  }
+  .doorway .door {
+    width: calc(860 * var(--u));
+    height: calc(860 * var(--u));
+    right: calc(-230 * var(--u));
+    top: calc(420 * var(--u));
+  }
+  .doorway .ring {
+    width: calc(220 * var(--u));
+    font-size: calc(26 * var(--u));
+  }
+  .doorway .ring .app-icon {
+    --icon: calc(30 * var(--u));
+  }
+  .doorway .explore {
+    display: none;
+  }
+}
+
+/* Upright phones: the doorway's phone arrangement puts the ring within thumb reach. */
+@media (orientation: portrait) and (max-width: 599px), (max-aspect-ratio: 3 / 5) {
+  .doorway {
+    --u: min(calc(100cqw / 390), calc(100svh / 800));
+  }
+  .doorway-stage {
+    height: calc(800 * var(--u));
+  }
+  .doorway-copy {
+    left: calc(20 * var(--u));
+    top: calc(210 * var(--u));
+    width: calc(350 * var(--u));
+  }
+  .doorway h1 {
+    font-size: calc(92 * var(--u));
+  }
+  .doorway .tagline {
+    margin-top: calc(22 * var(--u));
+    font-size: calc(22 * var(--u));
+  }
+  .doorway .door {
+    width: calc(560 * var(--u));
+    height: calc(560 * var(--u));
+    right: calc(-140 * var(--u));
+    top: calc(420 * var(--u));
+  }
+  .doorway .ring {
+    width: calc(160 * var(--u));
+    font-size: calc(20 * var(--u));
+  }
+  .doorway .ring .app-icon {
+    --icon: calc(22 * var(--u));
+  }
+  .doorway .explore {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  .landing-bar {
+    height: 56px;
+  }
+  .landing-bar .brand strong {
+    font-size: 20px;
+  }
+  .landing-bar .action {
+    padding: 8px 14px;
+  }
+  .feature,
+  .feature.alt {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+    padding: 72px var(--gutter);
+  }
+  .feature.alt .feature-text {
+    order: 0;
+  }
+  .feature-text p {
+    font-size: 18px;
+  }
+  .demo-pair > .shot-back {
+    width: 78%;
+  }
+  .demo-pair > .shot-front {
+    width: 62%;
+    margin-top: 72%;
+  }
+  .demo-history > .shot-front {
+    width: 64%;
+    margin-top: 66%;
+  }
+  .landing-faq {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    padding: 72px var(--gutter);
+  }
+  .landing-faq dt {
+    font-size: 19px;
+  }
+  .landing-faq dd {
+    font-size: 17px;
+  }
+  .farewell {
+    --u: 0.5px;
+    display: block;
+    min-height: 0;
+    padding: 72px var(--gutter) 330px;
+  }
+  .farewell-text {
+    padding: 0;
+  }
+  .farewell .door {
+    left: -40px;
+    top: auto;
+    bottom: -150px;
+    translate: none;
+  }
+  .landing > footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 20px var(--gutter);
+    font-size: 12px;
+  }
+  .landing-legal {
+    justify-content: flex-start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-bar,
+  .landing-bar.shown,
+  .ring,
+  .ring .app-icon {
+    transition: none;
+  }
+  .ring:hover {
+    scale: none;
+  }
+  .ring:hover .app-icon {
+    translate: none;
+  }
+}

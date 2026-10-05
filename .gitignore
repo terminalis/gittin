@@ -1,0 +1,8 @@
+node_modules/
+dist/
+test-results/
+.worktrees/
+.claude/
+.DS_Store
+AGENTS.md
+/spec/

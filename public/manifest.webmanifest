@@ -1,0 +1,16 @@
+{
+  "name": "Gittin",
+  "short_name": "Gittin",
+  "description": "An IDE? A word processor? It's just plain text.",
+  "id": "/",
+  "start_url": "/#/home",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F7F6F3",
+  "theme_color": "#F7F6F3",
+  "icons": [
+    { "src": "/icons/gittin-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/gittin-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/gittin-logo.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

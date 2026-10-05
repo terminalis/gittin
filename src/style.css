@@ -1,0 +1,2971 @@
+@import "@fontsource/source-sans-3/latin-400.css";
+@import "@fontsource/source-sans-3/latin-600.css";
+@import "@fontsource-variable/mona-sans";
+@import "@fontsource-variable/mona-sans/wght-italic.css";
+@import "@fontsource/courier-prime/latin-400.css";
+@import "@fontsource/courier-prime/latin-400-italic.css";
+@import "@fontsource/courier-prime/latin-700.css";
+@import "@fontsource/courier-prime/latin-700-italic.css";
+@import "./editor/styles/document-typography.css";
+/* Tokens and base elements. */
+:root {
+  --font-primary: "Courier Prime", "Courier New", monospace;
+  --font-secondary: "Source Sans 3", system-ui, sans-serif;
+  font-family: var(--font-secondary);
+  color: var(--ink);
+  background: var(--bg);
+  color-scheme: light;
+  --radius: 5px;
+  --radius-panel: 8px;
+  --shadow-popover: 0 2px 6px #0003, 0 8px 20px #0002;
+  --shadow-dialog: 0 8px 32px #0003;
+  --scrim: #0005;
+  --icon: 20px;
+  --gutter: max(48px, calc((100% - 1120px) / 2));
+}
+/* The light palette, also pinned on favourite thumbnails, which stay light in dark appearance. */
+:root,
+.favourite-thumbnail {
+  --bg: #f7f6f3;
+  --surface: #fff;
+  --ink: #292623;
+  --muted: #69635e;
+  --accent: #c43e2c;
+  --action-ink: #fff;
+  --warm: #fbe7df;
+  --line: #dedbd5;
+  /* Text-field edges: at least 3:1 against page, surface and peach (WCAG 1.4.11), with margin (U17). */
+  --control-line: #7f7872;
+  --code: #f2f0ec;
+  --hover: color-mix(in srgb, var(--ink) 8%, transparent);
+  --syntax-comment: #6b8568;
+  --syntax-string: #a25470;
+  --syntax-url: #327fbe;
+  --syntax-keyword: #8b4daf;
+  --syntax-number: #a3671f;
+}
+/* Paper is always light: the dark palette is for screens. */
+@media screen {
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    /* 30 September 2026: darker surround and lighter page so the page separates (1.26:1, was 1.10:1). */
+    --bg: #161514;
+    --surface: #2b2926;
+    --ink: #f4f1ed;
+    --muted: #b9b2ab;
+    --accent: #f27d69;
+    --action-ink: #292623;
+    --warm: #3c2722;
+    --line: #46413c;
+    --control-line: #8a8279;
+    --code: #35322e;
+    --syntax-comment: #9db497;
+    --syntax-string: #e2a0b5;
+    --syntax-url: #7db6e4;
+    --syntax-keyword: #c9a0ec;
+    --syntax-number: #e3b67e;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+h1,
+h2,
+h3,
+h4,
+p {
+  margin-top: 0;
+}
+strong {
+  font-weight: 600;
+}
+/* The typewriter face is for display type: headings, the brand and the document name. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.brand {
+  font-family: var(--font-primary);
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.brand strong {
+  font-weight: 700;
+}
+h1 {
+  font-size: 34px;
+  line-height: 1.2;
+}
+h2 {
+  font-size: 23px;
+}
+p {
+  line-height: 1.5;
+}
+a {
+  color: var(--accent);
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button,
+.action {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 7px 12px;
+  cursor: pointer;
+  text-decoration: none;
+}
+/* :where keeps this as weak as a plain button:hover, so component rules still override it. */
+button:hover:where(:not(:disabled)),
+.action:hover {
+  border-color: var(--accent);
+  background: var(--warm);
+}
+button:disabled,
+input:disabled {
+  opacity: 0.52;
+  cursor: default;
+}
+input {
+  min-width: 0;
+  padding: 8px 10px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+input:not([type=checkbox]):not([type=radio]),
+select,
+textarea {
+  border-color: var(--control-line);
+}
+button[aria-pressed="true"],
+button[aria-current="true"] {
+  background: var(--warm);
+  color: var(--accent);
+}
+button.primary,
+.primary {
+  background: var(--accent);
+  color: var(--action-ink);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+button.primary:hover:where(:not(:disabled)),
+.primary:hover:where(:not(:disabled)) {
+  filter: brightness(0.95);
+  background: var(--accent);
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+/* Fields already have an edge: the focus ring sits directly on it rather than 3px outside. */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: 0;
+}
+::selection {
+  background: var(--warm);
+  color: var(--ink);
+}
+/* !important: a component's own display rule must never reveal a hidden element. */
+[hidden] {
+  display: none !important;
+}
+small {
+  color: var(--muted);
+}
+summary {
+  cursor: pointer;
+}
+.app-icon {
+  display: inline-block;
+  width: var(--icon);
+  height: var(--icon);
+  flex-shrink: 0;
+  vertical-align: middle;
+  pointer-events: none;
+}
+button:has(> .app-icon),
+a:has(> .app-icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+/* 760px matches narrow in ui/dom.ts. */
+@media (max-width: 760px) {
+  :root {
+    --gutter: 24px;
+  }
+}
+
+/* Shared controls and dialogs. */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.brand strong {
+  font-size: 27px;
+  letter-spacing: -1px;
+}
+.brand img {
+  flex-shrink: 0;
+}
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 2px;
+  background: var(--surface);
+}
+.segmented button {
+  border: 0;
+  background: transparent;
+  padding: 5px 18px;
+  white-space: nowrap;
+}
+.segmented button[aria-pressed="true"] {
+  background: var(--warm);
+  color: var(--ink);
+  box-shadow: 0 1px 3px #0001;
+}
+/* Round icon buttons. */
+.home-header > .home-menu-trigger,
+.home-drawer .home-drawer-close,
+.recent-remove,
+#version-history,
+.workspace-toolbar .toolbar-menu-toggle,
+.preferences-dialog .preferences-icon-button,
+#menus-toggle {
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+#notice {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  width: max-content;
+  z-index: 110;
+  background: var(--surface);
+  box-shadow: 0 3px 18px #0003;
+  border: 1px solid var(--line);
+  padding: 12px 18px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+#notice:empty {
+  display: none;
+}
+#notice > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#notice > button {
+  flex: none;
+}
+.reassurance {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+}
+.reassurance::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+/* All workspace dialogs share a shell, fields and action hierarchy. */
+.workspace-dialog {
+  width: var(--dialog-width, 460px);
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  padding: 24px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-dialog);
+  font-size: 14px;
+  line-height: 20px;
+}
+.workspace-dialog::backdrop {
+  background: var(--scrim);
+}
+.workspace-dialog[open],
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+}
+.dialog-form {
+  min-height: 0;
+  margin: 0;
+}
+.workspace-dialog h2 {
+  flex: none;
+  margin: 0 0 20px;
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 32px;
+}
+.dialog-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
+  margin: -4px;
+  padding: 4px;
+}
+.dialog-body > :first-child {
+  margin-top: 0;
+}
+.dialog-body > :last-child {
+  margin-bottom: 0;
+}
+.dialog-body > :has(+ [role=alert]:empty) {
+  margin-bottom: 0;
+}
+.workspace-dialog :where(label) {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+.workspace-dialog :where(input:not([type=checkbox]):not([type=radio]), select, textarea) {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--control-line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+.workspace-dialog :where(input[type=file]) {
+  padding: 4px;
+  font-size: 13px;
+}
+.workspace-dialog input[type=file]::file-selector-button {
+  min-height: 32px;
+  margin-right: 8px;
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.workspace-dialog :where(input[type=checkbox], input[type=radio]) {
+  display: inline-block;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+/* Checkbox rows in dialogs. */
+.workspace-dialog :is(.dialog-option, .preference-option, .statistics-option) {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.workspace-dialog :is(.preference-option, .statistics-option) {
+  margin: 0;
+  padding: 8px 12px;
+}
+.workspace-dialog :where(button, a.action) {
+  min-height: 36px;
+  margin: 0;
+  padding: 7px 16px;
+  font-size: 14px;
+  line-height: 20px;
+}
+.dialog-actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding-top: 24px;
+}
+.workspace-dialog .dialog-actions > button {
+  min-width: 80px;
+  min-height: 40px;
+  max-width: 100%;
+  padding: 8px 24px;
+}
+.dialog-actions > button:not(.primary) {
+  border-color: transparent;
+  background: transparent;
+  color: var(--accent);
+}
+.dialog-actions > button:not(.primary):hover:not(:disabled) {
+  background: var(--warm);
+}
+.workspace-dialog [role=alert] {
+  margin: 12px 0 0;
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 20px;
+}
+.workspace-dialog [role=alert]:empty {
+  display: none;
+}
+/* Hints in dialogs. */
+.dialog-hint,
+.preferences-hint,
+.statistics-help {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 20px;
+}
+.dialog-hint {
+  white-space: pre-wrap;
+}
+.table-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1.6rem);
+  gap: .2rem;
+  margin: .7rem 0;
+}
+.table-grid button {
+  min-width: 0;
+  min-height: 0;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+}
+.table-grid button[data-selected="true"] {
+  background: var(--warm);
+  border-color: var(--accent);
+}
+.table-grid button:hover {
+  background: var(--hover);
+}
+.symbol-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem;
+  max-width: 23rem;
+  margin: .7rem 0;
+}
+.symbol-choices button {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 4px;
+}
+.insert-dialog output {
+  display: block;
+  margin-bottom: .7rem;
+}
+.preferences-dialog {
+  --dialog-width: 500px;
+}
+.preferences-dialog [role=tablist] {
+  display: flex;
+  flex: none;
+  border-bottom: 1px solid var(--line);
+}
+.preferences-dialog [role=tab] {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-weight: 600;
+}
+.preferences-dialog [role=tab] > span {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+}
+.preferences-dialog [role=tab][aria-selected=true] {
+  color: var(--accent);
+}
+.preferences-dialog [role=tab][aria-selected=true] > span::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 -1px;
+  height: 3px;
+  background: var(--accent);
+  border-radius: 3px 3px 0 0;
+}
+.preferences-dialog [role=tab]:hover {
+  background: var(--hover);
+}
+.preferences-dialog [role=tab]:focus-visible {
+  outline-offset: -4px;
+}
+.preferences-content {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: 8px;
+}
+.preferences-dialog [role=tabpanel] {
+  min-height: 264px;
+}
+.preferences-dialog .preferences-hint {
+  margin: 12px 0 0;
+}
+.preferences-dialog #preferences-panel-0 > .preferences-hint {
+  padding: 4px 12px 0;
+}
+.substitution-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin-top: 16px;
+}
+.substitution-table .substitution-toggle {
+  width: 40px;
+}
+.substitution-table .substitution-action {
+  width: 36px;
+}
+.substitution-table th {
+  padding: 0 5px 5px;
+  text-align: left;
+  font-weight: 600;
+}
+.substitution-table td {
+  padding: 6px 5px;
+  text-align: left;
+  vertical-align: middle;
+}
+.substitution-table td:first-child {
+  padding-left: 12px;
+}
+.substitution-table input[type=text] {
+  padding: 7px 8px;
+}
+.substitution-table .substitution-rule td {
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.substitution-table .substitution-empty {
+  padding: 20px 12px;
+  color: var(--muted);
+}
+.preferences-dialog .preferences-icon-button {
+  width: 30px;
+  height: 32px;
+  min-height: 32px;
+  margin: 0;
+}
+.preferences-dialog .preferences-icon-button:hover {
+  background: var(--warm);
+}
+.preferences-dialog .preferences-icon-button > .app-icon {
+  --icon: 18px;
+}
+.utility-preview {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 40vh;
+  overflow: auto;
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.statistics-dialog {
+  --dialog-width: 350px;
+}
+.statistics-dialog table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.statistics-dialog th,
+.statistics-dialog td {
+  height: 52px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 400;
+}
+.statistics-dialog th {
+  text-align: left;
+}
+.statistics-dialog td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.statistics-dialog tr:last-child > * {
+  border-bottom: 0;
+}
+.statistics-help {
+  margin: 8px 12px 12px;
+  line-height: 18px;
+}
+.help-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  height: fit-content;
+  z-index: 100;
+}
+.help-dialog nav {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+.help-dialog nav button {
+  border-radius: 4px;
+  text-align: left;
+}
+.dialog-drag-handle {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.dialog-drag-handle.dragging {
+  cursor: grabbing;
+}
+.cheat-sheet {
+  border-collapse: collapse;
+  width: 100%;
+}
+.cheat-sheet th,
+.cheat-sheet td {
+  text-align: left;
+  vertical-align: top;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.cheat-sheet pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: var(--font-document-mono);
+  font-size: 12px;
+}
+.help-dialog .dialog-body {
+  max-height: 60vh;
+  overflow: auto;
+}
+/* Version history: one row per version, actions on the same line; Clear sits apart from Close. */
+.version-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+.version-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.version-label {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.version-label small {
+  font-size: 12px;
+}
+.version-actions {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+/* Linked resources reuses those rows with its two actions under the address, which wraps when long. */
+.resource-list .version-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.resource-list .version-label {
+  gap: 2px;
+}
+.resource-url {
+  overflow-wrap: anywhere;
+  font-family: var(--font-document-mono);
+}
+.resource-note {
+  color: var(--muted);
+}
+.workspace-dialog .dialog-actions > button.danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+  border-color: var(--accent);
+}
+@media (max-width: 600px) {
+  .workspace-dialog {
+    padding: 20px;
+  }
+  .workspace-dialog .dialog-actions > button {
+    padding-inline: 20px;
+  }
+  .preferences-dialog .preference-option {
+    gap: 14px;
+    padding-inline: 4px;
+  }
+  .preferences-dialog #preferences-panel-0 > .preferences-hint {
+    padding-inline: 4px;
+  }
+  .substitution-table .substitution-toggle {
+    width: 28px;
+  }
+  .substitution-table td:first-child {
+    padding-left: 0;
+  }
+}
+
+/* Home: a warm band with the landing's colour, type and logo, then favourites and recent files. */
+.home-header {
+  display: flex;
+  align-items: center;
+  height: 76px;
+  padding: 0 var(--gutter);
+  background: var(--warm);
+}
+.home-header > .home-menu-trigger {
+  font-size: 21px;
+  min-width: 44px;
+  min-height: 44px;
+  margin-left: auto;
+}
+.home-header > .home-menu-trigger:hover,
+.home-drawer .home-drawer-close:hover {
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+}
+.home-drawer {
+  position: fixed;
+  inset: 0 0 0 auto;
+  margin: 0;
+  padding: 0;
+  width: 300px;
+  max-width: calc(100vw - 40px);
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 0;
+  border-radius: var(--radius-panel) 0 0 var(--radius-panel);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: -4px 0 24px #0003;
+}
+/* Open, the drawer is a column, so its footer sits at the bottom. */
+.home-drawer[open] {
+  display: flex;
+  flex-direction: column;
+  animation: home-drawer-enter 180ms ease-out;
+}
+.home-drawer::backdrop {
+  background: var(--scrim);
+}
+body:has(.home-drawer[open]) {
+  overflow: hidden;
+}
+/* Warm and as tall as Home's header, so the close button sits where the menu button was. */
+.home-drawer-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 76px;
+  padding: 0 14px 0 24px;
+  background: var(--warm);
+}
+.home-drawer .home-drawer-close {
+  flex: none;
+  width: 40px;
+  height: 40px;
+}
+.home-drawer nav {
+  padding: 4px 12px 16px;
+}
+/* Group labels echo the landing page's coral typewriter numbers. */
+.home-drawer-label {
+  margin: 20px 16px 6px;
+  color: var(--accent);
+  font: 700 12.5px var(--font-primary);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.home-drawer .home-drawer-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 18px;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  font-size: 16px;
+  line-height: 24px;
+}
+.home-drawer-item .app-icon {
+  color: var(--muted);
+}
+.home-drawer-item:hover .app-icon {
+  color: var(--accent);
+}
+.home-drawer-item:hover,
+.home-option:hover {
+  background: var(--warm);
+}
+.home-drawer button:focus-visible {
+  outline-offset: -3px;
+}
+.home-drawer .segmented button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 8px;
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 14px;
+}
+.home-drawer .segmented button:hover {
+  background: transparent;
+  color: var(--ink);
+}
+.home-drawer .segmented button[aria-pressed="true"] {
+  background: var(--warm);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: none;
+}
+.home-drawer .segmented .app-icon {
+  --icon: 16px;
+}
+.home-drawer-header .segmented {
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-panel);
+}
+.home-drawer-header .segmented button {
+  width: 44px;
+  min-height: 40px;
+  padding: 0;
+}
+.home-drawer-header .segmented .app-icon {
+  --icon: 18px;
+}
+.home-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 46px;
+  padding: 0 8px 0 16px;
+  border-radius: 6px;
+  font-size: 16px;
+}
+label.home-option {
+  cursor: pointer;
+}
+.home-option .segmented {
+  flex: none;
+  border-radius: 6px;
+}
+.home-option .segmented button {
+  min-width: 36px;
+  min-height: 30px;
+}
+/* A switch for on/off Home options: coral when on, with a 3:1 edge when off. */
+.home-switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--control-line);
+  cursor: pointer;
+  transition: background .15s;
+}
+.home-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px #0003;
+  transition: translate .15s;
+}
+.home-switch:checked {
+  background: var(--accent);
+}
+.home-switch:checked::after {
+  translate: 16px 0;
+}
+.home-drawer-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: auto;
+  padding: 16px 28px 22px;
+  border-top: 1px solid var(--line);
+  font: 14px var(--font-secondary);
+}
+.home-drawer-footer a {
+  color: var(--muted);
+  text-decoration: none;
+}
+.home-drawer-footer a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.home-help-topics details {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.home-help-topics summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.home-help-topics details p {
+  margin: 12px 0 0;
+}
+@keyframes home-drawer-enter {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.home-welcome {
+  position: relative;
+  overflow: hidden;
+  padding: 36px var(--gutter) 56px;
+  background: var(--warm);
+}
+/* The band's backdrop sits in the content column, like the words: cut off at the column's right edge, not the window's. */
+.home-art {
+  position: absolute;
+  inset: 0 var(--gutter);
+  overflow: hidden;
+  pointer-events: none;
+}
+/* A faint editor window, well clear of the 480px the words and buttons wrap within (a 64–140px gap that grows
+   with the window), running off the column edge and the band's bottom. It is decoration, so it stays faint. */
+.home-snippet {
+  position: absolute;
+  top: 28px;
+  left: calc(480px + clamp(64px, (100% - 480px) * 0.25, 140px));
+  width: 640px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 24px 70px #00000024;
+  opacity: 0.14;
+}
+.home-snippet-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  font: 600 14px var(--font-secondary);
+}
+.home-snippet-bar .file-tile {
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  font-size: 8px;
+}
+.home-snippet pre {
+  margin: 0;
+  padding: 14px 0;
+  font: 15px/1.7 var(--font-document-mono);
+}
+.home-snippet-number {
+  display: inline-block;
+  width: 3ch;
+  margin-right: 2ch;
+  color: var(--muted);
+  text-align: right;
+}
+.home-welcome-copy {
+  position: relative;
+  max-width: 480px;
+}
+.home-welcome h1 {
+  margin: 0;
+  font-size: clamp(44px, 5.4vw, 68px);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.home-welcome-sub {
+  margin: 16px 0 0;
+  font-size: 20px;
+  line-height: 1.45;
+}
+.home-welcome .document-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 30px;
+}
+.home-welcome .document-actions button {
+  min-height: 50px;
+  padding: 0 24px;
+  gap: 10px;
+  border-radius: 6px;
+  font-size: 17px;
+}
+#folders {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 26px;
+}
+#folders > span {
+  margin-right: 4px;
+  color: var(--muted);
+  font-size: 15px;
+}
+#folders button {
+  min-height: 38px;
+  padding: 0 16px;
+  gap: 8px;
+  border-radius: 999px;
+  font-size: 15px;
+}
+#folders .app-icon {
+  --icon: 18px;
+  color: var(--muted);
+}
+/* On the warm band a hovered button keeps its own surface, so it does not vanish into the band. */
+.home-welcome .document-actions button:not(.primary):hover,
+#folders button:hover {
+  background: var(--surface);
+}
+.home-welcome .reassurance {
+  margin: 22px 0 0;
+  font-size: 16px;
+}
+.home-content {
+  padding: 52px var(--gutter) 72px;
+}
+.home-content section > h2 {
+  margin: 0 0 18px;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+.home-favourites {
+  margin-bottom: 52px;
+}
+#favourites {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, min(200px, 100%));
+  gap: 20px;
+}
+/* Recently worked on: the name button stretches over its row, so the whole row opens the file. */
+.recent-head,
+.recent-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 190px 140px 40px;
+  column-gap: 16px;
+  align-items: center;
+}
+.recent-head {
+  padding: 0 8px 10px 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.recent-head > span:first-child {
+  grid-column: span 2;
+}
+.recent-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.recent-row {
+  position: relative;
+  grid-template-areas: "tile name state when remove";
+  min-height: 66px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+}
+.recent-row:hover {
+  background: var(--surface);
+}
+.recent-row:has(.recent-open:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.file-tile {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--warm);
+  color: var(--accent);
+  font: 700 11px var(--font-primary);
+  letter-spacing: .02em;
+}
+.recent-row > .file-tile {
+  grid-area: tile;
+}
+.recent-name {
+  grid-area: name;
+  min-width: 0;
+  padding: 10px 0;
+}
+/* The name buttons of recent rows and favourite cards stretch over their row or card. */
+.recent-open,
+.favourite-open {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  overflow: hidden;
+  font-weight: 600;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recent-open:hover,
+.favourite-open:hover {
+  background: none;
+}
+.recent-open:focus-visible,
+.favourite-open:focus-visible {
+  outline: none;
+}
+.recent-open::after,
+.favourite-open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.recent-open {
+  display: block;
+  max-width: 100%;
+  font-size: 16px;
+}
+.recent-folder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.recent-folder > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recent-folder .app-icon {
+  --icon: 15px;
+}
+.recent-details {
+  display: contents;
+}
+.recent-state {
+  grid-area: state;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.recent-state[data-state="saved"] {
+  color: var(--muted);
+}
+.state-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+.state-mark .app-icon {
+  --icon: 14px;
+}
+.recent-state[data-state="unsaved"] .state-mark::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.recent-state[data-state="local"] .state-mark::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+}
+.recent-when {
+  grid-area: when;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.recent-remove {
+  grid-area: remove;
+  position: relative;
+  z-index: 1;
+  width: 40px;
+  height: 40px;
+  color: var(--muted);
+}
+.recent-remove:hover {
+  color: var(--accent);
+}
+.recent-remove .app-icon {
+  --icon: 18px;
+}
+/* With a Recent files shown limit, the list ends by saying so and offers the rest. */
+.recent-more {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 0;
+  padding: 0 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.recent-more button {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.recent-more button:hover {
+  background: none;
+}
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 44px 16px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.empty strong {
+  color: var(--ink);
+  font-size: 17px;
+}
+.empty .app-icon {
+  --icon: 40px;
+  margin-bottom: 6px;
+}
+.storage-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 72ch;
+  margin: 28px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.storage-note .app-icon {
+  --icon: 18px;
+  margin-top: 2px;
+}
+.favourite-card {
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  overflow: hidden;
+}
+.favourite-card:hover {
+  border-color: var(--muted);
+}
+.favourite-card:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.favourite-thumbnail {
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--surface);
+}
+/* Lay out a page at reading size with Preview's typography, then shrink the entire page into its thumbnail. */
+.favourite-preview {
+  width: 400%;
+  min-height: 1100px;
+  padding: 80px 88px;
+  transform: scale(.25);
+  transform-origin: top left;
+  color: var(--ink);
+  pointer-events: none;
+  user-select: none;
+}
+.favourite-preview-empty {
+  width: 100%;
+  min-height: 0;
+  height: 100%;
+  padding: 20px;
+  transform: none;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+.favourite-caption {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: center;
+  padding: 11px 12px;
+  border-top: 1px solid var(--line);
+}
+.favourite-caption > .file-tile {
+  grid-row: span 2;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  font-size: 9px;
+}
+.favourite-open {
+  font-size: 15px;
+}
+.favourite-caption small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.offline-status {
+  display: none;
+}
+:root[data-offline="ready"] .offline-status {
+  display: inline;
+}
+@media (max-width: 760px) {
+  .home-header,
+  .home-drawer-header {
+    height: 64px;
+  }
+  .home-header .brand strong {
+    font-size: 23px;
+  }
+  /* The editor window needs more room than a phone has beside the words. */
+  .home-art {
+    display: none;
+  }
+  .home-welcome {
+    padding-top: 22px;
+    padding-bottom: 36px;
+  }
+  .home-welcome-sub {
+    font-size: 17px;
+  }
+  /* New file takes the full width; the two Open buttons share the row below. */
+  .home-welcome .document-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 24px;
+  }
+  .home-welcome .document-actions .primary {
+    grid-column: 1 / -1;
+  }
+  .home-welcome .document-actions button {
+    min-height: 48px;
+    padding: 0 14px;
+    font-size: 16px;
+  }
+  #folders {
+    margin-top: 22px;
+  }
+  #folders > span {
+    width: 100%;
+  }
+  #folders button {
+    min-height: 44px;
+  }
+  .home-content {
+    padding: 36px var(--gutter) 48px;
+  }
+  .home-content section > h2 {
+    font-size: 23px;
+  }
+  .home-favourites {
+    margin-bottom: 40px;
+  }
+  /* Favourites scroll sideways instead of stacking full-width cards. */
+  #favourites {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 156px;
+    gap: 14px;
+    overflow-x: auto;
+    margin: 0 calc(-1 * var(--gutter));
+    padding: 4px var(--gutter) 8px;
+    scroll-padding-inline: var(--gutter);
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+  .favourite-card {
+    scroll-snap-align: start;
+  }
+  .recent-head,
+  .recent-folder {
+    display: none;
+  }
+  /* State and time move under the name; the whole row and a 44px Remove are the touch targets. */
+  .recent-row {
+    grid-template-columns: 40px minmax(0, 1fr) 44px;
+    grid-template-areas: "tile name remove" "tile details remove";
+    column-gap: 14px;
+    min-height: 72px;
+    padding: 10px 0 10px 2px;
+  }
+  .recent-name {
+    padding: 0;
+  }
+  .recent-details {
+    grid-area: details;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .recent-state {
+    color: var(--ink);
+  }
+  .recent-when::before {
+    content: "·";
+    margin-right: 6px;
+  }
+  .recent-remove {
+    width: 44px;
+    height: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-drawer[open] {
+    animation: none;
+  }
+  .home-switch,
+  .home-switch::after {
+    transition: none;
+  }
+}
+
+/* Workspace: header, menus, toolbar, panels, writing column and Find. */
+#workspace {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.workspace-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 62px;
+  padding: 6px 18px;
+  background: var(--bg);
+  flex-shrink: 0;
+}
+/* The saved "hide the menus" choice; phones keep the header, which holds Save. */
+.workspace-header.menus-hidden {
+  display: none;
+}
+.workspace-header .brand img {
+  width: 31px;
+  height: 31px;
+}
+.document-identity {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+#draft-status {
+  color: var(--muted);
+}
+.menus {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.menus > details {
+  position: relative;
+}
+.menus summary {
+  list-style: none;
+  font-size: 14px;
+}
+.menus summary::-webkit-details-marker {
+  display: none;
+}
+.menus details[open] > summary,
+.menus summary:hover {
+  background: var(--hover);
+}
+/* Menus and submenus share one popover look. */
+.menu-items,
+.submenu-items {
+  display: none;
+  position: fixed;
+  overflow: auto;
+  z-index: 80;
+  padding: 6px 0;
+  background: var(--surface);
+  box-shadow: var(--shadow-popover);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+}
+.menu-items {
+  width: 315px;
+  min-width: 250px;
+  max-width: calc(100vw - 24px);
+}
+.menus > details[open] > .menu-items {
+  display: block;
+}
+/* A shared toolbar for prose and code; visibility is chosen in the customizer. */
+.formatting-row {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin: 0 16px 4px;
+  padding: 6px 10px;
+  min-height: 48px;
+  border-radius: var(--radius-panel);
+  background: var(--warm);
+}
+#controls {
+  flex: 1;
+  min-width: 0;
+}
+.formatting-row:not(:has([data-command]:not([hidden]), .toolbar-menu-toggle)) {
+  display: none;
+}
+.gittin-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.workspace-toolbar {
+  width: 100%;
+  min-width: 0;
+  flex-wrap: nowrap;
+  gap: 0;
+}
+.workspace-toolbar .toolbar-group {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding-inline: 6px;
+  border-inline-start: 1px solid var(--line);
+}
+.workspace-toolbar .toolbar-group.first-visible {
+  padding-inline-start: 0;
+  border-inline-start: 0;
+}
+.workspace-toolbar button[data-command],
+.toolbar-more,
+.toolbar-menu-toggle,
+.toolbar-zoom {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 6px;
+  margin: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+}
+.workspace-toolbar .toolbar-button-label {
+  display: none;
+}
+.workspace-toolbar button[data-command=heading] {
+  width: 48px;
+  gap: 4px;
+}
+.workspace-toolbar button:hover:not(:disabled),
+.toolbar-popup button:hover:not(:disabled) {
+  background: var(--hover);
+}
+.workspace-toolbar button[aria-pressed=true],
+.workspace-toolbar button[aria-expanded=true]:not(.toolbar-menu-toggle) {
+  background: color-mix(in srgb,var(--accent) 18%,var(--surface));
+  color: var(--accent);
+}
+.toolbar-more {
+  position: relative;
+  width: 39px;
+  padding-inline-start: 13px;
+}
+.toolbar-more::before {
+  content: "";
+  position: absolute;
+  inset-block: 4px;
+  inset-inline-start: 0;
+  width: 1px;
+  background: var(--line);
+  pointer-events: none;
+}
+.toolbar-zoom {
+  width: 76px;
+  padding-inline: 8px;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.toolbar-zoom > span {
+  flex: 1;
+  text-align: right;
+}
+.gittin-controls .toolbar-zoom > .app-icon {
+  --icon: 14px;
+}
+.toolbar-popup.toolbar-zoom-menu {
+  width: 144px;
+}
+.toolbar-menu-toggle {
+  margin-left: auto;
+}
+.toolbar-menu-toggle[aria-expanded=true] > .app-icon {
+  transform: rotate(180deg);
+}
+.toolbar-popup {
+  position: fixed;
+  z-index: 130;
+  box-sizing: border-box;
+  width: 260px;
+  max-width: calc(100vw - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-popover);
+  font-size: 14px;
+}
+.toolbar-popup:not(.toolbar-overflow) button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  width: 100%;
+  height: auto;
+  min-height: 36px;
+  margin: 0;
+  padding: 7px 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  line-height: 20px;
+}
+.toolbar-popup button:focus-visible {
+  outline-offset: -3px;
+}
+.toolbar-popup.toolbar-overflow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  width: max-content;
+  gap: 4px 0;
+  padding: 6px;
+  border-radius: var(--radius-panel);
+  background: var(--warm);
+}
+.workspace-toolbar .toolbar-overflow .toolbar-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  max-width: 100%;
+  padding: 0 6px;
+  border: 0;
+}
+.workspace-toolbar .toolbar-overflow .toolbar-group + .toolbar-group {
+  border-inline-start: 1px solid var(--line);
+}
+.toolbar-popup button[aria-pressed=true] {
+  color: var(--accent);
+  background: color-mix(in srgb,var(--accent) 12%,transparent);
+}
+.toolbar-menu-check {
+  display: inline-flex;
+  flex: 0 0 20px;
+}
+.toolbar-heading-menu [data-heading-level="1"] {
+  font-size: 24px;
+  line-height: 30px;
+}
+.toolbar-heading-menu [data-heading-level="2"] {
+  font-size: 21px;
+  line-height: 28px;
+}
+.toolbar-heading-menu [data-heading-level="3"] {
+  font-size: 18px;
+  line-height: 26px;
+}
+.toolbar-heading-menu [data-heading-level="4"] {
+  font-size: 16px;
+}
+.toolbar-heading-menu [data-heading-level="5"] {
+  font-size: 14px;
+  font-weight: 600;
+}
+.toolbar-heading-menu [data-heading-level="6"] {
+  font-size: 13px;
+  font-weight: 600;
+}
+.workspace-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  flex-shrink: 0;
+  background: var(--bg);
+}
+.workspace-tools > button {
+  font-size: 13px;
+  padding: 3px 10px;
+  min-width: 0;
+}
+.workspace-tools > .segmented {
+  justify-self: center;
+  font-size: 14px;
+}
+#documents-toggle {
+  justify-self: start;
+}
+#repository-toggle {
+  justify-self: end;
+}
+.workspace-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.workspace-body > aside {
+  width: 225px;
+  flex-shrink: 0;
+  padding: 20px 18px;
+  overflow: auto;
+}
+.workspace-body > aside h2 {
+  font-family: var(--font-secondary);
+  font-size: 14px;
+  margin: 0 0 18px;
+}
+.workspace-body > aside p {
+  font-size: 14px;
+}
+.workspace-body > aside input {
+  width: 100%;
+  font-size: 13px;
+  margin: 10px 0 20px;
+}
+#open-documents {
+  padding-bottom: 24px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+.open-document {
+  display: flex;
+  margin: 4px -7px;
+}
+.open-document button {
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  padding: 9px 8px;
+}
+.open-document button:first-child {
+  position: relative;
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.open-document button[aria-current="true"] {
+  background: var(--warm);
+  color: var(--ink);
+  border-left: 3px solid var(--accent);
+}
+.open-document button:last-child {
+  padding: 5px;
+  color: var(--muted);
+}
+#outline {
+  font-size: 13px;
+  color: var(--muted);
+}
+#outline button {
+  display: block;
+  text-align: left;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 8px;
+  color: var(--ink);
+}
+.writing-column {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+}
+#editor {
+  padding: 30px 48px 24px;
+  max-width: 930px;
+  width: 100%;
+  margin: 0 auto;
+  flex: 1;
+  background: var(--surface);
+  color: var(--ink);
+}
+/* The status line stays at the bottom of the writing column while the document scrolls. */
+.editor-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 20px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  background: var(--surface);
+}
+.editor-footer button {
+  border: 0;
+  background: transparent;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+.editor-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  min-width: 0;
+}
+.editor-footer #focus-toggle {
+  flex-shrink: 0;
+}
+.hide-documents #documents-panel,
+.hide-repository #repository-panel,
+.focus-mode #documents-panel,
+.focus-mode #repository-panel {
+  display: none;
+}
+.focus-mode .workspace-header,
+.focus-mode .menus,
+.focus-mode .formatting-row,
+.focus-mode .workspace-tools {
+  display: none;
+}
+/* Room below the last line so typewriter scrolling can centre it. */
+.focus-mode #editor {
+  padding-bottom: 50vh;
+}
+.recovery-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: var(--surface);
+}
+.recovery-actions:has(button:not([hidden])) {
+  padding: 12px;
+}
+.recovery-actions #draft-status {
+  flex: 1 1 280px;
+  order: 0;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+/* A save report joins the status line instead of adding a line below the workspace. */
+#file-status:empty {
+  display: none;
+}
+.find-bar {
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  padding: 12px 20px;
+  box-shadow: 0 3px 8px #0001;
+}
+.find-bar > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 4px 0;
+}
+.find-bar > div > input {
+  flex: 1;
+  max-width: 320px;
+}
+.find-bar strong,
+.find-bar .search-scope,
+.find-bar output {
+  font-size: 13px;
+}
+.search-scope {
+  color: var(--muted);
+}
+.find-bar [data-action="close"] {
+  margin-left: auto;
+}
+.find-bar button {
+  font-size: 13px;
+  padding: 4px 8px;
+}
+.find-options {
+  flex-wrap: wrap;
+}
+.find-options label {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.find-options small {
+  font-size: 11px;
+}
+/* Find: one 32px control height; icon buttons are square. */
+.find-bar input:not([type=checkbox]),
+.find-bar button {
+  box-sizing: border-box;
+  height: 32px;
+  min-height: 32px;
+}
+.find-bar input:not([type=checkbox]) {
+  padding-block: 4px;
+}
+.find-bar button:has(> .app-icon) {
+  width: 32px;
+  padding: 0;
+}
+.find-bar output {
+  min-width: 95px;
+}
+.command-dialog {
+  --dialog-width: 520px;
+}
+.command-results {
+  max-height: 45vh;
+  overflow: auto;
+}
+.command-results button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 8px;
+  border: 0;
+  border-radius: 3px;
+  text-align: left;
+  font-size: 15px;
+}
+.command-results kbd {
+  font: 11px var(--font-secondary);
+  color: var(--muted);
+  margin-left: auto;
+  white-space: nowrap;
+}
+.document-title-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+#document-title {
+  min-width: 0;
+  max-width: 100%;
+  padding: 2px 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 0;
+  font-family: var(--font-primary);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 24px;
+  text-align: left;
+}
+#favourite {
+  flex: 0 0 28px;
+  padding: 2px 4px;
+  border: 0;
+  line-height: 24px;
+}
+#location {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  height: 28px;
+  padding: 4px;
+  border: 0;
+}
+.workspace-header :where(#document-title, #favourite, #location) {
+  background: transparent;
+}
+.workspace-header .menus > details > summary {
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.workspace-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.workspace-header-actions > button {
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+#version-history {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+}
+#version-history > .app-icon {
+  --icon: 24px;
+}
+.save-split {
+  display: flex;
+  align-items: stretch;
+  white-space: nowrap;
+}
+.gittin-controls button > .app-icon {
+  --icon: 18px;
+}
+.gittin-controls button[data-command="heading"] > .app-icon[data-icon="chevron-down"] {
+  --icon: 14px;
+}
+#favourite > .app-icon,
+#location > .app-icon,
+.open-document button > .app-icon {
+  --icon: 18px;
+}
+#documents-toggle[aria-expanded="false"] > [data-icon^="layout-sidebar"],
+#repository-toggle[aria-expanded="false"] > [data-icon^="layout-sidebar"] {
+  transform: rotate(180deg);
+}
+.menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  flex: 0 0 20px;
+  color: var(--muted);
+  --icon: 18px;
+}
+.menu-label {
+  flex: 1;
+  min-width: 0;
+}
+.menu-items hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 7px 0;
+}
+.menus .menu-items button,
+.menus .submenu > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 32px;
+  padding: 5px 14px;
+  border: 0;
+  border-radius: 0;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
+  text-align: left;
+}
+.menus .menu-items button:hover:not(:disabled),
+.menus .menu-items button:focus-visible,
+.menus .submenu > summary:focus-visible {
+  background: var(--hover);
+}
+.menus .menu-items button:focus-visible,
+.menus .submenu > summary:focus-visible {
+  outline-offset: -2px;
+}
+.menus .menu-items button[aria-pressed="true"] {
+  color: var(--ink);
+  background: transparent;
+}
+.menus .menu-items kbd {
+  margin-left: auto;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.submenu-arrow {
+  margin-left: auto;
+  width: 12px;
+  flex: 0 0 12px;
+}
+.submenu-items {
+  width: max-content;
+  min-width: 240px;
+  max-width: min(380px, calc(100vw - 24px));
+  z-index: 81;
+}
+.submenu[open] > .submenu-items {
+  display: block;
+}
+#workspace:fullscreen {
+  background: var(--bg);
+  width: 100%;
+  height: 100%;
+}
+#access-bar,
+#disk-change {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 0 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+#access-bar[hidden] {
+  display: none;
+}
+#disk-change p {
+  margin: 0;
+  flex: 1 1 240px;
+}
+.folder-header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 10px;
+}
+.workspace-body > aside .folder-header h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.folder-tools {
+  display: flex;
+  gap: 2px;
+}
+.folder-tools button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 5px;
+}
+.folder-tools button:hover {
+  color: var(--ink);
+  background: var(--warm);
+}
+.folder-tools .app-icon {
+  --icon: 18px;
+}
+#repository-panel input[type="search"],
+.folder-chooser input[type="search"] {
+  margin: 0 0 12px;
+}
+.folder-tree li > button.folder-row {
+  padding-left: 28px;
+}
+.folder-tree,
+.folder-tree ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.folder-tree ul {
+  margin-left: 11px;
+  padding-left: 5px;
+  border-left: 1px solid var(--line);
+}
+.folder-tree p {
+  font-size: 13px;
+  color: var(--muted);
+}
+button.folder-row,
+summary.folder-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  min-height: 0;
+  line-height: 18px;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  padding: 5px 6px;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.folder-row:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--warm);
+}
+.folder-row:focus-visible {
+  outline-offset: -2px;
+}
+.folder-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.folder-row .app-icon {
+  flex: none;
+  --icon: 16px;
+  color: var(--muted);
+}
+.folder-row .folder-row-detail {
+  flex: 1 1 0;
+  text-align: right;
+  padding-left: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.folder-row[aria-current="true"] {
+  background: var(--warm);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: inset 3px 0 var(--accent);
+}
+summary.folder-row {
+  list-style: none;
+}
+summary.folder-row::-webkit-details-marker {
+  display: none;
+}
+.folder-tree li {
+  position: relative;
+}
+.folder-tree li:has(> .folder-row-more) > .folder-row,
+.folder-tree li:has(> .folder-row-more) > details > summary.folder-row {
+  padding-right: 30px;
+}
+.folder-row-more {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  min-height: 0;
+  padding: 4px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+}
+.folder-row-more:hover,
+.folder-row-more[aria-expanded="true"] {
+  color: var(--ink);
+  background: var(--warm);
+}
+.folder-row-more .app-icon {
+  --icon: 16px;
+}
+.toolbar-popup.folder-row-menu {
+  width: 180px;
+}
+details[open] > summary.folder-row > [data-icon="chevron-right"] {
+  transform: rotate(90deg);
+}
+/* Unsaved changes: a dot after the file name (the row also gets an accessible description). */
+.open-document button[data-unsaved]:first-child {
+  padding-right: 24px;
+}
+.open-document button[data-unsaved]::after,
+.folder-row[data-unsaved]::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.open-document button[data-unsaved]::after {
+  position: absolute;
+  right: 9px;
+  top: calc(50% - 4px);
+}
+.folder-row[data-unsaved]::after {
+  flex: none;
+  margin-left: auto;
+}
+/* Save is filled while there is something to save and outlined once the file matches the disk. */
+.save-split.saved > button {
+  background: var(--surface);
+  color: var(--accent);
+}
+.save-split.saved > button:hover {
+  background: var(--warm);
+  filter: none;
+}
+/* Menus button: phones only. It shows and hides the menu row. */
+#menus-toggle {
+  display: none;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+}
+#menus-toggle[aria-expanded=true] {
+  background: var(--warm);
+}
+/* Panel toggles: sidebar icons with labels; file and folder icons once the labels are hidden. */
+.workspace-tools > button > :is([data-icon="files"], [data-icon="folder"]) {
+  display: none;
+}
+@media (max-width: 1050px) {
+  .workspace-body > aside {
+    width: 185px;
+    padding: 17px 12px;
+  }
+  #editor {
+    padding: 28px 30px;
+  }
+  .segmented button {
+    padding: 5px 12px;
+  }
+}
+@media (max-width: 760px) {
+  .menus summary {
+    font-size: 13px;
+  }
+  .formatting-row {
+    min-height: 40px;
+    margin: 0 8px 2px;
+    padding: 4px 8px;
+  }
+  .workspace-tools > .segmented {
+    font-size: 12px;
+  }
+  .workspace-tools {
+    padding: 6px 10px;
+  }
+  .workspace-tools > button {
+    font-size: 12px;
+  }
+  .workspace-body > aside {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 245px;
+    z-index: 50;
+    background: var(--surface);
+    box-shadow: 0 10px 20px #0002;
+  }
+  #documents-panel {
+    left: 0;
+  }
+  #repository-panel {
+    right: 0;
+  }
+  #editor {
+    padding: 25px 25px;
+  }
+  .find-bar {
+    padding: 9px;
+  }
+  .find-bar > div {
+    flex-wrap: wrap;
+  }
+  /* The match count takes its own line so the search field has room for its placeholder. */
+  .find-bar output {
+    flex-basis: 100%;
+    font-size: 12px;
+  }
+  .find-bar .search-scope {
+    font-size: 11px;
+  }
+  .find-options small {
+    width: 100%;
+  }
+  /* Phone: logo, title and Save share the first row; the menus take the whole second row. */
+  .workspace-header {
+    position: relative;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 2px 8px;
+    min-height: 0;
+    padding: 6px 12px;
+  }
+  .workspace-header .brand {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .workspace-header .document-identity {
+    display: contents;
+  }
+  .workspace-header .document-title-row {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+  }
+  .workspace-header-actions {
+    grid-column: 3;
+    grid-row: 1;
+    gap: 4px;
+  }
+  .workspace-header .menus {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    flex-wrap: wrap;
+    gap: 0;
+  }
+  .workspace-header .menus > details {
+    position: static;
+  }
+  .submenu-items {
+    position: static;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    max-height: none;
+    padding: 0;
+    margin-left: 18px;
+    border: 0;
+    border-left: 1px solid var(--line);
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+  }
+  .submenu[open] > summary > .submenu-arrow {
+    transform: rotate(90deg);
+  }
+  /* Drawers dim the document behind them; tapping it closes them (workspace.ts). */
+  #workspace:not(.focus-mode):not(.hide-documents) .workspace-body::after,
+  #workspace:not(.focus-mode):not(.hide-repository) .workspace-body::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 45;
+    background: var(--scrim);
+  }
+  /* Comfortable touch rows. */
+  button.folder-row,
+  summary.folder-row,
+  .open-document button,
+  #outline button {
+    min-height: 44px;
+  }
+  /* The row's ⋯ is a full-height touch target. */
+  .folder-row-more {
+    top: 0;
+    right: 0;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+    align-items: center;
+  }
+  .folder-tree li:has(> .folder-row-more) > .folder-row,
+  .folder-tree li:has(> .folder-row-more) > details > summary.folder-row {
+    padding-right: 44px;
+  }
+}
+@media (max-width: 600px) {
+  .workspace-tools .panel-label {
+    display: none;
+  }
+  #menus-toggle {
+    display: inline-flex;
+  }
+  .workspace-header:not(.menus-open) .menus {
+    display: none;
+  }
+  /* Menus replaces the toolbar's ^ here, and a saved "hide the menus" choice must not hide Save on a phone. */
+  .formatting-row .toolbar-menu-toggle {
+    display: none;
+  }
+  #workspace:not(.focus-mode) .workspace-header.menus-hidden {
+    display: grid;
+  }
+  /* The title needs the room; File › Location and File › Add/remove favourite stay in the menu. */
+  #favourite,
+  #location {
+    display: none;
+  }
+  .workspace-tools > button > [data-icon^="layout-sidebar"] {
+    display: none;
+  }
+  .workspace-tools > button > :is([data-icon="files"], [data-icon="folder"]) {
+    display: inline-block;
+  }
+}
+/* With a mouse, ⋯ shows on the row in use; touch screens always show it. */
+@media (hover: hover) {
+  .folder-row-more {
+    opacity: 0;
+  }
+  .folder-tree li:has(> .folder-row:hover, > details > summary:hover) > .folder-row-more,
+  .folder-row-more:hover,
+  .folder-row-more:focus-visible,
+  .folder-row-more[aria-expanded="true"] {
+    opacity: 1;
+  }
+}
+
+/* Document: the Edit, Preview and Diff surfaces. */
+.ProseMirror {
+  position: relative;
+  min-height: 55vh;
+  font-family: var(--font-document-sans);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  outline: none;
+}
+#editor .ProseMirror {
+  zoom: var(--document-zoom, 1);
+}
+.ProseMirror [contenteditable="false"] {
+  white-space: normal;
+}
+.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+}
+.ProseMirror-hideselection *::selection {
+  background: transparent;
+}
+/* Document typography stays independent of the interface font pairing. */
+.ProseMirror :is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--font-document-sans);
+}
+.ProseMirror :is(h1, h2, h3, h4) {
+  font-weight: 600;
+}
+.md-mode .ProseMirror {
+  font: var(--document-source-font);
+  counter-reset: line;
+}
+.md-mode .ProseMirror > div {
+  position: relative;
+  padding-left: 40px;
+}
+.md-mode .ProseMirror > div:before {
+  counter-increment: line;
+  content: counter(line);
+  position: absolute;
+  left: -13px;
+  width: 24px;
+  text-align: right;
+  color: var(--muted);
+  font: inherit;
+  pointer-events: none;
+}
+/* Markdown Edit keeps its emphasis in the text's own colour; colours belong to Preview. */
+.gittin-editor-md-strong,
+.gittin-editor-md-heading,
+.gittin-editor-md-list-item-style {
+  font-weight: bold;
+}
+.gittin-editor-md-emph {
+  font-style: italic;
+}
+.gittin-editor-md-strike {
+  text-decoration: line-through;
+}
+.gittin-unsupported pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--code);
+  padding: 16px;
+}
+/* !important: find highlights stay readable over any syntax or element colours on the same text. */
+.find-match {
+  background: #f4d47c !important;
+  color: #292623 !important;
+}
+.find-current {
+  background: #db963e !important;
+  color: #211d17 !important;
+  outline: 1px solid var(--accent);
+}
+#workspace.hide-line-numbers .md-mode .ProseMirror > div {
+  padding-left: 0;
+}
+#workspace.hide-line-numbers .md-mode .ProseMirror > div::before {
+  content: none;
+}
+.front-matter {
+  margin-bottom: 16px;
+}
+[data-readable] table.front-matter table {
+  margin: 0;
+}
+[data-math="display"] {
+  white-space: pre-wrap;
+}
+.preview-diagram {
+  margin: 0 0 16px;
+  overflow-x: auto;
+}
+.preview-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+.preview-embed-note {
+  color: var(--muted);
+  font-style: italic;
+}
+#print-file {
+  display: none;
+}
+/* Display-only surfaces: source/history are owned by DocumentSession. */
+#editor.wrap-off .ProseMirror,
+#editor.wrap-off pre,
+#editor.wrap-off .diff-line {
+  white-space: pre;
+  overflow-wrap: normal;
+}
+#editor pre,
+.diff-line,
+.favourite-preview pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.gittin-unsupported {
+  outline-offset: -2px;
+}
+.gittin-unsupported [data-readable] {
+  user-select: text;
+  white-space: normal;
+}
+.gittin-unsupported [align="center"] {
+  text-align: center;
+}
+.gittin-unsupported [align="right"] {
+  text-align: right;
+}
+.gittin-unsupported [align="left"] {
+  text-align: left;
+}
+.gittin-unsupported [align="justify"] {
+  text-align: justify;
+}
+.preview-alert {
+  border-left: 4px solid var(--accent);
+  padding: 8px 16px;
+}
+.diff-line {
+  display: grid;
+  grid-template-columns: 5ch 5ch 2ch minmax(0,1fr);
+  column-gap: 8px;
+  font: var(--document-source-font);
+}
+.diff-line code {
+  font: inherit;
+  white-space: inherit;
+  min-width: 0;
+}
+.diff-number {
+  color: var(--muted);
+  white-space: pre;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.diff-sign {
+  text-align: center;
+  color: var(--muted);
+}
+.diff-add {
+  background: rgba(40,170,80,.13);
+}
+.diff-remove {
+  background: rgba(220,65,65,.13);
+}
+.diff-skipped {
+  color: var(--muted);
+}
+.syntax-comment {
+  color: var(--syntax-comment);
+}
+.syntax-string,
+.syntax-code {
+  color: var(--syntax-string);
+}
+.syntax-url,
+.syntax-html {
+  color: var(--syntax-url);
+}
+.syntax-keyword {
+  color: var(--syntax-keyword);
+}
+.syntax-number {
+  color: var(--syntax-number);
+}
+.hidden-comment {
+  display: none;
+}
+.visible-space {
+  background: radial-gradient(circle, var(--muted) 1px, transparent 1.5px) center / 100% 100%;
+}
+.visible-tab {
+  background: linear-gradient(90deg, transparent 15%, var(--muted) 15%, var(--muted) 80%, transparent 80%) center / 100% 1px no-repeat;
+}
+.visible-newline::after {
+  content: '\21B5';
+  color: var(--muted);
+  user-select: none;
+}
+/* ProseMirror ends an empty line, or one ending in a link's button, with a <br>, and the line-end
+   mark after it would start a second row. An empty line keeps its <br>, which holds the caret,
+   and lifts the mark onto its row; after a link's button (and the separator image ProseMirror puts
+   after it) the <br> isn't needed. */
+.visible-newline:has(> .ProseMirror-trailingBreak:only-child)::after {
+  position: absolute;
+  top: 0;
+}
+.visible-newline > .ProseMirror-separator + .ProseMirror-trailingBreak {
+  display: none;
+}
+/* Static Preview keeps the normal readable Markdown table treatment. */
+:is([data-readable], .favourite-preview) table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+:is([data-readable], .favourite-preview) :is(th, td) {
+  border: 1px solid var(--line);
+  padding: .55rem .8rem;
+  min-width: 5rem;
+}
+:is([data-readable], .favourite-preview) th {
+  background: var(--code);
+}
+:is([data-readable], .favourite-preview) th:not([align]) {
+  text-align: left;
+}
+[data-readable] th[align="left"],
+[data-readable] td[align="left"] {
+  text-align: left;
+}
+[data-readable] th[align="center"],
+[data-readable] td[align="center"] {
+  text-align: center;
+}
+[data-readable] th[align="right"],
+[data-readable] td[align="right"] {
+  text-align: right;
+}
+/* Stripes sit between the page and the header shade; the dark surround (--bg) would read as a hole in the page. */
+:is([data-readable], .favourite-preview) tr:nth-child(even) {
+  background: color-mix(in srgb, var(--code) 50%, var(--surface));
+}
+[data-readable] img[align="center"] {
+  display: block;
+  margin-inline: auto;
+  float: none;
+}
+[data-readable] img[align="left"] {
+  display: block;
+  margin-inline: 0 auto;
+  float: none;
+}
+[data-readable] img[align="right"] {
+  display: block;
+  margin-inline: auto 0;
+  float: none;
+}
+.link-details {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  gap: .8rem;
+  max-width: min(540px,calc(100vw - 16px));
+  padding: .6rem;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-popover);
+}
+.link-details span {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.link-details a {
+  white-space: nowrap;
+}
+.source-link {
+  cursor: pointer;
+}
+.source-link:focus {
+  outline: 2px solid var(--accent);
+}
+.source-link-target {
+  display: inline-block;
+  cursor: pointer;
+  font-size: .85em;
+  padding-inline: .2em;
+  color: var(--accent);
+}
+.source-link-target > .app-icon {
+  --icon: 1em;
+  vertical-align: -.1em;
+}
+.source-link-target:focus {
+  outline: 2px solid var(--accent);
+}
+/* Preview task items: read-only checkboxes in place of the bullet. The [x]/[ ] text stays for Copy and Find. */
+.document-markdown li:has(> [role=checkbox]:first-child, > p:first-child > [role=checkbox]:first-child) {
+  list-style: none;
+}
+.document-markdown [role=checkbox] {
+  position: relative;
+  display: inline-block;
+  box-sizing: border-box;
+  width: 1em;
+  height: 1em;
+  margin: 0 .12em 0 -1.35em;
+  vertical-align: -.15em;
+  overflow: hidden;
+  white-space: nowrap;
+  color: transparent;
+  border: 1.5px solid var(--muted);
+  border-radius: 3px;
+}
+.document-markdown [role=checkbox][aria-checked=true] {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.document-markdown [role=checkbox][aria-checked=true]::after {
+  content: "";
+  position: absolute;
+  left: .3em;
+  top: .08em;
+  width: .25em;
+  height: .5em;
+  border: solid var(--surface);
+  border-width: 0 .13em .13em 0;
+  transform: rotate(45deg);
+}
+@media print {
+  body:has(> #print-file) > :not(#print-file) {
+    display: none;
+  }
+  #print-file {
+    display: block;
+    color: #000;
+    background: #fff;
+    padding: 16px;
+    white-space: normal;
+  }
+  #print-file pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}

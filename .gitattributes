@@ -1,0 +1,4 @@
+# Check text files out with LF everywhere, whatever core.autocrlf says.
+* text=auto eol=lf
+# Preserve the supplied logo bytes across Git checkouts.
+/public/gittin-logo.svg -text
