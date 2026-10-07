@@ -14,10 +14,9 @@
       "DOM",
       "DOM.Iterable"
     ],
-    "baseUrl": ".",
     "paths": {
       "@/*": [
-        "src/editor/*"
+        "./src/editor/*"
       ]
     },
     "types": [
