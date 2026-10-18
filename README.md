@@ -40,4 +40,4 @@ Gittin's own code is released under the MIT Licence; see [LICENSE](LICENSE).
 
 ## Attribution
 
-Gittin's editor incorporates and adapts source from TOAST UI Editor and its parser, together with material from other open-source projects. Required copyright, licence and attribution notices are in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt).
+Gittin's editor incorporates and adapts source from TOAST UI Editor and its parser, together with material from other open-source projects. Required copyright, licence and attribution notices are in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt). The desktop app's Rust libraries are listed in [src-tauri/THIRD_PARTY_NOTICES.txt](src-tauri/THIRD_PARTY_NOTICES.txt), generated with [cargo-about](https://github.com/EmbarkStudios/cargo-about).

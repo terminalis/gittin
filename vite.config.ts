@@ -15,7 +15,9 @@ export default defineConfig(({ mode }) => {
           this.emitFile({
             type: 'asset',
             fileName: 'THIRD_PARTY_NOTICES.txt',
-            source: readFileSync('THIRD_PARTY_NOTICES.txt', 'utf8'),
+            // One file for every version: the npm packages, then the desktop app's Rust libraries.
+            source: readFileSync('THIRD_PARTY_NOTICES.txt', 'utf8')
+              + '\n\nRust libraries in the desktop app\n\n' + readFileSync('src-tauri/THIRD_PARTY_NOTICES.txt', 'utf8'),
           });
           const excluded = [...this.getModuleIds()].filter((id) =>
             /(?:\/tests\/|\/node_modules\/(?:@playwright|playwright)(?:\/|$))/.test(id)
