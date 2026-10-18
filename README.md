@@ -34,6 +34,22 @@ Requires Node.js and npm.
 
 `npm run test:browser` starts its own development server and runs in Chromium and WebKit. `npm run test:offline` builds the app and checks in Chromium that it works offline after one visit.
 
+### Desktop app
+
+The desktop app is the same app in a [Tauri](https://tauri.app) window, in `src/native/` and `src-tauri/`.
+It needs Rust; on Windows also the Visual Studio Build Tools (C++), and on Linux Tauri's system packages
+(`libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev librsvg2-dev libssl-dev xdg-utils`).
+
+    npm run tauri dev
+
+`npm run tauri build` builds the Windows exe, and `tools/package-msix.ps1` packs it into the MSIX for the
+Microsoft Store. [flatpak/README.md](flatpak/README.md) covers building the Flatpak. A version tag runs
+`.github/workflows/release.yml`: the version lives in `package.json`, and each release needs a matching
+`<release>` entry in the Flatpak metainfo.
+
+The Rust third-party notices in `src-tauri/THIRD_PARTY_NOTICES.txt` are regenerated with the cargo-about
+command in `src-tauri/about.toml` when `src-tauri/Cargo.lock` changes; the build doesn't check them.
+
 ## Licence
 
 Gittin's own code is released under the MIT Licence; see [LICENSE](LICENSE).
