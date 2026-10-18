@@ -28,6 +28,7 @@ import {
 } from '../ui/file-actions';
 import { versionHistoryButton, openVersionHistory } from '../ui/version-history';
 import { basename, fragment, relativePath, resolvePath, imageType } from '../sources/paths';
+import { desktop, place } from '../platform';
 import { FindBar } from '../ui/find-bar';
 import { Menus, editorActions, type Action } from '../ui/menus';
 import {
@@ -277,8 +278,9 @@ export class Workspace {
     ]);
     const about = 'Gittin has no accounts. Your files stay on your device. '
       + 'Save writes back to the file you opened; Save as writes a new file. '
-      + 'Unsaved changes are kept in this browser, which you or the browser can clear. '
-      + 'After its first visit, Gittin can start offline on this device.';
+      + (desktop ? 'Unsaved changes are kept in this app.'
+        : 'Unsaved changes are kept in this browser, which you or the browser can clear. '
+          + 'After its first visit, Gittin can start offline on this device.');
     const rows: Row[] = [
       ['File', 'home', 'Home', actions.home],
       ['File/New', 'new', 'File', () => actions.new()],
@@ -546,7 +548,7 @@ export class Workspace {
       const b = button(doc.title, () => this.actions.switch(doc.session.id));
       b.setAttribute('aria-current', String(doc === this.document));
       const identity = doc.session.identity;
-      b.title = identity.kind === 'source' ? identity.path : 'Only in this browser';
+      b.title = identity.kind === 'source' ? identity.path : `Only in ${place}`;
       markUnsaved(b, unsaved(doc));
       return el('div', { className: 'open-document' }, b,
         iconButton('x', 'Close ' + doc.title, () => this.actions.close(doc.session.id)));

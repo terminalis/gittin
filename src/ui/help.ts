@@ -1,5 +1,6 @@
 import { button, dialogShell, el, field, fileDialog } from './dom';
 import { keyCaps, shortcuts } from './shortcuts';
+import { desktop, place } from '../platform';
 const topics: Record<string, string> = {
   'Editing': 'Edit changes exact source with shared Undo. Preview and Diff are read-only. '
     + 'Find searches this file; replacement is available in Edit. '
@@ -10,9 +11,10 @@ const topics: Record<string, string> = {
     + 'and never execute. Diff compares the exact opened or explicitly saved baseline; Compare files '
     + 'supplies a temporary comparison that can be cleared.',
   'Saving and recovery': 'Save writes back to the file you opened and stops if the file changed on '
-    + 'disk. Save as writes a new file; in browsers that cannot write files it downloads one. '
-    + 'Unsaved changes are kept in this browser, which you or the browser can clear. '
-    + 'Version history keeps up to 20 saves per file in this browser.',
+    + (desktop ? 'disk. Save as writes a new file. Unsaved changes are kept in this app. '
+      : 'disk. Save as writes a new file; in browsers that cannot write files it downloads one. '
+        + 'Unsaved changes are kept in this browser, which you or the browser can clear. ')
+    + `Version history keeps up to 20 saves per file in ${place}.`,
   'Markdown syntax': 'Common Markdown with tables, task lists, alerts and footnotes. Insert provides '
     + 'source templates, symbols, heading links, footnotes, alerts and more.',
 };
@@ -141,8 +143,8 @@ const steps = [
   'Check Preview or Diff without changing source.',
   'Save to write back to your file, or Save as to choose a new one. '
     + 'Open a folder to browse and edit its files.',
-  'Use Help topics and Keyboard shortcuts for reference. '
-    + 'After its first visit, Gittin can start offline on this device.',
+  'Use Help topics and Keyboard shortcuts for reference.'
+    + (desktop ? '' : ' After its first visit, Gittin can start offline on this device.'),
 ];
 export function gettingStarted() {
   fileDialog('Getting Started', body =>

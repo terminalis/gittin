@@ -25,6 +25,7 @@ import { canPickSaveLocation, chooseFile, chooseFolder, pickSaveLocation } from 
 import { conflictDialog } from './ui/disk-change';
 import { openFolderDialog } from './ui/folder-panel';
 import { ask, errorText, notice } from './ui/dom';
+import { place } from './platform';
 const root = document.querySelector<HTMLElement>('#app')!;
 const prefs = new DevicePreferences();
 const documents = new Map<string, OpenDocument>();
@@ -235,8 +236,8 @@ function closeDocument(id: string) {
       const local = doc.session.identity.kind === 'local';
       const choice = await ask(`Close ${doc.title}?`,
         local
-          ? 'This file is only in this browser. Discarding deletes it.'
-          : 'It has unsaved changes kept in this browser.',
+          ? `This file is only in ${place}. Discarding deletes it.`
+          : `It has unsaved changes kept in ${place}.`,
         [['Save', 'save'], ['Discard changes', 'discard']]);
       if (choice === 'cancel') return;
       if (choice === 'save' && !(await writeFile(doc, false))) return;
@@ -253,7 +254,7 @@ async function removeRecent(id: string) {
   if (!row) return;
   if (row.unsaved) {
     const choice = await ask(`Remove ${row.title}?`,
-      "This deletes the unsaved changes kept in this browser. This can't be undone.", [['Remove', 'remove']]);
+      `This deletes the unsaved changes kept in ${place}. This can't be undone.`, [['Remove', 'remove']]);
     if (choice !== 'remove') return;
   }
   const open = documents.get(id);
@@ -418,7 +419,7 @@ function deleteEntry(source: FolderSource, path: string, kind: 'file' | 'directo
         'The folder and everything in it are deleted permanently and do not go to the Recycle Bin.';
     // The transition has just stored the open file's draft, so stored drafts say what is unsaved.
     if ((await listRecent()).some(row => row.unsaved && isAt(row.identity, source.id, path)))
-      text += ' Unsaved changes kept in this browser are deleted too.';
+      text += ` Unsaved changes kept in ${place} are deleted too.`;
     if ((await ask(`Delete ${name}?`, text, [['Delete', 'delete']])) !== 'delete') return;
     try { await source.remove(path); } catch (error) { notice(reason(error, source, path)); return; }
     const affected = [...documents.values()].filter(doc => isAt(doc.session.identity, source.id, path));
@@ -472,7 +473,7 @@ async function writeFile(doc: OpenDocument, saveAs: boolean, overwrite = false):
     let target: { source: FileSource; path: string };
     if (picker) {
       const handle = await picker;
-      if (!handle) { report(doc, 'Save canceled. Your changes are still kept in this browser.'); return false; }
+      if (!handle) { report(doc, `Save canceled. Your changes are still kept in ${place}.`); return false; }
       let folderPath: string | null = null, folder: FolderSource | undefined;
       for (const open of openSources()) {
         if (!(open instanceof FolderSource)) continue;
@@ -499,7 +500,7 @@ async function writeFile(doc: OpenDocument, saveAs: boolean, overwrite = false):
     await recordVersion(versionKey(target.source.id, target.path), 'saved', version.source, result.version);
     const later = doc.session.current.revision === version.revision ? '' : ' Later edits are not saved yet.';
     const unrecorded = stored ? ''
-      : ' The saved state could not be recorded in this browser; use the device status actions.';
+      : ` The saved state could not be recorded in ${place}; use the device status actions.`;
     report(doc, `${picker ? 'Saved as' : 'Saved to'} ${basename(target.path)}.${later}${unrecorded}`);
     if (picker && workspace?.document === doc) { await rebuild(); refocus(); }
     return true;

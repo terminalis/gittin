@@ -2,6 +2,7 @@ import { icon } from './icons';
 import { ask, button, el, fileDialog, iconButton, listRow, notice } from './dom';
 import { clearVersions, listVersions, versionSource } from '../documents/versions';
 import { sizeLabel, whenLabel } from '../documents/labels';
+import { desktop } from '../platform';
 export function versionHistoryButton(enabled: boolean, open: () => void) {
   const b = iconButton('history', 'Version history', open);
   b.id = 'version-history';
@@ -12,8 +13,8 @@ export function versionHistoryButton(enabled: boolean, open: () => void) {
 type Use = { compare(source: string, label: string): void; restore(source: string): void };
 export function openVersionHistory(key: string, use: Use) {
   fileDialog('Version history', (body, close, footer) => {
-    const note = el('p', { textContent: 'Versions of saves made in Gittin on this browser. '
-      + 'Clearing browser data removes them.' });
+    const note = el('p', { textContent: desktop ? 'Versions of saves made in Gittin in this app.'
+      : 'Versions of saves made in Gittin on this browser. Clearing browser data removes them.' });
     const list = el('ul', { className: 'version-list' });
     body.append(note, list);
     // Clear sits at the left of the footer, apart from Close, and asks first: it cannot be undone.

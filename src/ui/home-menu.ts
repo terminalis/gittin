@@ -6,6 +6,7 @@ import {
 } from './dom';
 import { helpDialog, keyboardShortcuts } from './help';
 import { icon, type IconName } from './icons';
+import { desktop, place } from '../platform';
 
 export function homeMenu(
   trigger: HTMLButtonElement,
@@ -64,8 +65,8 @@ export function homeMenu(
     el('span', { id: 'home-menu-recent-limit', textContent: 'Recent files shown' }), limits));
   const drafts = group('Drafts');
   add(drafts, 'Export drafts', 'download', () => fileDialog('Export drafts', (body, _close, footer) => {
-    const text = el('p', { textContent: 'Export every draft in this browser as one file. '
-      + 'Keep it somewhere safe: browser storage can be cleared.' });
+    const text = el('p', { textContent: `Export every draft in ${place} as one file.`
+      + (desktop ? '' : ' Keep it somewhere safe: browser storage can be cleared.') });
     body.append(text);
     footer.append(button('Export backup', () => {
       const name = `gittin-drafts-${new Date().toISOString().slice(0, 10)}.json`;

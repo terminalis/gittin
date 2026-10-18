@@ -8,17 +8,18 @@ import { brand, button, el, iconButton } from '../ui/dom';
 import { fileTile } from '../ui/file-tile';
 import { homeMenu } from '../ui/home-menu';
 import { favouriteCard } from '../ui/favourite-card';
-const stateLabels = { local: 'Only in this browser', unsaved: 'Unsaved changes', saved: 'Saved' };
+import { desktop, place } from '../platform';
+const stateLabels = { local: `Only in ${place}`, unsaved: 'Unsaved changes', saved: 'Saved' };
 // The welcome band's backdrop: a faint editor window describing Gittin in YAML, coloured with the editor's own
 // syntax classes (comments, strings, true/false and numbers; keys and list items stay plain, as in the editor).
 const snippetLines = [
   '<span class="syntax-comment"># Gittin: an IDE? A word processor? It\'s just plain text</span>',
   'name: <span class="syntax-string">"Gittin"</span>',
-  'edits: <span class="syntax-string">"Markdown, notes, code and config files, in your browser"</span>',
+  `edits: <span class="syntax-string">"Markdown, notes, code and config files${desktop ? '' : ', in your browser'}"</span>`,
   'saves: <span class="syntax-string">"straight back to the file you opened"</span>',
   'account: <span class="syntax-keyword">false</span>  <span class="syntax-comment"># no account needed to start</span>',
-  'drafts: <span class="syntax-string">"kept in this browser until you save"</span>',
-  'offline: <span class="syntax-keyword">true</span>  <span class="syntax-comment"># after its first visit</span>',
+  `drafts: <span class="syntax-string">"kept in ${place} until you save"</span>`,
+  'offline: <span class="syntax-keyword">true</span>' + (desktop ? '' : '  <span class="syntax-comment"># after its first visit</span>'),
   'history: <span class="syntax-number">20</span>  <span class="syntax-comment"># recent saves of each file</span>',
   'languages:',
   '  - Markdown',
@@ -31,6 +32,9 @@ const snippet = '<div class="home-art" aria-hidden="true"><div class="home-snipp
   + '<div class="home-snippet-bar"><span class="file-tile">YAML</span>gittin.yaml</div><pre>'
   + snippetLines.map((line, i) => `<span class="home-snippet-number">${i + 1}</span>${line}`).join('\n')
   + '</pre></div></div>';
+const storageNote = desktop ? 'Unsaved changes are kept in this app. Save to keep them in a file.'
+  : 'Unsaved changes are kept in this browser, which you or the browser can clear. Save to keep them in a file.'
+    + '<span class="offline-status"> Gittin can start offline on this device.</span>';
 export function home(
   prefs: DevicePreferences,
   rows: DraftSummary[],
@@ -62,9 +66,7 @@ export function home(
     + `<p class="home-welcome-sub">${intro}</p><div class="document-actions"></div></div></div>`
     + `<div class="home-content">${favouritesSection}`
     + '<section class="recent-section"><h2>Recently worked on</h2><div id="recent"></div></section>'
-    + `<p class="storage-note">${iconMarkup('info-circle')}<span>Unsaved changes are kept in this `
-    + 'browser, which you or the browser can clear. Save to keep them in a file.'
-    + '<span class="offline-status"> Gittin can start offline on this device.</span></span></p>'
+    + `<p class="storage-note">${iconMarkup('info-circle')}<span>${storageNote}</span></p>`
     + '</div></main>';
   const create = button('New file', () => actions.new(), 'primary'),
     open = button('Open file', actions.open),
