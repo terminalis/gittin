@@ -53,15 +53,16 @@ export async function findDraft(sourceId: string, path: string): Promise<DraftRe
 export function deleteDraft(id: string): Promise<void> {
   return change(['documents'], tx => tx.objectStore('documents').delete(id));
 }
-/** Point a stored draft that is not open at its file's new path; its title follows the file name. */
-export function moveDraft(sourceId: string, from: string, to: string): Promise<void> {
+/** Point a stored draft that is not open at its file's new path, in another source when `toSourceId` says so;
+ * its title follows the file name. */
+export function moveDraft(sourceId: string, from: string, to: string, toSourceId = sourceId): Promise<void> {
   return change(['documents'], tx => {
     const store = tx.objectStore('documents'), request = store.getAll();
     request.onsuccess = () => {
       for (const row of request.result as DraftRecord[])
         if (isAt(row.identity, sourceId, from))
           store.put({
-            ...row, identity: { kind: 'source', sourceId, path: to }, title: basename(to),
+            ...row, identity: { kind: 'source', sourceId: toSourceId, path: to }, title: basename(to),
             fileType: fileTypeForName(to), storageRevision: row.storageRevision + 1,
           });
     };

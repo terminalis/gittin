@@ -14,8 +14,8 @@ import { headingAnchors } from './editor/heading-anchors';
 import { fileName, fileTypeForName, otherTs, type FileType } from './documents/file-types';
 import { clearVersionsAt, moveVersions, recordVersion, versionKey } from './documents/versions';
 import {
-  addFile, addFolder, addReadOnlyFolder, isAt, loadSources, openSources, recentFolders, restoreSource,
-  sourceFor, type Revive,
+  addFile, addFolder, addReadOnlyFolder, folderHolding, isAt, loadSources, recentFolders, rememberedFiles,
+  restoreSource, sourceFor, type Revive,
 } from './sources/registry';
 import { FolderSource } from './sources/folder';
 import { countFiles } from './sources/search';
@@ -266,7 +266,12 @@ async function removeRecent(id: string) {
 function openFileCommand() {
   void chooseFile().then(async choice => {
     if (choice === 'input') input.click();
-    else if (choice) { const source = await addFile({ handle: choice }); await openPath(source, source.label); }
+    else if (choice) {
+      // A file inside a folder Gittin knows opens as part of that folder.
+      const held = await folderHolding(choice);
+      if (held) await openPath(held.source, held.path);
+      else { const source = await addFile({ handle: choice }); await openPath(source, source.label); }
+    }
   }).catch(notice);
 }
 input.onchange = () => {
@@ -289,8 +294,37 @@ function openFolderCommand() {
         if (files.length) void addReadOnlyFolder(files).then(showFolder, notice);
       };
       folderInput.click();
-    } else if (choice) showFolder(await addFolder(choice));
+    } else if (choice) {
+      const folder = await addFolder(choice);
+      await adoptFiles(folder);
+      showFolder(folder);
+    }
   }).catch(notice);
+}
+/** Files opened on their own that lie inside the folder become part of it: their draft and version history
+ * move to the folder's path, so each file is one document. A file the folder already has a draft for stays as it is. */
+async function adoptFiles(folder: FolderSource) {
+  let moved = false, shown = false;
+  try {
+    for (const file of rememberedFiles()) {
+      const path = await folder.locate(file.locator).catch(() => null);
+      if (path === null || (await findDraft(folder.id, path)) ||
+        [...documents.values()].some(doc => isAt(doc.session.identity, folder.id, path))) continue;
+      const open = [...documents.values()].find(doc => isAt(doc.session.identity, file.id, file.label));
+      if (open) {
+        open.session.identity = { kind: 'source', sourceId: folder.id, path };
+        // A save report names the old file.
+        open.fileStatus = '';
+        await open.autosave.updateMetadata({ title: basename(path), fileType: fileTypeForName(path) });
+        shown ||= workspace?.document === open;
+      } else await moveDraft(file.id, file.label, path, folder.id);
+      await moveVersions(versionKey(file.id, file.label), versionKey(folder.id, path));
+      moved = true;
+    }
+    // The screen still shows the file's old place.
+    if (shown) { await transition(rebuild); refocus(); }
+    else if (moved && current.screen === 'home') await transition(() => show(current));
+  } catch (error) { notice(error); }
 }
 function showFolder(source: FileSource) {
   openFolderDialog(source, path => openPath(source, path));
@@ -299,6 +333,7 @@ async function openRecentFolder(id: string) {
   // Home lists only remembered folders, and those always reopen as folders.
   const source = (await restoreSource(id))!;
   if ((await source.permission(true)) !== 'granted') return notice(`Gittin needs permission to open ${source.label}.`);
+  await adoptFiles(source as FolderSource);
   showFolder(source);
 }
 /** The single entry for opening a source file. Returns an error reason for the folder panel, or null. */
@@ -475,13 +510,8 @@ async function writeFile(doc: OpenDocument, saveAs: boolean, overwrite = false):
     if (picker) {
       const handle = await picker;
       if (!handle) { report(doc, `Save canceled. Your changes are still kept in ${place}.`); return false; }
-      let folderPath: string | null = null, folder: FolderSource | undefined;
-      for (const open of openSources()) {
-        if (!(open instanceof FolderSource)) continue;
-        folderPath = await open.locate(handle).catch(() => null);
-        if (folderPath !== null) { folder = open; break; }
-      }
-      if (folder) target = { source: folder, path: folderPath! };
+      const held = await folderHolding(handle);
+      if (held) target = held;
       else {
         // Test doubles and some browsers give nameless handles: fall back to the suggested name.
         const file = await addFile({ handle, name: handle.name ?? fileName(doc.title, doc.fileType) });

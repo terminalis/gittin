@@ -18,9 +18,12 @@ export async function loadSources(revive: Revive = locator => locator) {
     records.set(row.id, row.locator ? { ...row, locator: revive(row.locator) } : row);
 }
 export const openSource = (id: string) => open.get(id);
-export const openSources = () => [...open.values()];
 export const recentFolders = () =>
   [...records.values()].filter(row => row.kind === 'folder' && row.locator).sort((a, b) => b.lastOpened - a.lastOpened);
+/** The files opened on their own, with the handle that reopens each. */
+export const rememberedFiles = () =>
+  [...records.values()].filter(row => row.kind === 'file' && row.locator)
+    .map(({ id, label, locator }) => ({ id, label, locator: locator as FileHandle }));
 export function sourceInfo(id: string): SourceInfo | undefined {
   const row = records.get(id);
   // A remembered handle can be restored, so the source counts as open before the editor restores it.
@@ -74,4 +77,18 @@ export async function restoreSource(id: string): Promise<FileSource | undefined>
     : new SingleFileSource(id, { handle: row.locator as FileHandle, name: row.label });
   open.set(id, source);
   return source;
+}
+/** The remembered folder Gittin can read without asking that holds the file, and the file's path in it. */
+export async function folderHolding(handle: FileHandle): Promise<{ source: FolderSource; path: string } | null> {
+  for (const row of recentFolders()) {
+    const live = open.get(row.id);
+    const source = live instanceof FolderSource ? live : new FolderSource(row.id, row.locator as DirectoryHandle);
+    let path: string | null = null;
+    // A folder from an earlier visit may need asking again, which a picker's click cannot do.
+    try { if ((await source.permission(false)) === 'granted') path = await source.locate(handle); } catch {}
+    if (path === null) continue;
+    open.set(source.id, source);
+    return { source, path };
+  }
+  return null;
 }
