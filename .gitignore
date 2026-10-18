@@ -9,3 +9,14 @@ test-results/
 .DS_Store
 AGENTS.md
 /spec/
+
+/.flatpak-builder/
+/builddir/
+/repo/
+/flatpak/cargo-sources.json
+*.flatpak
+
+*.pfx
+*.cer
+/out/
+*.msix

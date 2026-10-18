@@ -1,0 +1,68 @@
+# Builds an unsigned MSIX from the current release build.
+#
+# Prereqs: release binary built (npm run build, or cargo build --release).
+# Windows SDK provides makeappx.exe.
+#
+#   pwsh tools\package-msix.ps1                 # version from Package.appxmanifest
+#   pwsh tools\package-msix.ps1 -Version 1.2.3  # override (CI passes package.json's version)
+#
+# -Version takes X.Y.Z and sets the package version to X.Y.Z.0 (the Store
+# reserves the 4th part) WITHOUT editing the committed manifest, so CI keeps the
+# MSIX version locked to the release tag with a single source of truth.
+param([string]$Version)
+$ErrorActionPreference = 'Stop'
+$root = Split-Path $PSScriptRoot -Parent
+$rel = Join-Path $root 'src-tauri\target\release'
+$manifest = Join-Path $root 'Package.appxmanifest'
+$arch = 'x64'
+
+if ($Version) {
+  $ver = "$Version.0"
+} else {
+  $ver = ([xml](Get-Content $manifest -Raw)).Package.Identity.Version
+}
+if ($ver -like '0.*') { throw "Package version $ver has major 0, which the Store rejects. Use >= 1.0.0." }
+
+# Locate the newest x64 makeappx.exe from the installed Windows SDK.
+$makeappx = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter makeappx.exe -ErrorAction SilentlyContinue |
+  Where-Object { $_.FullName -match '\\x64\\' } | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+if (-not $makeappx) { throw 'makeappx.exe not found. Install the Windows SDK (App Cert Kit / SDK).' }
+
+$exe = Join-Path $rel 'gittin.exe'
+if (-not (Test-Path $exe)) { throw "Missing build artifact: $exe (run the release build first)." }
+
+# Assemble a clean payload (do not reuse dist\ to avoid stale files).
+$payload = Join-Path $env:TEMP 'gittin-msix-payload'
+if (Test-Path $payload) { Remove-Item $payload -Recurse -Force }
+New-Item -ItemType Directory -Force $payload | Out-Null
+Copy-Item $exe $payload
+Copy-Item (Join-Path $root 'Assets') (Join-Path $payload 'Assets') -Recurse
+
+# Copy the manifest into the payload, setting the Identity version to $ver.
+# The (?m)^\s*Version=" anchor matches only the Identity line, not the
+# MinVersion / MaxVersionTested attributes on the Dependencies element.
+$enc = New-Object System.Text.UTF8Encoding($false)
+$mxText = [IO.File]::ReadAllText($manifest)
+$mxText = $mxText -replace '(?m)^(\s*)Version="[\d.]+"', ('${1}Version="' + $ver + '"')
+[IO.File]::WriteAllText((Join-Path $payload 'AppxManifest.xml'), $mxText, $enc)
+
+# Index the payload's resources. Without resources.pri Windows can't pick the
+# icon for each size (such as the 24 px unplated taskbar icon) and shows the
+# plain tile on an accent-coloured plate instead. makepri sits beside makeappx.
+$makepri = Join-Path (Split-Path $makeappx -Parent) 'makepri.exe'
+$priConfig = Join-Path $env:TEMP 'gittin-priconfig.xml'
+& $makepri createconfig /cf $priConfig /dq en-US /o | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "makepri createconfig failed (exit $LASTEXITCODE)" }
+& $makepri new /pr $payload /cf $priConfig /of (Join-Path $payload 'resources.pri') /o | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "makepri failed (exit $LASTEXITCODE)" }
+
+$outDir = Join-Path $root 'out'
+New-Item -ItemType Directory -Force $outDir | Out-Null
+$out = Join-Path $outDir ('Gittin_{0}_{1}.msix' -f $ver, $arch)
+if (Test-Path $out) { Remove-Item $out -Force }
+
+& $makeappx pack /o /d $payload /p $out
+if ($LASTEXITCODE -ne 0) { throw "makeappx failed (exit $LASTEXITCODE)" }
+
+$mb = [math]::Round((Get-Item $out).Length / 1MB, 2)
+('Built {0} ({1} MB), unsigned.' -f $out, $mb)
