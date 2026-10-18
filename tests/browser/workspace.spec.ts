@@ -258,13 +258,14 @@ test('Export backup asks where to save when the browser can', async ({ page, bro
     .getByRole('dialog', { name: 'Export drafts' })
     .getByRole('button', { name: 'Export backup' })
     .click();
+  // The picker creates the file after the click returns, so poll until it exists and holds the backup.
   await expect
     .poll(() =>
-      page.evaluate(async () =>
-        (
-          await (await (await navigator.storage.getDirectory()).getFileHandle('backup.json')).getFile()
-        ).text(),
-      ),
+      page.evaluate(async () => {
+        const storage = await navigator.storage.getDirectory();
+        const file = await storage.getFileHandle('backup.json').catch(() => null);
+        return file ? (await file.getFile()).text() : '';
+      }),
     )
     .toContain('Kept');
   expect(await page.evaluate(() => (window as any).suggested)).toMatch(
