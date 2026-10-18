@@ -11,7 +11,7 @@ import {
 import { downloadMarkdown } from './documents/files';
 import { decodeSource, encodeSource } from './editor/source-projection';
 import { headingAnchors } from './editor/heading-anchors';
-import { fileName, fileTypeForName, type FileType } from './documents/file-types';
+import { fileName, fileTypeForName, otherTs, type FileType } from './documents/file-types';
 import { clearVersionsAt, moveVersions, recordVersion, versionKey } from './documents/versions';
 import {
   addFile, addFolder, addReadOnlyFolder, isAt, loadSources, openSources, recentFolders, restoreSource,
@@ -329,12 +329,13 @@ async function openPath(source: FileSource, path: string, section = ''): Promise
 }
 type Disk = { source: string; version: string };
 async function readDisk(source: FileSource, path: string): Promise<Disk> {
-  const read = await source.read(path);
-  try {
-    return { source: decodeSource(read.bytes), version: read.version };
-  } catch {
-    throw Error(`${basename(path)} is not a UTF-8 text file, so Gittin can't open it.`);
-  }
+  const read = await source.read(path), name = basename(path);
+  let text: string | null = null;
+  try { text = decodeSource(read.bytes); } catch {}
+  const other = otherTs(name, text);
+  if (other) throw Error(`${name} is ${other}, not TypeScript, so Gittin can't open it.`);
+  if (text === null) throw Error(`${name} is not a UTF-8 text file, so Gittin can't open it.`);
+  return { source: text, version: read.version };
 }
 /** Takes the file on disk as the saved version; `replace` also puts its text in the document. */
 async function adopt(doc: OpenDocument, disk: Disk, replace: boolean) {

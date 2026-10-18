@@ -13,6 +13,13 @@ export type FileType = typeof fileTypes[number]['id'] | 'unknown';
 export function fileTypeForName(name: string): FileType {
   return fileTypes.find(t => t.extensions.some(ext => name.toLowerCase().endsWith(ext)))?.id ?? 'unknown';
 }
+/** Linux also calls Qt translation files and recorded video `.ts`: what such a file is instead of
+ * TypeScript, or null. `text` is null for bytes that aren't UTF-8 text. */
+export function otherTs(name: string, text: string | null): string | null {
+  if (fileTypeForName(name) !== 'typescript') return null;
+  if (text === null) return 'a video file';
+  return /^\s*(?:<\?xml[^>]*\?>\s*)?(?:<!DOCTYPE TS>\s*)?<TS[\s>]/.test(text) ? 'a Qt translation file' : null;
+}
 export function fileDescriptor(type: FileType) {
   return fileTypes.find(t => t.id === type);
 }
