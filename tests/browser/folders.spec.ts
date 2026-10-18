@@ -751,7 +751,9 @@ test('no Git or GitHub wording appears in the web app', async ({ page }) => {
   }
   for (const legal of ['/privacy.html', '/terms.html']) {
     await page.goto(legal);
-    expect(await page.locator('body').innerText()).not.toMatch(banned);
+    // The Privacy Policy's desktop section names GitHub Pages, where the Flatpak's updates come from.
+    const text = (await page.locator('body').innerText()).replace(/^The desktop app\n+.*\n/m, '');
+    expect(text).not.toMatch(banned);
   }
 });
 
