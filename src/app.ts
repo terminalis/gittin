@@ -20,6 +20,7 @@ import {
 import { FolderSource } from './sources/folder';
 import { countFiles } from './sources/search';
 import { basename, dirname } from './sources/paths';
+import type { FileHandle } from './sources/handle';
 import type { FileSource } from './sources/types';
 import { canPickSaveLocation, chooseFile, chooseFolder, pickSaveLocation } from './sources/pickers';
 import { conflictDialog } from './ui/disk-change';
@@ -266,13 +267,21 @@ async function removeRecent(id: string) {
 function openFileCommand() {
   void chooseFile().then(async choice => {
     if (choice === 'input') input.click();
-    else if (choice) {
-      // A file inside a folder Gittin knows opens as part of that folder.
-      const held = await folderHolding(choice);
-      if (held) await openPath(held.source, held.path);
-      else { const source = await addFile({ handle: choice }); await openPath(source, source.label); }
-    }
+    else if (choice) await openHandles([choice]);
   }).catch(notice);
+}
+/** Opens files handed to Gittin: one picked in Open file, or those the system asked the desktop app to
+ * open. Each joins the open documents, as part of a folder Gittin knows when one holds it, and the first one shows. */
+export async function openHandles(handles: FileHandle[]) {
+  let first: OpenDocument | undefined;
+  for (const handle of handles) {
+    // A file inside a folder Gittin knows opens as part of that folder.
+    const held = await folderHolding(handle);
+    const source = held?.source ?? await addFile({ handle });
+    const doc = await load(source, held?.path ?? source.label);
+    if (typeof doc !== 'string') first ??= doc;
+  }
+  if (first) navigate({ screen: 'editor', id: first.session.id }, true);
 }
 input.onchange = () => {
   const file = input.files?.[0];
@@ -336,8 +345,9 @@ async function openRecentFolder(id: string) {
   await adoptFiles(source as FolderSource);
   showFolder(source);
 }
-/** The single entry for opening a source file. Returns an error reason for the folder panel, or null. */
-async function openPath(source: FileSource, path: string, section = ''): Promise<string | null> {
+/** Reads a source file into an open document. A document still open in memory, or a stored draft, is
+ * checked against the disk the same way. Returns the document, or the reason it couldn't open. */
+async function load(source: FileSource, path: string): Promise<OpenDocument | string> {
   let disk: Disk;
   try {
     disk = await readDisk(source, path);
@@ -346,21 +356,25 @@ async function openPath(source: FileSource, path: string, section = ''): Promise
     notice(failure);
     return failure;
   }
-  // A document still open in memory, or a stored draft, is checked against the disk the same way.
   const known = [...documents.values()].find(doc => isAt(doc.session.identity, source.id, path));
   const record = known ? null : await findDraft(source.id, path);
-  let doc: OpenDocument;
   if (known || record) {
-    doc = known ?? retain(record!);
+    const doc = known ?? retain(record!);
     await reconcile(doc, disk);
-  } else {
-    doc = retain({
-      ...newDraft({ source: disk.source, title: basename(path), fileType: fileTypeForName(path) }),
-      identity: { kind: 'source', sourceId: source.id, path },
-      localBaseline: { source: disk.source, revision: 0, version: disk.version },
-    });
-    await recordVersion(versionKey(source.id, path), 'opened', disk.source, disk.version);
+    return doc;
   }
+  const doc = retain({
+    ...newDraft({ source: disk.source, title: basename(path), fileType: fileTypeForName(path) }),
+    identity: { kind: 'source', sourceId: source.id, path },
+    localBaseline: { source: disk.source, revision: 0, version: disk.version },
+  });
+  await recordVersion(versionKey(source.id, path), 'opened', disk.source, disk.version);
+  return doc;
+}
+/** The single entry for opening a source file. Returns an error reason for the folder panel, or null. */
+async function openPath(source: FileSource, path: string, section = ''): Promise<string | null> {
+  const doc = await load(source, path);
+  if (typeof doc === 'string') return doc;
   navigate({ screen: 'editor', id: doc.session.id }, true, section);
   return null;
 }
