@@ -22,9 +22,17 @@ tauri-plugin-opener = "2"
 tauri-plugin-persisted-scope = "2"
 tauri-plugin-single-instance = "2"
 
+[target.'cfg(windows)'.dependencies]
+# For the webview settings in webview.rs: the versions Tauri itself uses, so each builds once.
+webview2-com = "0.39"
+windows = "0.62"
+
 [target.'cfg(target_os = "linux")'.dependencies]
 # File dialogs through the desktop portal: the only way a Flatpak reaches the user's files.
 tauri-plugin-dialog = { version = "2", default-features = false, features = ["xdg-portal"] }
+# For the webview settings in webview.rs: the versions Tauri itself uses, so each builds once.
+webkit2gtk = "2.0"
+gtk = "0.18"
 
 [features]
 default = ["custom-protocol"]

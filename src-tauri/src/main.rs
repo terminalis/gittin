@@ -2,9 +2,13 @@
 // file dialogs and file access.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod webview;
+
 use std::sync::Mutex;
+use tauri::webview::NewWindowResponse;
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_fs::FsExt;
+use tauri_plugin_opener::OpenerExt;
 
 /// Files handed to Gittin that the page hasn't taken yet.
 #[derive(Default)]
@@ -27,6 +31,13 @@ fn opened_files(opened: tauri::State<Opened>) -> Vec<String> {
     std::mem::take(&mut *opened.0.lock().unwrap())
 }
 
+/// Gittin's own pages: the bundled app, or the development server under `tauri dev`.
+fn own(url: &tauri::Url) -> bool {
+    url.scheme() == "tauri"
+        || url.host_str() == Some("tauri.localhost")
+        || (cfg!(dev) && url.host_str() == Some("127.0.0.1"))
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(Opened::default())
@@ -45,16 +56,42 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         // Keeps access to picked files and folders after a restart; after the file plugin.
         .plugin(tauri_plugin_persisted_scope::init())
-        .plugin(tauri_plugin_opener::init())
+        // Links are opened by the window's own handlers below.
+        .plugin(
+            tauri_plugin_opener::Builder::new()
+                .open_js_links_on_click(false)
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![opened_files])
         .setup(|app| {
             // The files Gittin was started with.
             hand_over(app.handle(), std::env::args());
-            WebviewWindowBuilder::new(app, "main", WebviewUrl::App("src/native/index.html".into()))
-                .title("Gittin")
-                .inner_size(1200.0, 800.0)
-                .min_inner_size(360.0, 480.0)
-                .build()?;
+            let (links, popups) = (app.handle().clone(), app.handle().clone());
+            let window = WebviewWindowBuilder::new(
+                app,
+                "main",
+                WebviewUrl::App("src/native/index.html".into()),
+            )
+            .title("Gittin")
+            .inner_size(1200.0, 800.0)
+            .min_inner_size(360.0, 480.0)
+            // Edit › Paste reads the clipboard, as the browser lets it.
+            .enable_clipboard_access()
+            // Tauri's own file-drop handling stops text being dragged within the editor on Windows.
+            .disable_drag_drop_handler()
+            // Links open in the browser or mail app; only Gittin's own pages load in the window.
+            .on_navigation(move |url| {
+                own(url) || {
+                    let _ = links.opener().open_url(url.as_str(), None::<&str>);
+                    false
+                }
+            })
+            .on_new_window(move |url, _| {
+                let _ = popups.opener().open_url(url.as_str(), None::<&str>);
+                NewWindowResponse::Deny
+            })
+            .build()?;
+            webview::configure(&window);
             Ok(())
         })
         .run(tauri::generate_context!())

@@ -1328,6 +1328,7 @@ dependencies = [
 name = "gittin"
 version = "0.0.0"
 dependencies = [
+ "gtk",
  "serde_json",
  "tauri",
  "tauri-build",
@@ -1336,6 +1337,9 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-persisted-scope",
  "tauri-plugin-single-instance",
+ "webkit2gtk",
+ "webview2-com",
+ "windows",
 ]
 
 [[package]]
