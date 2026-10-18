@@ -15,7 +15,7 @@ import { fileName, fileTypeForName, otherTs, type FileType } from './documents/f
 import { clearVersionsAt, moveVersions, recordVersion, versionKey } from './documents/versions';
 import {
   addFile, addFolder, addReadOnlyFolder, isAt, loadSources, openSources, recentFolders, restoreSource,
-  sourceFor,
+  sourceFor, type Revive,
 } from './sources/registry';
 import { FolderSource } from './sources/folder';
 import { countFiles } from './sources/search';
@@ -37,7 +37,7 @@ let workspace: Workspace | undefined,
   pending: Route | undefined,
   fileSave: Promise<boolean> | undefined;
 /** The landing page, handed in by the version of Gittin that has one. */
-let landing: () => HTMLElement;
+let landing: (() => HTMLElement) | undefined;
 const input = document.createElement('input');
 input.type = 'file';
 // Accept any file: openPath validates UTF-8 and preserves unknown formats.
@@ -148,6 +148,7 @@ function clear() {
 }
 /** `checked` skips the disk check when openPath has just made it. */
 async function show(route: Route, checked = false) {
+  if (route.screen === 'landing' && !landing) route = { screen: 'home' };
   if (route.screen === 'editor') {
     const existing = documents.get(route.id),
       record = existing ? null : await loadDraft(route.id);
@@ -184,7 +185,7 @@ async function show(route: Route, checked = false) {
       }
     clear();
     document.title = 'Gittin';
-    root.append(route.screen === 'landing' ? landing() : home(prefs, rows, actions, failed));
+    root.append(route.screen === 'landing' ? landing!() : home(prefs, rows, actions, failed));
   }
   window.scrollTo(0, 0);
   current = route;
@@ -556,13 +557,14 @@ window.addEventListener('pagehide', (event) => {
   if (!event.persisted) workspace?.controller.dispose();
   void flushAll();
 });
-/** Starts Gittin. Each version hands in what only it has: the web app, its landing page. */
-export function start(screens: { landing: () => HTMLElement }) {
-  landing = screens.landing;
-  void (async () => {
+/** Starts Gittin. Each version hands in what only it has: the website its landing page, the desktop app
+ * a way to bring back the file handles it stored. Resolves once the first screen shows. */
+export function start(version: { landing?: () => HTMLElement; revive?: Revive }) {
+  landing = version.landing;
+  return (async () => {
     root.inert = true;
     await prefs.load();
-    await loadSources().catch(() => {});
+    await loadSources(version.revive).catch(() => {});
     // The hash already holds any change made while loading.
     pending = undefined;
     try {

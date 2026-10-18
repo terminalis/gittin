@@ -1,0 +1,35 @@
+# No version: the app's version lives in package.json, which tauri.conf.json points at (Tauri's
+# recommended way). Rust code that needs it reads it from Tauri (app.package_info().version), never
+# env!("CARGO_PKG_VERSION").
+[package]
+name = "gittin"
+description = "Gittin's desktop app: the web app in a Tauri window."
+edition = "2021"
+license = "MIT"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+# No default dialog backend: Linux turns on the portal one below, and Windows needs none.
+tauri-plugin-dialog = { version = "2", default-features = false }
+tauri-plugin-fs = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-persisted-scope = "2"
+tauri-plugin-single-instance = "2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# File dialogs through the desktop portal: the only way a Flatpak reaches the user's files.
+tauri-plugin-dialog = { version = "2", default-features = false, features = ["xdg-portal"] }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
