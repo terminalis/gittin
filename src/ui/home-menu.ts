@@ -64,13 +64,14 @@ export function homeMenu(
   settings.append(el('div', { className: 'home-option' },
     el('span', { id: 'home-menu-recent-limit', textContent: 'Recent files shown' }), limits));
   const drafts = group('Drafts');
-  add(drafts, 'Export drafts', 'download', () => fileDialog('Export drafts', (body, _close, footer) => {
+  add(drafts, 'Export drafts', 'download', () => fileDialog('Export drafts', (body, close, footer) => {
     const text = el('p', { textContent: `Export every draft in ${place} as one file.`
       + (desktop ? '' : ' Keep it somewhere safe: browser storage can be cleared.') });
     body.append(text);
     footer.append(button('Export backup', () => {
       const name = `gittin-drafts-${new Date().toISOString().slice(0, 10)}.json`;
       void exportFile(name, 'json', async () => JSON.stringify(await exportDrafts(), null, 2))
+        .then(done => { if (done) close(); })
         .catch(error => { text.textContent = 'The backup could not be made. ' + errorText(error); });
     }, 'primary'));
   }));

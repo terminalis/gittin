@@ -270,6 +270,7 @@ test('Export backup asks where to save when the browser can', async ({ page, bro
   expect(await page.evaluate(() => (window as any).suggested)).toMatch(
     /^gittin-drafts-\d{4}-\d{2}-\d{2}\.json$/,
   );
+  await expect(page.getByRole('dialog', { name: 'Export drafts' })).toBeHidden();
 });
 
 test('desktop-to-narrow resize reveals writing and narrow drawers are mutually exclusive', async ({
