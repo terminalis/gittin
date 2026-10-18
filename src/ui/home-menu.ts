@@ -1,6 +1,6 @@
 import type { DevicePreferences, Preferences } from '../preferences';
 import { exportDrafts, importDrafts } from '../documents/drafts';
-import { downloadMarkdown } from '../documents/files';
+import { exportFile } from '../documents/files';
 import {
   button, el, errorText, field, fileDialog, iconButton, legalPages, legalRel, notice, segmented,
 } from './dom';
@@ -64,15 +64,13 @@ export function homeMenu(
     el('span', { id: 'home-menu-recent-limit', textContent: 'Recent files shown' }), limits));
   const drafts = group('Drafts');
   add(drafts, 'Export drafts', 'download', () => fileDialog('Export drafts', (body, _close, footer) => {
-    const text = el('p', { textContent: 'Download every draft in this browser as one file. '
+    const text = el('p', { textContent: 'Export every draft in this browser as one file. '
       + 'Keep it somewhere safe: browser storage can be cleared.' });
     body.append(text);
-    footer.append(button('Download backup', async () => {
-      try {
-        const backup = await exportDrafts();
-        const name = `gittin-drafts-${backup.exportedAt.slice(0, 10)}.json`;
-        downloadMarkdown(name, JSON.stringify(backup, null, 2), 'json');
-      } catch (error) { text.textContent = 'The backup could not be made. ' + errorText(error); }
+    footer.append(button('Export backup', () => {
+      const name = `gittin-drafts-${new Date().toISOString().slice(0, 10)}.json`;
+      void exportFile(name, 'json', async () => JSON.stringify(await exportDrafts(), null, 2))
+        .catch(error => { text.textContent = 'The backup could not be made. ' + errorText(error); });
     }, 'primary'));
   }));
   add(drafts, 'Restore drafts', 'history', () => fileDialog('Restore drafts', (body, closeRestore) => {

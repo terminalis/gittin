@@ -283,7 +283,7 @@ test('email previews exact saved and draft snapshots and long copy fallback with
   ).toBeDisabled();
 });
 
-test('Download as PDF prints the rendered file under its own name', async ({ page }) => {
+test('Export as PDF prints the rendered file under its own name', async ({ page }) => {
   await page.addInitScript(() => {
     window.print = () => {
       window.dispatchEvent(new Event('beforeprint'));
@@ -295,7 +295,7 @@ test('Download as PDF prints the rendered file under its own name', async ({ pag
     };
   });
   await openFile(page, '# Report\n\nBody :smile:', 'report.md');
-  await command(page, 'Download as PDF…');
+  await command(page, 'Export as PDF…');
   await expect
     .poll(() => page.evaluate(() => (window as any).printed))
     .toEqual({ title: 'report', text: expect.stringContaining('Body 😄') });

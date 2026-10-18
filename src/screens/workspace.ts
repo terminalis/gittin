@@ -62,7 +62,7 @@ export interface WorkspaceActions {
   deleteEntry(source: FolderSource, path: string, kind: 'file' | 'directory'): void;
   switch(id: string): void;
   close(id: string): void;
-  download(): void;
+  exportCopy(): void;
   save(saveAs: boolean): void;
   makeCopy(doc: OpenDocument): void;
   recovery(): void;
@@ -81,7 +81,7 @@ const draftStatusText: Record<Exclude<DraftStatus['kind'], 'error'>, string> = {
   saving: 'Saving draft on this device…',
   pending: 'Draft changes waiting to save on this device.',
   conflict: 'A newer draft is stored on this device. '
-    + 'Download your work or save a recovery copy to keep both versions.',
+    + 'Export your work or save a recovery copy to keep both versions.',
 };
 /** Sets attributes that reflect no string property: aria-controls and the like. */
 const attrs = <T extends Element>(element: T, values: Record<string, string>) => {
@@ -247,7 +247,7 @@ export class Workspace {
       el('p', { id: 'draft-status', role: 'status' }),
       Object.assign(button('Retry', () => void doc.autosave.flush()), { id: 'retry', hidden: true }),
       Object.assign(button('Save recovery copy', actions.recovery), { id: 'recovery-copy' }),
-      Object.assign(button('Download recovery copy', actions.download), { id: 'status-download' }));
+      Object.assign(button('Export recovery copy', actions.exportCopy), { id: 'status-export' }));
     const formatting = el('div', { className: 'formatting-row' }, el('div', { id: 'controls' }));
     return [header, formatting, tools, body, recovery];
   }
@@ -308,7 +308,7 @@ export class Workspace {
         selected(() => doc.favourite)],
       ['File', 'details', 'Details', () => this.details()],
       ['File', 'print', 'Print', () => void this.print()],
-      ['File', 'download-pdf', 'Download as PDF…', () => void this.print(true)],
+      ['File', 'download-pdf', 'Export as PDF…', () => void this.print(true)],
       ['File', 'close', 'Close file', () => actions.close(doc.session.id)],
       ['Edit', 'find', 'Find and replace', () => this.find.open()],
       ['Help', 'commands', 'Search the menus', () => this.menus.search()],
@@ -658,7 +658,7 @@ export class Workspace {
       const title = document.title;
       document.title = this.document.title.replace(/\.[^.]+$/, '');
       window.addEventListener('afterprint', () => { document.title = title; }, { once: true });
-      notice('Choose Save as PDF as the destination in the print dialog.');
+      notice('In the print dialog, choose to save as PDF.');
     }
     window.print();
   }

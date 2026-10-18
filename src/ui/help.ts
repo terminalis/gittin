@@ -154,7 +154,7 @@ const releases = [
   'Local files and folders — 30 September 2026: open a folder, save back to your files, '
     + 'and browse version history of your saves.',
   'Preview and drafts — 29 September 2026: maths, Mermaid diagrams, emoji shortcodes and front matter '
-    + 'in Preview; Download as PDF…; line and column in the status bar; typewriter centring in Focus '
+    + 'in Preview; Export as PDF…; line and column in the status bar; typewriter centring in Focus '
     + 'mode; back up and restore drafts; install Gittin and start it offline.',
   'Local workspace — 27 September 2026: file recovery and metadata; shared source formatting and '
     + 'Undo; read-only Preview/Diff; source insertion and contextual tables/images; device toolbar and '

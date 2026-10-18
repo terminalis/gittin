@@ -8,7 +8,7 @@ import {
   DraftAutosave, deleteDraft, deleteDraftsAt, findDraft, listRecent, loadDraft, moveDraft, saveDraft,
   type DraftRecord,
 } from './documents/drafts';
-import { downloadMarkdown } from './documents/files';
+import { downloadMarkdown, exportFile } from './documents/files';
 import { decodeSource, encodeSource } from './editor/source-projection';
 import { headingAnchors } from './editor/heading-anchors';
 import { fileName, fileTypeForName, otherTs, type FileType } from './documents/file-types';
@@ -73,7 +73,7 @@ const actions = {
   makeCopy: (doc: OpenDocument) => openNew(() => copyOf(doc, 'copy')),
   openPath, createFile, createFolder, moveFile, deleteEntry, recovery, diskChoices,
   close: closeDocument,
-  download: () => void download(),
+  exportCopy,
   save: saveFile,
 };
 function retain(record: DraftRecord) {
@@ -429,6 +429,13 @@ function deleteEntry(source: FolderSource, path: string, kind: 'file' | 'directo
     await (active ? show({ screen: 'home' }) : rebuild());
   }).then(refocus);
 }
+/** Exports the open document as a file: the way to keep it when its draft can't be stored. */
+function exportCopy() {
+  const doc = workspace?.document;
+  if (!doc) return;
+  void exportFile(doc.title, doc.fileType,
+    async () => ((await settle()) ? doc.session.current.source : null)).catch(notice);
+}
 /** Resolves true once the browser has been given the file to download. */
 async function download(doc = workspace?.document) {
   if (!doc || (workspace?.document === doc && !(await settle()))) return false;
@@ -573,6 +580,6 @@ export function start(screens: { landing: () => HTMLElement }) {
 export async function saveDrafts() {
   if (!(await settle())) return false;
   if (await flushAll()) return true;
-  notice('Some drafts could not be saved. Download them before updating Gittin.');
+  notice('Some drafts could not be saved. Export them before updating Gittin.');
   return false;
 }
