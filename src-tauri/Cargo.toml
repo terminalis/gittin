@@ -13,6 +13,8 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+# generate_context! writes the plugin settings in tauri.conf.json with serde_json.
+serde_json = "1"
 # No default dialog backend: Linux turns on the portal one below, and Windows needs none.
 tauri-plugin-dialog = { version = "2", default-features = false }
 tauri-plugin-fs = "2"
