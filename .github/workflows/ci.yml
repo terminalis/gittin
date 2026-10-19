@@ -1,0 +1,68 @@
+# Checks every pull request before review: formatting and the Rust test
+# suite.
+#
+# `check` runs on ubuntu-22.04 with the Tauri Linux prerequisites, the same
+# setup as release.yml's `test-linux`, so a release reruns exactly what pull
+# requests passed. It uses the runner's preinstalled stable Rust, which
+# includes rustfmt, the same as release.yml. The Flatpak itself builds in the
+# GNOME runtime instead (flatpak.yml).
+#
+# `test-windows` runs the same test suite on Windows with the runner's
+# preinstalled MSVC Rust, as release.yml does, so Windows-only code
+# (#[cfg(windows)]) compiles and is tested on every pull request, not only
+# when a release is built.
+#
+# Gittin's web checks run in check.yml.
+
+name: ci
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev librsvg2-dev libssl-dev xdg-utils
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Tauri builds the desktop page into the app, so it must exist before cargo runs.
+      - run: npm run build:desktop
+
+      - name: Check formatting
+        run: cargo fmt --check --manifest-path src-tauri/Cargo.toml
+
+      - name: Run tests
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+
+  test-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Tauri builds the desktop page into the app, so it must exist before cargo runs.
+      - run: npm run build:desktop
+
+      - name: Run tests
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml

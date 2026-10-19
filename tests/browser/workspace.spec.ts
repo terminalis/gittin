@@ -201,6 +201,7 @@ test('backs up all drafts to one file and restores them in an empty browser', as
   page,
   browser,
 }) => {
+  await withoutPickers(page, 'save');
   await openText(page, '# Kept\n\nBody', 'kept.md');
   await expectDraftSaved(page);
   await home(page);
@@ -208,7 +209,7 @@ test('backs up all drafts to one file and restores them in an empty browser', as
   const backup = await download(page, () =>
     page
       .getByRole('dialog', { name: 'Export drafts' })
-      .getByRole('button', { name: 'Download backup' })
+      .getByRole('button', { name: 'Export backup' })
       .click(),
   );
   expect(backup.name).toMatch(/^gittin-drafts-\d{4}-\d{2}-\d{2}\.json$/);
@@ -237,6 +238,40 @@ test('backs up all drafts to one file and restores them in an empty browser', as
     'Restored 0 drafts. 1 already on this device was kept unchanged.',
   );
   await context.close();
+});
+
+test('Export backup asks where to save when the browser can', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'showSaveFilePicker is Chromium only');
+  await page.addInitScript(() => {
+    (window as any).showSaveFilePicker = async (options: { suggestedName: string }) => {
+      (window as any).suggested = options.suggestedName;
+      return (await navigator.storage.getDirectory()).getFileHandle('backup.json', {
+        create: true,
+      });
+    };
+  });
+  await openText(page, '# Kept\n\nBody', 'kept.md');
+  await expectDraftSaved(page);
+  await home(page);
+  await homeMenu(page, 'Export drafts');
+  await page
+    .getByRole('dialog', { name: 'Export drafts' })
+    .getByRole('button', { name: 'Export backup' })
+    .click();
+  // The picker creates the file after the click returns, so poll until it exists and holds the backup.
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const storage = await navigator.storage.getDirectory();
+        const file = await storage.getFileHandle('backup.json').catch(() => null);
+        return file ? (await file.getFile()).text() : '';
+      }),
+    )
+    .toContain('Kept');
+  expect(await page.evaluate(() => (window as any).suggested)).toMatch(
+    /^gittin-drafts-\d{4}-\d{2}-\d{2}\.json$/,
+  );
+  await expect(page.getByRole('dialog', { name: 'Export drafts' })).toBeHidden();
 });
 
 test('desktop-to-narrow resize reveals writing and narrow drawers are mutually exclusive', async ({

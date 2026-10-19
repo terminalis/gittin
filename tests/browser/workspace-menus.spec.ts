@@ -55,7 +55,7 @@ test('File keeps file moves with Rename, PDF after Print, and Version history…
     ['Email'],
     ['Save', 'Save as…', 'Version history…'],
     ['Rename…', 'Move to…', 'Delete file…', 'Location', 'Add/remove favourite'],
-    ['Details', 'Print', 'Download as PDF…', 'Close file'],
+    ['Details', 'Print', 'Export as PDF…', 'Close file'],
   ]);
   // A file only in this browser has no saves to list.
   await expect(file.getByRole('button', { name: 'Version history…', exact: true })).toBeDisabled();

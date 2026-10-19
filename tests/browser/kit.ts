@@ -443,7 +443,7 @@ export async function mountWorkspace(page: Page, source: string, type = 'markdow
       const noop = () => {};
       const actions = {
         home: noop, new: noop, open: noop, openFolder: noop, openPath: async () => null,
-        createFile: noop, makeCopy: noop, download: noop, save: noop, close: noop, switch: noop,
+        createFile: noop, makeCopy: noop, exportCopy: noop, save: noop, close: noop, switch: noop,
         recovery: noop, createLocal: noop, diskChoices: () => ({}),
       };
       const workspace = new Workspace(doc, [doc], prefs, actions);

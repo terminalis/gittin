@@ -2,6 +2,7 @@ import type { DevicePreferences } from '../preferences';
 import type { GittinController } from '../editor/controller';
 import { ruleError, spellcheckCategory, spellcheckEnabled } from '../editor/prose-preferences';
 import { button, checkbox, dialogShell, el, iconButton, showDialog } from './dom';
+import { desktop } from '../platform';
 
 /** A checkbox row that hands each change to `change`. */
 function option(label: string, checked: boolean, change: (checked: boolean) => void) {
@@ -23,7 +24,7 @@ function generalPanel(preferences: DevicePreferences, controller: GittinControll
   spellcheck.querySelector('input')!.title = category === 'markdown'
     ? 'Spellcheck for Markdown and plain text files' : 'Spellcheck for other files';
   const hint = 'Capitalisation and smart quotes apply as you type Markdown text. '
-    + 'Pasted text and code stay unchanged. Spellcheck uses your browser’s dictionary.';
+    + `Pasted text and code stay unchanged. Spellcheck uses your ${desktop ? 'system' : 'browser'}’s dictionary.`;
   return el('section', {}, spellcheck,
     ...typing.map(([key, label, fallback]) => option(label, preferences.value[key] ?? fallback,
       checked => void preferences.save({ [key]: checked }))),

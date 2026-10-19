@@ -1,9 +1,10 @@
 import { button, el, fileDialog } from './dom';
+import { place } from '../platform';
 export interface DiskChoices {
   compare?(): void; useDisk(): void; keepMine?(): void; saveAs?(): void; overwrite?(): void;
 }
 const message = (name: string) =>
-  `${name} changed on disk since you opened it. Your unsaved changes are safe in this browser.`;
+  `${name} changed on disk since you opened it. Your unsaved changes are safe in ${place}.`;
 export function conflictDialog(name: string, choices: DiskChoices) {
   return fileDialog('File changed on disk', (body, close, footer) => {
     body.append(el('p', { textContent: message(name) }));

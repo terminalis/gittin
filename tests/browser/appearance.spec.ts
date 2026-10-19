@@ -225,7 +225,7 @@ test('File menu, View › Appearance and the Home menu theme switch have distinc
     page.locator('.menus .menu-items button').filter({ hasText: label }).locator('svg');
   await expect(iconOf(/^Make a copy$/)).toHaveAttribute('data-icon', 'copy');
   await expect(iconOf(/^Save as…$/)).toHaveAttribute('data-icon', 'file-export');
-  await expect(iconOf(/^Download as PDF…$/)).toHaveAttribute('data-icon', 'file-type-pdf');
+  await expect(iconOf(/^Export as PDF…$/)).toHaveAttribute('data-icon', 'file-type-pdf');
   await page.keyboard.press('Escape');
   await openMenu(page, 'View');
   await expect(

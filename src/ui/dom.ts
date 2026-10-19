@@ -1,4 +1,5 @@
 import { icon, type IconName } from './icons';
+import { desktop } from '../platform';
 
 export const brand = (href = '#/home', logoOnly = false) =>
   `<a class="brand" href="${href}" aria-label="Gittin home">`
@@ -80,11 +81,13 @@ export function segmented<T extends string>(label: string, options: Option<T>[],
   return group;
 }
 
+/** The desktop app opens the legal pages on gittin.app, in the browser. */
+const site = desktop ? 'https://gittin.app' : '';
 /** Gittin's legal pages, [name, address], as the landing page, Home's menu and Help list them. */
 export const legalPages = [
-  ['Privacy Policy', '/privacy.html'],
-  ['Terms of Service', '/terms.html'],
-  ['Third-party notices', '/THIRD_PARTY_NOTICES.txt'],
+  ['Privacy Policy', site + '/privacy.html'],
+  ['Terms of Service', site + '/terms.html'],
+  ['Third-party notices', site + '/THIRD_PARTY_NOTICES.txt'],
 ] as const;
 /** Every legal link's rel: the page it opens gets no handle on Gittin and no referrer. */
 export const legalRel = 'noopener noreferrer';

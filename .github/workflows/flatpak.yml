@@ -1,0 +1,72 @@
+# Builds the Flatpak bundle and lints it the way Flathub does.
+#
+# Runs on pull requests that touch the packaging or the dependencies (the
+# optimised Rust build is slow, so other pull requests skip it), and from
+# release.yml, which attaches the bundle to the GitHub Release.
+#
+# The job runs in Flathub's CI image for the GNOME runtime the manifest uses;
+# keep the two versions in step. The image comes with flatpak-builder, the
+# linter (the same one org.flatpak.Builder runs) and the runtime installed.
+# --privileged lets flatpak-builder set up its build sandbox.
+#
+# Screenshots keep the metainfo's URLs on the app's website, which software
+# centers load directly. flatpak/lint-exceptions.json waives the repo lint's
+# Flathub-only screenshot checks.
+
+name: flatpak
+
+on:
+  pull_request:
+    paths:
+      - flatpak/**
+      - src-tauri/Cargo.toml
+      - src-tauri/Cargo.lock
+      - package-lock.json
+      - src-tauri/tauri*.json
+      - tools/flatpak-cargo-sources.sh
+      - tools/flatpak-node-sources.sh
+      - .github/workflows/flatpak.yml
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  flatpak:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v7
+
+      # The image has no Node. Only top-level keys sit two spaces in, so this
+      # matches package.json's own "version" and no nested one.
+      - name: Read the app version from package.json
+        id: read
+        run: |
+          version=$(sed -n 's/^  "version": *"\([^"]*\)".*/\1/p' package.json)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # Through bash, so the script needn't be marked executable in git.
+      - name: Generate cargo-sources.json
+        run: bash tools/flatpak-cargo-sources.sh
+
+      - name: Generate node-sources.json
+        run: bash tools/flatpak-node-sources.sh
+
+      - name: Lint the manifest
+        run: flatpak-builder-lint manifest flatpak/io.github.terminalis.Gittin.yml
+
+      - name: Build the bundle
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: flatpak/io.github.terminalis.Gittin.yml
+          bundle: Gittin_${{ steps.read.outputs.version }}_x86_64.flatpak
+          artifact-name: gittin-flatpak-x86_64
+          build-dir: builddir
+          cache-key: flatpak-builder-${{ hashFiles('flatpak/io.github.terminalis.Gittin.yml', 'src-tauri/Cargo.lock', 'package-lock.json') }}
+
+      - name: Lint the build
+        run: flatpak-builder-lint --exceptions --user-exceptions flatpak/lint-exceptions.json repo repo

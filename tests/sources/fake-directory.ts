@@ -20,7 +20,18 @@ export function fakeDirectory(name: string, files: Record<string, string>) {
   for (const [path, text] of Object.entries(files)) put(path, text);
   // Lets a file handle's move() find the directory it was handed.
   const directories = new WeakMap<DirectoryHandle, DirectoryNode>();
-  const fileHandle = (name: string, node: FileNode, parent: DirectoryNode): FileHandle => ({
+  // Lets resolve() tell which file a handle is, as every call hands out a new handle.
+  const fileNodes = new WeakMap<FileHandle, FileNode>();
+  const pathTo = (from: DirectoryNode, target: FileNode): string[] | null => {
+    for (const [child, value] of from.children) {
+      if (value === target) return [child];
+      const inside = value.kind === 'directory' ? pathTo(value, target) : null;
+      if (inside) return [child, ...inside];
+    }
+    return null;
+  };
+  const remember = (node: FileNode, handle: FileHandle) => (fileNodes.set(handle, node), handle);
+  const fileHandle = (name: string, node: FileNode, parent: DirectoryNode): FileHandle => remember(node, {
     kind: 'file', name,
     getFile: async () => new File([node.bytes as BlobPart], name),
     createWritable: async () => {
@@ -62,7 +73,7 @@ export function fakeDirectory(name: string, files: Record<string, string>) {
           throw new DOMException('Not empty', 'InvalidModificationError');
         node.children.delete(child);
       },
-      resolve: async () => null,
+      resolve: async target => (fileNodes.has(target) ? pathTo(node, fileNodes.get(target)!) : null),
     };
     directories.set(handle, node);
     return handle;

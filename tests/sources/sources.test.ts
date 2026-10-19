@@ -238,3 +238,84 @@ test('imageType names known image extensions only, whatever their case', () => {
   expect(imageType('x.constructor')).toBeUndefined();
   expect(imageType('x.__proto__')).toBeUndefined();
 });
+
+import { DesktopDirectoryHandle, DesktopFileHandle, installPickers, revive, useDisk, type Disk } from '../../src/native/files';
+
+/** A folder on a pretend disk for the desktop handles. Windows separators show they're kept. */
+function fakeDisk(files: Record<string, string>) {
+  const root = 'C:\\project', nodes = new Map<string, Uint8Array | 'directory'>([[root, 'directory']]), links = new Set<string>();
+  const at = (path: string) => [root, ...path.split('/')].join('\\');
+  const put = (path: string, text: string) => {
+    const parts = path.split('/');
+    for (let i = 1; i < parts.length; i++) nodes.set(at(parts.slice(0, i).join('/')), 'directory');
+    nodes.set(at(path), new TextEncoder().encode(text));
+  };
+  for (const [path, text] of Object.entries(files)) put(path, text);
+  // Tauri rejects with a message string.
+  const missing = (path: string) => Promise.reject(`${path} not found`);
+  const disk: Disk = {
+    readFile: async path => { const node = nodes.get(path); return node instanceof Uint8Array ? node : missing(path); },
+    writeFile: async (path, data) => { nodes.set(path, data); },
+    // Like Tauri's, a link to a folder is listed as a link, not as a folder.
+    readDir: async path => [...nodes.keys()]
+      .filter(key => key.startsWith(path + '\\') && !key.slice(path.length + 1).includes('\\'))
+      .map(key => ({ name: key.slice(path.length + 1), isDirectory: nodes.get(key) === 'directory' && !links.has(key), isSymlink: links.has(key) })),
+    stat: async path => (nodes.has(path) ? { isDirectory: nodes.get(path) === 'directory' } : missing(path)),
+    mkdir: async path => { nodes.set(path, 'directory'); },
+    remove: async path => { for (const key of [...nodes.keys()]) if (key === path || key.startsWith(path + '\\')) nodes.delete(key); },
+    rename: async (from, to) => { const node = nodes.get(from)!; nodes.delete(from); nodes.set(to, node); },
+  };
+  useDisk(disk);
+  const text = (path: string) => { const node = nodes.get(at(path)); return node instanceof Uint8Array ? new TextDecoder().decode(node) : undefined; };
+  const kind = (path: string) => { const node = nodes.get(at(path)); return node === undefined ? undefined : node === 'directory' ? 'directory' as const : 'file' as const; };
+  return { handle: new DesktopDirectoryHandle(root), put, text, kind, link: (path: string) => links.add(at(path)) };
+}
+const desktopFolder = (files: Record<string, string>) => {
+  const fake = fakeDisk(files);
+  return { source: new FolderSource('desktop-1', fake.handle), change: fake.put, text: fake.text, kind: fake.kind };
+};
+describeFileSource('FolderSource on the desktop', desktopFolder);
+describeWritableSource('FolderSource on the desktop', desktopFolder);
+describeManagedSource('FolderSource on the desktop', desktopFolder);
+
+test('desktop handles survive storage as plain data and find files inside their folder', async () => {
+  const fake = fakeDisk({ 'docs/a.md': 'A' });
+  // What IndexedDB keeps of a handle.
+  const revived = revive(structuredClone(fake.handle)) as DesktopDirectoryHandle;
+  expect(await revived.isSameEntry(fake.handle)).toBe(true);
+  const source = new FolderSource('desktop-2', revived);
+  expect(await source.locate(new DesktopFileHandle('C:\\project\\docs\\a.md'))).toBe('docs/a.md');
+  expect(await source.locate(new DesktopFileHandle('C:\\elsewhere\\a.md'))).toBeNull();
+});
+test('a drive or root folder is named by its path, and its children sit directly under it', () => {
+  const drive = new DesktopDirectoryHandle('D:\\');
+  expect(drive.name).toBe('D:\\');
+  expect(drive.child('a.md')).toBe('D:\\a.md');
+  expect(new DesktopDirectoryHandle('/').name).toBe('/');
+  expect(new DesktopDirectoryHandle('/').child('a.md')).toBe('/a.md');
+  expect(new DesktopDirectoryHandle('C:\\project').name).toBe('project');
+});
+test('a link to a folder is listed as a folder', async () => {
+  const fake = fakeDisk({ 'docs/a.md': 'A', 'b.md': 'B' });
+  fake.link('docs');
+  const entries: string[] = [];
+  for await (const entry of fake.handle.values()) entries.push(entry.kind + ' ' + entry.name);
+  expect(entries.sort()).toEqual(['directory docs', 'file b.md']);
+});
+
+import { vi } from 'vitest';
+const dialog = vi.hoisted(() => ({ save: vi.fn<() => Promise<string | null>>() }));
+vi.mock('@tauri-apps/plugin-dialog', () => dialog);
+test('the save picker creates a file that is not there yet and leaves an existing one alone', async () => {
+  const fake = fakeDisk({ 'old.md': 'OLD' });
+  vi.stubGlobal('window', {});
+  installPickers();
+  const { showSaveFilePicker } = window as unknown as { showSaveFilePicker(options: { suggestedName: string }): Promise<DesktopFileHandle> };
+  dialog.save.mockResolvedValueOnce('C:\\project\\new.md');
+  expect((await showSaveFilePicker({ suggestedName: 'new.md' })).path).toBe('C:\\project\\new.md');
+  expect(fake.text('new.md')).toBe('');
+  dialog.save.mockResolvedValueOnce('C:\\project\\old.md');
+  await showSaveFilePicker({ suggestedName: 'old.md' });
+  expect(fake.text('old.md')).toBe('OLD');
+  vi.unstubAllGlobals();
+});

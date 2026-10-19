@@ -18,6 +18,22 @@ import {
 const folderPanel = (page: Page) => page.getByRole('complementary', { name: 'Folder', exact: true });
 const save = (page: Page) => page.locator('#save-file').click();
 
+/** Chromium: Open file picks this file of the "project" folder that useFolder fills. */
+const pickFromFolder = (page: Page, path: string) =>
+  page.evaluate((path) => {
+    (window as any).showOpenFilePicker = async () => {
+      let dir = await (await navigator.storage.getDirectory()).getDirectoryHandle('project');
+      const parts = path.split('/'), name = parts.pop()!;
+      for (const part of parts) dir = await dir.getDirectoryHandle(part);
+      return [await dir.getFileHandle(name)];
+    };
+  }, path);
+const openFile = (page: Page) => page.getByRole('button', { name: 'Open file', exact: true }).click();
+/** Home's rows, each as its name and the folder line under it. */
+const recentRows = (page: Page) =>
+  page.locator('#recent .recent-row').evaluateAll((rows) =>
+    rows.map((row) => [row.querySelector('.recent-open')!.textContent, row.querySelector('.recent-folder')!.textContent]));
+
 /** Opens a.md from the folder, saves each of the texts in turn, and opens its Version history. */
 async function openHistory(page: Page, ...saves: string[]) {
   await useFolder(page, { 'a.md': 'first' });
@@ -637,6 +653,49 @@ test.describe('writable folders', () => {
     expect(await disk.read(page, 'a.md')).toBe('theirs');
   });
 
+  test('Open file on a file inside a folder Gittin has opened it as part of that folder', async ({ page }) => {
+    await useFolder(page, { 'docs/a.md': 'A' });
+    await page.getByRole('button', { name: 'Open folder', exact: true }).click();
+    const chooser = page.getByRole('dialog', { name: 'project', exact: true });
+    await expect(chooser).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(chooser).toHaveCount(0);
+    await pickFromFolder(page, 'docs/a.md');
+    await openFile(page);
+    await expect(page.locator('#document-title')).toHaveText('a.md');
+    await expect(folderPanel(page).getByRole('button', { name: 'a.md', exact: true })).toHaveAttribute('aria-current', 'true');
+    await page.goto('/#/home');
+    expect(await recentRows(page)).toEqual([['a.md', 'project › docs']]);
+  });
+
+  test('a file opened on its own becomes part of its folder once the folder is opened', async ({ page }) => {
+    await useFolder(page, { 'docs/a.md': 'A', 'b.md': 'B' });
+    // b.md is closed, so only its stored draft moves; a.md is open with changes.
+    await pickFromFolder(page, 'b.md');
+    await openFile(page);
+    await expect(page.locator('#document-title')).toHaveText('b.md');
+    await page.getByRole('button', { name: 'Close b.md', exact: true }).click();
+    await expect(page.locator('#home')).toBeVisible();
+    await pickFromFolder(page, 'docs/a.md');
+    await openFile(page);
+    await editor(page).fill('mine');
+    await expectDraftSaved(page);
+    await expect(page.locator('#repository-panel')).toContainText('This file was opened on its own');
+    await page.goto('/#/home');
+    expect(await recentRows(page)).toEqual([['a.md', 'Opened on its own'], ['b.md', 'Opened on its own']]);
+    await openFromFolder(page, 'docs/a.md');
+    await expect(editor(page)).toHaveText('mine');
+    await expect(page.locator('#disk-change')).toBeHidden();
+    await page.getByRole('button', { name: 'Version history', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Version history', exact: true }).locator('li')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await page.goto('/#/home');
+    expect(await recentRows(page)).toEqual([['a.md', 'project › docs'], ['b.md', 'project']]);
+    await page.locator('#recent').getByRole('button', { name: 'b.md', exact: true }).click();
+    await expect(editor(page)).toHaveText('B');
+    await expect(folderPanel(page).getByRole('button', { name: 'b.md', exact: true })).toHaveAttribute('aria-current', 'true');
+  });
+
   test('one Escape closes the folder chooser with text in its search box', async ({ page }) => {
     await useFolder(page, { 'readme.md': '# Readme' });
     await page.getByRole('button', { name: 'Open folder', exact: true }).click();
@@ -692,7 +751,9 @@ test('no Git or GitHub wording appears in the web app', async ({ page }) => {
   }
   for (const legal of ['/privacy.html', '/terms.html']) {
     await page.goto(legal);
-    expect(await page.locator('body').innerText()).not.toMatch(banned);
+    // The Privacy Policy's desktop section names GitHub Pages, where the Flatpak's updates come from.
+    const text = (await page.locator('body').innerText()).replace(/^The desktop app\n+.*\n/m, '');
+    expect(text).not.toMatch(banned);
   }
 });
 

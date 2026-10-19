@@ -1,0 +1,9 @@
+{{!-- src-tauri/about.hbs: plain text, one block per licence, naming every library under it. --}}
+{{#each licenses}}
+{{#each used_by}}
+{{crate.name}} — {{{../name}}}
+{{/each}}
+
+{{{text}}}
+
+{{/each}}

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.terminalis.Gittin</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <name>Gittin</name>
+  <summary>Write Markdown, notes, code and config files</summary>
+  <developer id="io.github.terminalis">
+    <name>Gittin</name>
+  </developer>
+
+  <description>
+    <p>
+      Gittin is a writing app for Markdown, notes, code and config files. Open a file or a whole folder,
+      format with a toolbar you already know, and save straight back to the file it came from.
+    </p>
+    <ul>
+      <li>Write Markdown, then switch to Preview to read the finished page, with tables, maths, diagrams and emoji</li>
+      <li>Plain text, JSON, YAML, HTML, CSS, JavaScript and TypeScript open with their own syntax colours</li>
+      <li>Open a folder, find the file you need and save each one back where it came from</li>
+      <li>Unsaved changes are kept until you save; Diff shows what changed, and version history keeps your recent saves</li>
+    </ul>
+    <p>
+      There are no accounts, and your files stay on your computer. Gittin reaches only the files and folders
+      you choose.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">io.github.terminalis.Gittin.desktop</launchable>
+  <provides>
+    <binary>gittin</binary>
+  </provides>
+
+  <url type="homepage">https://gittin.app</url>
+  <url type="bugtracker">https://github.com/terminalis/gittin/issues</url>
+  <url type="vcs-browser">https://github.com/terminalis/gittin</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Writing Markdown with the formatting toolbar</caption>
+      <image>https://gittin.app/landing/write-edit-light-desktop.webp</image>
+    </screenshot>
+    <screenshot>
+      <caption>The finished page in Preview</caption>
+      <image>https://gittin.app/landing/write-preview-light-desktop.webp</image>
+    </screenshot>
+    <screenshot>
+      <caption>A folder open beside the document</caption>
+      <image>https://gittin.app/landing/folder-light-desktop.webp</image>
+    </screenshot>
+  </screenshots>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#df4c38</color>
+    <color type="primary" scheme_preference="dark">#df4c38</color>
+  </branding>
+
+  <content_rating type="oars-1.1"/>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+
+  <releases>
+    <release version="1.0.0" date="2026-10-18">
+      <description>
+        <p>Gittin is now available as a desktop app.</p>
+      </description>
+    </release>
+  </releases>
+</component>

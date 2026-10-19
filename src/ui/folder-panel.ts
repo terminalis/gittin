@@ -4,6 +4,7 @@ import { findFiles } from '../sources/search';
 import type { FileSource, TreeEntry } from '../sources/types';
 import { moveDialog, nameDialog, renameDialog, row } from './file-actions';
 import { PopupMenu } from './popup-menu';
+import { place } from '../platform';
 export interface FolderPanelOptions {
   source: FileSource | null;
   label: string | null;
@@ -33,7 +34,7 @@ export function renderFolderPanel(panel: HTMLElement, o: FolderPanelOptions) {
   panel.replaceChildren(header);
   const source = o.source;
   if (!source) {
-    panel.append(el('p', { textContent: o.unavailable ?? 'This file is only in this browser.' }),
+    panel.append(el('p', { textContent: o.unavailable ?? `This file is only in ${place}.` }),
       o.grant ? button(`Allow access to ${o.label}`, o.grant) : button('Open folder…', o.openFolder));
     return;
   }

@@ -8,23 +8,25 @@ import {
   DraftAutosave, deleteDraft, deleteDraftsAt, findDraft, listRecent, loadDraft, moveDraft, saveDraft,
   type DraftRecord,
 } from './documents/drafts';
-import { downloadMarkdown } from './documents/files';
+import { downloadMarkdown, exportFile } from './documents/files';
 import { decodeSource, encodeSource } from './editor/source-projection';
 import { headingAnchors } from './editor/heading-anchors';
-import { fileName, fileTypeForName, type FileType } from './documents/file-types';
+import { fileName, fileTypeForName, otherTs, type FileType } from './documents/file-types';
 import { clearVersionsAt, moveVersions, recordVersion, versionKey } from './documents/versions';
 import {
-  addFile, addFolder, addReadOnlyFolder, isAt, loadSources, openSources, recentFolders, restoreSource,
-  sourceFor,
+  addFile, addFolder, addReadOnlyFolder, folderHolding, isAt, loadSources, recentFolders, rememberedFiles,
+  restoreSource, sourceFor, type Revive,
 } from './sources/registry';
 import { FolderSource } from './sources/folder';
 import { countFiles } from './sources/search';
 import { basename, dirname } from './sources/paths';
+import type { FileHandle } from './sources/handle';
 import type { FileSource } from './sources/types';
 import { canPickSaveLocation, chooseFile, chooseFolder, pickSaveLocation } from './sources/pickers';
 import { conflictDialog } from './ui/disk-change';
 import { openFolderDialog } from './ui/folder-panel';
 import { ask, errorText, notice } from './ui/dom';
+import { place } from './platform';
 const root = document.querySelector<HTMLElement>('#app')!;
 const prefs = new DevicePreferences();
 const documents = new Map<string, OpenDocument>();
@@ -36,7 +38,7 @@ let workspace: Workspace | undefined,
   pending: Route | undefined,
   fileSave: Promise<boolean> | undefined;
 /** The landing page, handed in by the version of Gittin that has one. */
-let landing: () => HTMLElement;
+let landing: (() => HTMLElement) | undefined;
 const input = document.createElement('input');
 input.type = 'file';
 // Accept any file: openPath validates UTF-8 and preserves unknown formats.
@@ -73,7 +75,7 @@ const actions = {
   makeCopy: (doc: OpenDocument) => openNew(() => copyOf(doc, 'copy')),
   openPath, createFile, createFolder, moveFile, deleteEntry, recovery, diskChoices,
   close: closeDocument,
-  download: () => void download(),
+  exportCopy,
   save: saveFile,
 };
 function retain(record: DraftRecord) {
@@ -147,6 +149,7 @@ function clear() {
 }
 /** `checked` skips the disk check when openPath has just made it. */
 async function show(route: Route, checked = false) {
+  if (route.screen === 'landing' && !landing) route = { screen: 'home' };
   if (route.screen === 'editor') {
     const existing = documents.get(route.id),
       record = existing ? null : await loadDraft(route.id);
@@ -183,7 +186,7 @@ async function show(route: Route, checked = false) {
       }
     clear();
     document.title = 'Gittin';
-    root.append(route.screen === 'landing' ? landing() : home(prefs, rows, actions, failed));
+    root.append(route.screen === 'landing' ? landing!() : home(prefs, rows, actions, failed));
   }
   window.scrollTo(0, 0);
   current = route;
@@ -235,8 +238,8 @@ function closeDocument(id: string) {
       const local = doc.session.identity.kind === 'local';
       const choice = await ask(`Close ${doc.title}?`,
         local
-          ? 'This file is only in this browser. Discarding deletes it.'
-          : 'It has unsaved changes kept in this browser.',
+          ? `This file is only in ${place}. Discarding deletes it.`
+          : `It has unsaved changes kept in ${place}.`,
         [['Save', 'save'], ['Discard changes', 'discard']]);
       if (choice === 'cancel') return;
       if (choice === 'save' && !(await writeFile(doc, false))) return;
@@ -253,7 +256,7 @@ async function removeRecent(id: string) {
   if (!row) return;
   if (row.unsaved) {
     const choice = await ask(`Remove ${row.title}?`,
-      "This deletes the unsaved changes kept in this browser. This can't be undone.", [['Remove', 'remove']]);
+      `This deletes the unsaved changes kept in ${place}. This can't be undone.`, [['Remove', 'remove']]);
     if (choice !== 'remove') return;
   }
   const open = documents.get(id);
@@ -264,8 +267,21 @@ async function removeRecent(id: string) {
 function openFileCommand() {
   void chooseFile().then(async choice => {
     if (choice === 'input') input.click();
-    else if (choice) { const source = await addFile({ handle: choice }); await openPath(source, source.label); }
+    else if (choice) await openHandles([choice]);
   }).catch(notice);
+}
+/** Opens files handed to Gittin: one picked in Open file, or those the system asked the desktop app to
+ * open. Each joins the open documents, as part of a folder Gittin knows when one holds it, and the first one shows. */
+export async function openHandles(handles: FileHandle[]) {
+  let first: OpenDocument | undefined;
+  for (const handle of handles) {
+    // A file inside a folder Gittin knows opens as part of that folder.
+    const held = await folderHolding(handle);
+    const source = held?.source ?? await addFile({ handle });
+    const doc = await load(source, held?.path ?? source.label);
+    if (typeof doc !== 'string') first ??= doc;
+  }
+  if (first) navigate({ screen: 'editor', id: first.session.id }, true);
 }
 input.onchange = () => {
   const file = input.files?.[0];
@@ -287,8 +303,37 @@ function openFolderCommand() {
         if (files.length) void addReadOnlyFolder(files).then(showFolder, notice);
       };
       folderInput.click();
-    } else if (choice) showFolder(await addFolder(choice));
+    } else if (choice) {
+      const folder = await addFolder(choice);
+      await adoptFiles(folder);
+      showFolder(folder);
+    }
   }).catch(notice);
+}
+/** Files opened on their own that lie inside the folder become part of it: their draft and version history
+ * move to the folder's path, so each file is one document. A file the folder already has a draft for stays as it is. */
+async function adoptFiles(folder: FolderSource) {
+  let moved = false, shown = false;
+  try {
+    for (const file of rememberedFiles()) {
+      const path = await folder.locate(file.locator).catch(() => null);
+      if (path === null || (await findDraft(folder.id, path)) ||
+        [...documents.values()].some(doc => isAt(doc.session.identity, folder.id, path))) continue;
+      const open = [...documents.values()].find(doc => isAt(doc.session.identity, file.id, file.label));
+      if (open) {
+        open.session.identity = { kind: 'source', sourceId: folder.id, path };
+        // A save report names the old file.
+        open.fileStatus = '';
+        await open.autosave.updateMetadata({ title: basename(path), fileType: fileTypeForName(path) });
+        shown ||= workspace?.document === open;
+      } else await moveDraft(file.id, file.label, path, folder.id);
+      await moveVersions(versionKey(file.id, file.label), versionKey(folder.id, path));
+      moved = true;
+    }
+    // The screen still shows the file's old place.
+    if (shown) { await transition(rebuild); refocus(); }
+    else if (moved && current.screen === 'home') await transition(() => show(current));
+  } catch (error) { notice(error); }
 }
 function showFolder(source: FileSource) {
   openFolderDialog(source, path => openPath(source, path));
@@ -297,10 +342,12 @@ async function openRecentFolder(id: string) {
   // Home lists only remembered folders, and those always reopen as folders.
   const source = (await restoreSource(id))!;
   if ((await source.permission(true)) !== 'granted') return notice(`Gittin needs permission to open ${source.label}.`);
+  await adoptFiles(source as FolderSource);
   showFolder(source);
 }
-/** The single entry for opening a source file. Returns an error reason for the folder panel, or null. */
-async function openPath(source: FileSource, path: string, section = ''): Promise<string | null> {
+/** Reads a source file into an open document. A document still open in memory, or a stored draft, is
+ * checked against the disk the same way. Returns the document, or the reason it couldn't open. */
+async function load(source: FileSource, path: string): Promise<OpenDocument | string> {
   let disk: Disk;
   try {
     disk = await readDisk(source, path);
@@ -309,32 +356,37 @@ async function openPath(source: FileSource, path: string, section = ''): Promise
     notice(failure);
     return failure;
   }
-  // A document still open in memory, or a stored draft, is checked against the disk the same way.
   const known = [...documents.values()].find(doc => isAt(doc.session.identity, source.id, path));
   const record = known ? null : await findDraft(source.id, path);
-  let doc: OpenDocument;
   if (known || record) {
-    doc = known ?? retain(record!);
+    const doc = known ?? retain(record!);
     await reconcile(doc, disk);
-  } else {
-    doc = retain({
-      ...newDraft({ source: disk.source, title: basename(path), fileType: fileTypeForName(path) }),
-      identity: { kind: 'source', sourceId: source.id, path },
-      localBaseline: { source: disk.source, revision: 0, version: disk.version },
-    });
-    await recordVersion(versionKey(source.id, path), 'opened', disk.source, disk.version);
+    return doc;
   }
+  const doc = retain({
+    ...newDraft({ source: disk.source, title: basename(path), fileType: fileTypeForName(path) }),
+    identity: { kind: 'source', sourceId: source.id, path },
+    localBaseline: { source: disk.source, revision: 0, version: disk.version },
+  });
+  await recordVersion(versionKey(source.id, path), 'opened', disk.source, disk.version);
+  return doc;
+}
+/** The single entry for opening a source file. Returns an error reason for the folder panel, or null. */
+async function openPath(source: FileSource, path: string, section = ''): Promise<string | null> {
+  const doc = await load(source, path);
+  if (typeof doc === 'string') return doc;
   navigate({ screen: 'editor', id: doc.session.id }, true, section);
   return null;
 }
 type Disk = { source: string; version: string };
 async function readDisk(source: FileSource, path: string): Promise<Disk> {
-  const read = await source.read(path);
-  try {
-    return { source: decodeSource(read.bytes), version: read.version };
-  } catch {
-    throw Error(`${basename(path)} is not a UTF-8 text file, so Gittin can't open it.`);
-  }
+  const read = await source.read(path), name = basename(path);
+  let text: string | null = null;
+  try { text = decodeSource(read.bytes); } catch {}
+  const other = otherTs(name, text);
+  if (other) throw Error(`${name} is ${other}, not TypeScript, so Gittin can't open it.`);
+  if (text === null) throw Error(`${name} is not a UTF-8 text file, so Gittin can't open it.`);
+  return { source: text, version: read.version };
 }
 /** Takes the file on disk as the saved version; `replace` also puts its text in the document. */
 async function adopt(doc: OpenDocument, disk: Disk, replace: boolean) {
@@ -417,7 +469,7 @@ function deleteEntry(source: FolderSource, path: string, kind: 'file' | 'directo
         'The folder and everything in it are deleted permanently and do not go to the Recycle Bin.';
     // The transition has just stored the open file's draft, so stored drafts say what is unsaved.
     if ((await listRecent()).some(row => row.unsaved && isAt(row.identity, source.id, path)))
-      text += ' Unsaved changes kept in this browser are deleted too.';
+      text += ` Unsaved changes kept in ${place} are deleted too.`;
     if ((await ask(`Delete ${name}?`, text, [['Delete', 'delete']])) !== 'delete') return;
     try { await source.remove(path); } catch (error) { notice(reason(error, source, path)); return; }
     const affected = [...documents.values()].filter(doc => isAt(doc.session.identity, source.id, path));
@@ -427,6 +479,13 @@ function deleteEntry(source: FolderSource, path: string, kind: 'file' | 'directo
     await clearVersionsAt(source.id, path);
     await (active ? show({ screen: 'home' }) : rebuild());
   }).then(refocus);
+}
+/** Exports the open document as a file: the way to keep it when its draft can't be stored. */
+function exportCopy() {
+  const doc = workspace?.document;
+  if (!doc) return;
+  void exportFile(doc.title, doc.fileType,
+    async () => ((await settle()) ? doc.session.current.source : null)).catch(notice);
 }
 /** Resolves true once the browser has been given the file to download. */
 async function download(doc = workspace?.document) {
@@ -464,14 +523,9 @@ async function writeFile(doc: OpenDocument, saveAs: boolean, overwrite = false):
     let target: { source: FileSource; path: string };
     if (picker) {
       const handle = await picker;
-      if (!handle) { report(doc, 'Save canceled. Your changes are still kept in this browser.'); return false; }
-      let folderPath: string | null = null, folder: FolderSource | undefined;
-      for (const open of openSources()) {
-        if (!(open instanceof FolderSource)) continue;
-        folderPath = await open.locate(handle).catch(() => null);
-        if (folderPath !== null) { folder = open; break; }
-      }
-      if (folder) target = { source: folder, path: folderPath! };
+      if (!handle) { report(doc, `Save canceled. Your changes are still kept in ${place}.`); return false; }
+      const held = await folderHolding(handle);
+      if (held) target = held;
       else {
         // Test doubles and some browsers give nameless handles: fall back to the suggested name.
         const file = await addFile({ handle, name: handle.name ?? fileName(doc.title, doc.fileType) });
@@ -491,7 +545,7 @@ async function writeFile(doc: OpenDocument, saveAs: boolean, overwrite = false):
     await recordVersion(versionKey(target.source.id, target.path), 'saved', version.source, result.version);
     const later = doc.session.current.revision === version.revision ? '' : ' Later edits are not saved yet.';
     const unrecorded = stored ? ''
-      : ' The saved state could not be recorded in this browser; use the device status actions.';
+      : ` The saved state could not be recorded in ${place}; use the device status actions.`;
     report(doc, `${picker ? 'Saved as' : 'Saved to'} ${basename(target.path)}.${later}${unrecorded}`);
     if (picker && workspace?.document === doc) { await rebuild(); refocus(); }
     return true;
@@ -547,13 +601,14 @@ window.addEventListener('pagehide', (event) => {
   if (!event.persisted) workspace?.controller.dispose();
   void flushAll();
 });
-/** Starts Gittin. Each version hands in what only it has: the web app, its landing page. */
-export function start(screens: { landing: () => HTMLElement }) {
-  landing = screens.landing;
-  void (async () => {
+/** Starts Gittin. Each version hands in what only it has: the website its landing page, the desktop app
+ * a way to bring back the file handles it stored. Resolves once the first screen shows. */
+export function start(version: { landing?: () => HTMLElement; revive?: Revive }) {
+  landing = version.landing;
+  return (async () => {
     root.inert = true;
     await prefs.load();
-    await loadSources().catch(() => {});
+    await loadSources(version.revive).catch(() => {});
     // The hash already holds any change made while loading.
     pending = undefined;
     try {
@@ -572,6 +627,6 @@ export function start(screens: { landing: () => HTMLElement }) {
 export async function saveDrafts() {
   if (!(await settle())) return false;
   if (await flushAll()) return true;
-  notice('Some drafts could not be saved. Download them before updating Gittin.');
+  notice('Some drafts could not be saved. Export them before updating Gittin.');
   return false;
 }
