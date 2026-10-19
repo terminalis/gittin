@@ -25,7 +25,7 @@ tauri-plugin-single-instance = "2"
 [target.'cfg(windows)'.dependencies]
 # For the webview settings in webview.rs: the versions Tauri itself uses, so each builds once.
 webview2-com = "0.39"
-windows = "0.62"
+windows = { version = "0.62", features = ["Win32_Graphics_Dwm"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # File dialogs through the desktop portal: the only way a Flatpak reaches the user's files.

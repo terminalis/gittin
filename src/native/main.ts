@@ -12,7 +12,18 @@ const openFiles = async () => {
   const paths = await invoke<string[]>('opened_files');
   if (paths.length) await openHandles(paths.map(path => new DesktopFileHandle(path)));
 };
+/** The window frame takes Gittin's background and text colours, and its light or dark appearance. */
+const colourFrame = () => {
+  const root = document.documentElement, style = getComputedStyle(root);
+  void invoke('set_frame', {
+    dark: root.dataset.theme === 'dark',
+    background: style.getPropertyValue('--bg').trim(),
+    text: style.getPropertyValue('--ink').trim(),
+  }).catch(() => {});
+};
 void start({ revive }).then(async () => {
+  colourFrame();
+  new MutationObserver(colourFrame).observe(document.documentElement, { attributeFilter: ['data-theme'] });
   // Files handed over before the page listens wait in the app, so take them after listening starts.
   await listen('open-files', () => void openFiles().catch(notice));
   await openFiles().catch(notice);

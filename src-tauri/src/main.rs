@@ -31,6 +31,13 @@ fn opened_files(opened: tauri::State<Opened>) -> Vec<String> {
     std::mem::take(&mut *opened.0.lock().unwrap())
 }
 
+/// The window frame follows Gittin's appearance where the system lets an app choose it. Not through
+/// Tauri's window theme, which would also change the page's own light-or-dark preference.
+#[tauri::command]
+fn set_frame(window: tauri::WebviewWindow, dark: bool, background: String, text: String) {
+    webview::colour_frame(&window, dark, &background, &text);
+}
+
 /// Gittin's own pages: the bundled app, or the development server under `tauri dev`.
 fn own(url: &tauri::Url) -> bool {
     url.scheme() == "tauri"
@@ -62,7 +69,7 @@ fn main() {
                 .open_js_links_on_click(false)
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![opened_files])
+        .invoke_handler(tauri::generate_handler![opened_files, set_frame])
         .setup(|app| {
             // The files Gittin was started with.
             hand_over(app.handle(), std::env::args());
