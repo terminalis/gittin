@@ -44,7 +44,7 @@ test('immediate Home actions, themes, recent work and open histories', async ({
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Gittin', exact: true })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await page.getByRole('link', { name: 'Open Gittin' }).first().click();
+  await page.getByRole('link', { name: 'Use Gittin in your browser' }).click();
   await expect(page.getByRole('button', { name: 'New file' })).toBeEnabled();
   await page.getByRole('button', { name: 'Main menu', exact: true }).click();
   await expect(page.getByRole('button', { name: 'System', exact: true })).toHaveAttribute(

@@ -1,14 +1,16 @@
 import { iconMarkup } from '../ui/icons';
 import { brand, el, legalPages, legalRel } from '../ui/dom';
 import { filesDemo, folderDemo, historyDemo, writeDemo } from './landing-demos';
+import { install } from './install';
 
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** The enlarged logo; its ring holds Open Gittin. The logo itself is decorative. */
-const door = () =>
+/** The enlarged logo; its ring holds the way into Home. The logo itself is decorative. */
+const door = (first: string, second: string, name = `${first} ${second}`) =>
   `<div class="door"><img class="door-logo" src="/gittin-logo.svg" alt="" width="900" height="900">`
-  + '<a class="ring" href="#/home" aria-label="Open Gittin"><span>Open</span><span>Gittin</span>'
+  + `<a class="ring" href="#/home" aria-label="${name}"><span>${first}</span><span>${second}</span>`
   + `${iconMarkup('arrow-right')}</a></div>`;
+const installButton = (text: string) => `<button type="button" class="install">${text}</button>`;
 
 const feature = (number: string, title: string, text: string, points: string[], demo: string, alt = false) =>
   `<section class="feature${alt ? ' alt' : ''}" aria-labelledby="feature-${number}"><div class="feature-text">`
@@ -23,18 +25,20 @@ const faq: [string, string][] = [
     + "anything it can't render fully. Switching views leaves your source and undo history "
     + 'unchanged.'],
   ['Can I work offline?', 'Yes. After Gittin has loaded once on this device, it starts without a '
-    + 'connection and opens files and unsaved changes already in this browser.'],
+    + 'connection and opens files and unsaved changes already in this browser. '
+    + `Or ${installButton('install the desktop app')}, which works offline from the start.`],
 ];
 
 const farewell = '<div class="farewell-text"><h2 id="farewell-title">'
-  + 'Bring a file. <br>Start writing.</h2><p>No account needed to start.</p></div>';
+  + 'Bring a file. <br>Start writing.</h2><p>No account needed.</p></div>';
 const legal = legalPages
   .map(([name, href]) => `<a href="${href}" rel="${legalRel}">${name}</a>`).join('');
 
 export function landing() {
   const screen = el('div', { className: 'landing' });
   const header = `<header class="landing-bar">${brand('#/')}`
-    + `<a class="primary action" href="#/home">Open Gittin ${iconMarkup('arrow-right')}</a></header>`;
+    + installButton('Install')
+    + `<a class="primary action" href="#/home">Use in browser ${iconMarkup('arrow-right')}</a></header>`;
   screen.innerHTML = `${header}
   <main>
     <section class="doorway" aria-labelledby="doorway-title">
@@ -43,9 +47,11 @@ export function landing() {
           <h1 id="doorway-title">Gittin</h1>
           <p class="tagline">An IDE? A word processor? <br>It's just plain text.</p>
         </div>
-        ${door()}
+        ${door('Use in', 'browser', 'Use Gittin in your browser')}
       </div>
-      <a class="explore" href="#story">${iconMarkup('arrow-down')}How it works</a>
+      <div class="doorway-links">
+        <a class="explore" href="#story">${iconMarkup('arrow-down')}Learn more</a>${installButton('Install')}
+      </div>
     </section>
     <div id="story">
       ${feature('01', 'Write, then preview.', 'Format Markdown with the toolbar you already know. '
@@ -68,7 +74,7 @@ export function landing() {
         <dl>${faq.map(([question, answer]) => `<div><dt>${question}</dt><dd>${answer}</dd></div>`).join('')}</dl>
       </section>
       <section class="farewell" aria-labelledby="farewell-title">
-        ${door()}
+        ${door('Open', 'Gittin')}
         ${farewell}
       </section>
     </div>
@@ -91,6 +97,8 @@ export function landing() {
 
   for (const ring of screen.querySelectorAll<HTMLAnchorElement>('.ring'))
     ring.addEventListener('click', event => enter(event, ring, screen));
+
+  for (const button of screen.querySelectorAll('button.install')) button.addEventListener('click', install);
 
   // Screenshots are not part of the offline install; without them a demo is left out rather than shown broken.
   for (const image of screen.querySelectorAll<HTMLImageElement>('.demo img'))
