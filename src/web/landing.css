@@ -25,6 +25,9 @@
   transform: none;
   transition: transform .3s cubic-bezier(.2, .8, .2, 1);
 }
+.landing-bar .brand {
+  margin-right: auto;
+}
 .landing-bar .brand img {
   width: 28px;
   height: 28px;
@@ -33,10 +36,12 @@
   font-size: 22px;
 }
 .landing-bar .action {
-  margin-left: auto;
   display: inline-flex;
   align-items: center;
   column-gap: 10px;
+  padding: 9px 18px;
+}
+.landing-bar .install {
   padding: 9px 18px;
 }
 
@@ -81,18 +86,27 @@
   right: calc(-280 * var(--u));
   top: calc(-50 * var(--u));
 }
-.doorway .explore {
+.doorway-links {
   position: absolute;
   left: calc(80 * var(--u));
   bottom: max(24px, calc(40 * var(--u)));
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+.doorway-links > * {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--muted);
   font: 16px var(--font-secondary);
   text-decoration: none;
 }
-.doorway .explore:hover {
+.doorway-links > :hover {
+  background: none;
   color: var(--ink);
 }
 
@@ -287,6 +301,14 @@
   color: var(--muted);
   font: 18px/1.5 var(--font-secondary);
 }
+.landing-faq .install {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+}
 
 /* Closing band: the logo returns at the left, its ring holding Open Gittin again.
    Narrower than about 1080px, the band scales with the window, so the logo keeps clear of the words. */
@@ -370,7 +392,7 @@
   .doorway .ring .app-icon {
     --icon: calc(30 * var(--u));
   }
-  .doorway .explore {
+  .doorway-links {
     display: none;
   }
 }
@@ -408,7 +430,7 @@
   .doorway .ring .app-icon {
     --icon: calc(22 * var(--u));
   }
-  .doorway .explore {
+  .doorway-links {
     display: none;
   }
 }
@@ -419,7 +441,8 @@
   .landing-bar .brand strong {
     font-size: 20px;
   }
-  .landing-bar .action {
+  .landing-bar .action,
+  .landing-bar .install {
     padding: 8px 14px;
   }
   .feature,
@@ -480,6 +503,68 @@
   }
   .landing-legal {
     justify-content: flex-start;
+  }
+}
+/* Install: a quiet button beside Home's menu, and the Flatpak command in its dialog. Phones can't run the
+   desktop app, so the bar and Home leave the button out. */
+.home-install {
+  min-height: 44px;
+  margin-right: 4px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 22px;
+  background: transparent;
+}
+.home-install:hover {
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+}
+.install-dialog .version-row {
+  flex-wrap: wrap;
+}
+.install-terminal {
+  display: grid;
+  flex-basis: 100%;
+  gap: 4px;
+  min-width: 0;
+}
+.install-terminal small {
+  font-size: 12px;
+}
+/* One shaded box: the command scrolls, and the copy button sits at its end. */
+.install-command {
+  display: flex;
+  min-width: 0;
+  border-radius: var(--radius);
+  background: var(--code);
+}
+.install-command code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 8px 10px;
+  font: 13px var(--font-document-mono);
+  white-space: nowrap;
+  user-select: all;
+  mask-image: linear-gradient(to left, transparent, #000 20px);
+}
+.install-command button,
+.install-command button:hover {
+  flex: none;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.install-command button:hover {
+  color: var(--ink);
+}
+.install-command button:focus-visible {
+  outline-offset: -2px;
+}
+@media (max-width: 600px) {
+  .landing-bar .install,
+  .home-install {
+    display: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {

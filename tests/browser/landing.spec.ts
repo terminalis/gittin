@@ -9,7 +9,9 @@ test('the doorway has no header and says what Gittin is', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: 'Gittin', exact: true })).toBeVisible();
   await expect(page.locator('.doorway .tagline')).toHaveText("An IDE? A word processor? It's just plain text.");
   await expect(page.locator('.doorway header')).toHaveCount(0);
-  await expect(ring(page)).toHaveAccessibleName('Open Gittin');
+  await expect(ring(page)).toHaveAccessibleName('Use Gittin in your browser');
+  await expect(ring(page).locator('span')).toHaveText(['Use in', 'browser']);
+  await expect(page.locator('.doorway .explore')).toHaveText('Learn more');
   await expect(page.locator('.doorway .explore')).toHaveAttribute('href', '#story');
 });
 
@@ -81,7 +83,7 @@ test('the bar slides in once the doorway has gone', async ({ page }) => {
     await expect(bar(page)).toBeHidden();
   }
   await pastDoorway();
-  await bar(page).getByRole('link', { name: 'Open Gittin' }).click();
+  await bar(page).getByRole('link', { name: 'Use in browser' }).click();
   await expect(page.locator('#home')).toBeVisible();
 });
 
@@ -103,6 +105,7 @@ test('Enter on the focused ring zooms into Home', async ({ page }) => {
 
 test('the closing ring zooms into Home too', async ({ page }) => {
   await page.goto('/');
+  await expect(page.locator('.farewell .ring')).toHaveAccessibleName('Open Gittin');
   await page.locator('.farewell .ring').click();
   await expect(page.locator('.landing-portal')).toBeAttached();
   await expect(page.locator('#home')).toBeVisible();
@@ -190,6 +193,8 @@ test('shared links preview with an image that exists', async ({ page }) => {
   expect(image.origin).toBe('https://gittin.app');
   const response = await page.request.get(image.pathname);
   expect(response.headers()['content-type']).toBe('image/png');
+  for (const selector of ['meta[name="description"]', 'meta[property="og:description"]'])
+    expect(await page.locator(selector).getAttribute('content')).toMatch(/ No account needed\.$/);
 });
 
 test('the story headings, FAQ questions and first answer match the copy, with no collapsible FAQ', async ({ page }) => {
@@ -202,7 +207,11 @@ test('the story headings, FAQ questions and first answer match the copy, with no
     'Do I need an account?', 'Where are unsaved changes kept?', 'Does Preview change my Markdown?', 'Can I work offline?',
   ]);
   await expect(page.locator('.landing-faq dd').first()).toHaveText('No. Gittin has no accounts. Your files stay on your device.');
+  await expect(page.locator('.landing-faq dd').last()).toHaveText('Yes. After Gittin has loaded once on this device, it '
+    + 'starts without a connection and opens files and unsaved changes already in this browser. Or install the '
+    + 'desktop app, which works offline from the start.');
   await expect(page.locator('.landing-faq details')).toHaveCount(0);
+  await expect(page.locator('.farewell p')).toHaveText('No account needed.');
 });
 
 test('the footer links to the policies and the notices', async ({ page }) => {

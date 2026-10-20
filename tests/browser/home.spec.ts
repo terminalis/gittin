@@ -54,7 +54,7 @@ test('a first visit to Home shows one empty note, not empty sections, and says t
     'Start a new file, or open one from your computer.',
   );
   await expect(page.locator('.home-welcome .reassurance')).toHaveText(
-    'No account needed to start.',
+    'No account needed.',
   );
   await expect(page.locator('#folders, #favourites')).toHaveCount(0);
   await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Recently worked on']);

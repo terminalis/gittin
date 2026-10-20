@@ -17,7 +17,7 @@ const snippetLines = [
   'name: <span class="syntax-string">"Gittin"</span>',
   `edits: <span class="syntax-string">"Markdown, notes, code and config files${desktop ? '' : ', in your browser'}"</span>`,
   'saves: <span class="syntax-string">"straight back to the file you opened"</span>',
-  'account: <span class="syntax-keyword">false</span>  <span class="syntax-comment"># no account needed to start</span>',
+  'account: <span class="syntax-keyword">false</span>  <span class="syntax-comment"># no account needed</span>',
   `drafts: <span class="syntax-string">"kept in ${place} until you save"</span>`,
   'offline: <span class="syntax-keyword">true</span>' + (desktop ? '' : '  <span class="syntax-comment"># after its first visit</span>'),
   'history: <span class="syntax-number">20</span>  <span class="syntax-comment"># recent saves of each file</span>',
@@ -46,6 +46,7 @@ export function home(
     switch(id: string): void;
     home(): void;
     remove(id: string): void;
+    install?(): void;
   },
   failed = false
 ) {
@@ -86,7 +87,7 @@ export function home(
       group.append(chip);
     }
     copy.append(group);
-  } else if (!returning) copy.insertAdjacentHTML('beforeend', '<p class="reassurance">No account needed to start.</p>');
+  } else if (!returning) copy.insertAdjacentHTML('beforeend', '<p class="reassurance">No account needed.</p>');
   const favouriteGrid = screen.querySelector('#favourites');
   for (const row of favourites) favouriteGrid!.append(favouriteCard(row, () => actions.switch(row.id)));
   const recent = screen.querySelector('#recent')!;
@@ -150,6 +151,7 @@ export function home(
   };
   applyOptions();
   const trigger = screen.querySelector<HTMLButtonElement>('.home-menu-trigger')!;
+  if (actions.install) trigger.before(button('Install', actions.install, 'home-install'));
   screen.append(homeMenu(trigger, prefs, { refresh: actions.home, applyHomeOptions: applyOptions }));
   return screen;
 }

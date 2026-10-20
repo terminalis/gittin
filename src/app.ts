@@ -37,8 +37,8 @@ let workspace: Workspace | undefined,
   starting = true,
   pending: Route | undefined,
   fileSave: Promise<boolean> | undefined;
-/** The landing page, handed in by the version of Gittin that has one. */
-let landing: (() => HTMLElement) | undefined;
+/** The landing page and the Install dialog, handed in by the version of Gittin that has them. */
+let landing: (() => HTMLElement) | undefined, install: (() => void) | undefined;
 const input = document.createElement('input');
 input.type = 'file';
 // Accept any file: openPath validates UTF-8 and preserves unknown formats.
@@ -186,7 +186,7 @@ async function show(route: Route, checked = false) {
       }
     clear();
     document.title = 'Gittin';
-    root.append(route.screen === 'landing' ? landing!() : home(prefs, rows, actions, failed));
+    root.append(route.screen === 'landing' ? landing!() : home(prefs, rows, { ...actions, install }, failed));
   }
   window.scrollTo(0, 0);
   current = route;
@@ -601,10 +601,10 @@ window.addEventListener('pagehide', (event) => {
   if (!event.persisted) workspace?.controller.dispose();
   void flushAll();
 });
-/** Starts Gittin. Each version hands in what only it has: the website its landing page, the desktop app
- * a way to bring back the file handles it stored. Resolves once the first screen shows. */
-export function start(version: { landing?: () => HTMLElement; revive?: Revive }) {
-  landing = version.landing;
+/** Starts Gittin. Each version hands in what only it has: the website its landing page and Install dialog,
+ * the desktop app a way to bring back the file handles it stored. Resolves once the first screen shows. */
+export function start(version: { landing?: () => HTMLElement; install?: () => void; revive?: Revive }) {
+  ({ landing, install } = version);
   return (async () => {
     root.inert = true;
     await prefs.load();

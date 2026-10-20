@@ -771,11 +771,13 @@ a:has(> .app-icon) {
   padding: 0 var(--gutter);
   background: var(--warm);
 }
+.home-header > .brand {
+  margin-right: auto;
+}
 .home-header > .home-menu-trigger {
   font-size: 21px;
   min-width: 44px;
   min-height: 44px;
-  margin-left: auto;
 }
 .home-header > .home-menu-trigger:hover,
 .home-drawer .home-drawer-close:hover {

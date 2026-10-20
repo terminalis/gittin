@@ -2,9 +2,11 @@
 
 Gittin is a writing app for Markdown, notes, code and config files. It runs in your browser: open a file or a whole folder, format with a toolbar you already know, and save straight back to the file it came from. There are no accounts, and your files stay on your device.
 
-Use it at [gittin.app](https://gittin.app). On Windows, get the desktop app from the [Microsoft Store](https://apps.microsoft.com/detail/9NDJ4HR0FF1H). On Linux, install it with Flatpak:
+- Use it in the browser at [gittin.app](https://gittin.app).
+- On Windows, get the desktop app from the [Microsoft Store](https://apps.microsoft.com/detail/9NDJ4HR0FF1H).
+- On Linux, install it with Flatpak:
 
-    flatpak install --user https://terminalis.github.io/packages/flatpak/gittin.flatpakref
+      flatpak install --user https://terminalis.github.io/packages/flatpak/gittin.flatpakref
 
 ## What it does
 

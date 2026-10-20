@@ -187,6 +187,6 @@ test('Help, searchable shortcuts and navigation cleanup', async ({ page }) => {
   await expect(shortcuts).not.toContainText('Find and replace');
   await page.evaluate(() => { location.hash = '#/'; });
   await expect(shortcuts).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Open Gittin' }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Use Gittin in your browser' })).toBeVisible();
   expect(errors).toEqual([]);
 });
