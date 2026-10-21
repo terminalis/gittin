@@ -8,7 +8,7 @@ describe('MarkdownEditor', () => {
   const onSettled = vi.fn(), onNotice = vi.fn();
 
   beforeEach(() => {
-    editor = new MarkdownEditor({ plugins: [], onSettled, onNotice });
+    editor = new MarkdownEditor({ plugins: [], onSettled, onNotice, selectedSource: () => '' });
     document.body.append(editor.el);
   });
 

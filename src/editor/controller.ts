@@ -115,6 +115,10 @@ export class GittinController {
         if (transactions.some(tr => tr.docChanged || tr.selectionSet)) this.caretChanged();
       },
       onNotice: message => this.notices.emit(message),
+      selectedSource: () => {
+        const { from, to } = bounds(this.getSourceSelection());
+        return this.session.current.source.slice(from, to);
+      },
     });
     this.setPreferences(this.preferences);
     this.mounted = true;

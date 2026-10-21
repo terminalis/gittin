@@ -190,3 +190,18 @@ test('Preview rendered links retain native Enter activation without changing sou
   await expect(editor(page)).toHaveText('# Navigation[Local link](#preview-target)');
   expect(await source(page)).toBe(original);
 });
+
+test('text dragged out of Edit carries the exact text, line endings included, like Copy', async ({ page }) => {
+  await mountEditor(page, 'one\r\ntwo\r\nthree\r\n');
+  await select(page, 0, 8);
+  const dragged = await page.evaluate(() => {
+    const line = document.querySelector('.md-mode .ProseMirror')!.firstElementChild!;
+    const box = line.getBoundingClientRect(), data = new DataTransfer();
+    line.dispatchEvent(new DragEvent('dragstart', {
+      dataTransfer: data, bubbles: true, cancelable: true, clientX: box.left + 5, clientY: box.top + box.height / 2,
+    }));
+    line.dispatchEvent(new DragEvent('dragend', { dataTransfer: data, bubbles: true }));
+    return data.getData('text/plain');
+  });
+  expect(dragged).toBe('one\r\ntwo');
+});
