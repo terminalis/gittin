@@ -379,6 +379,9 @@ export function continuation(source: string, selection: SourceSelection): Source
   const line = lines.lines[lines.first], item = listMarker.exec(line.text), nl = newlineStyle(source);
   if (c.from !== c.to || !item || c.from < line.start + item[0].length || literalLines(c, lines))
     return null;
+  // A divider such as `* * *` or `- - -` starts like a list item but isn't one.
+  if (markdownNodes(source).some(node => node.type === 'thematicBreak' && node.sourcepos![0][0] === lines.first + 1))
+    return null;
   if (!line.text.slice(item[0].length).trim()) {
     const caret = line.start + nl.length;
     return c.replace(line.start, lines.end, nl, caret, caret);

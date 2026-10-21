@@ -298,6 +298,11 @@ describe('Enter on a list item', () => {
   it('continues a list after a leading --- that no closing line makes front matter', () => {
     expect(enter('---\n\n- a|')).toBe('---\n\n- a\n- |');
   });
+  it('returns null on a divider written with list markers', () => {
+    for (const rule of ['* * *', '- - -', '-  -  -', '* * * *'])
+      expect(enter(rule + '|'), rule).toBeNull();
+    expect(enter('- a\n- - -|')).toBeNull();
+  });
 });
 
 describe('ordered-list renumbering after line commands', () => {
