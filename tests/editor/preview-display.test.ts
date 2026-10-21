@@ -124,3 +124,10 @@ it('keeps a paragraph\'s leading non-breaking or full-width space, as GitHub doe
     expect(host.querySelector('p')?.textContent).toBe(space + 'hello');
   }
 });
+it('hides a processing instruction on one line or across lines, as GitHub does', () => {
+  for (const source of ['a <?x y?> b', 'a <?x\ny?> b']) {
+    const host = document.createElement('div');
+    renderPreview(source, host, defaultDisplay);
+    expect(host.querySelector('p')?.textContent, source).toBe('a  b');
+  }
+});

@@ -361,7 +361,9 @@ export class Workspace {
       const doc = this.document;
       const fileType = /\.[^.]+$/.test(title) ? fileTypeForName(title) : doc.fileType;
       this.controller.setFileType(fileType);
-      return await doc.autosave.updateMetadata({ title, fileType }) ? null
+      const saved = await doc.autosave.updateMetadata({ title, fileType });
+      this.updateOutline();
+      return saved ? null
         : 'Rename is kept in this session, but recovery storage could not be updated. '
           + 'Use the device status actions.';
     });

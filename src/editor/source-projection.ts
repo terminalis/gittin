@@ -113,9 +113,16 @@ export function textEdit(before: string, after: string): SourceEdit | null {
 }
 export function replaceDisplay(
   source: string, from: number, to: number, insert: string, verbatim = false) {
-  const p = createProjection(source);
-  const text = verbatim ? insert : insert.replace(/\r\n|\r|\n/g, newlineStyle(source));
-  return splice(source, p.toRaw(from), p.toRaw(to), text);
+  const p = createProjection(source), style = newlineStyle(source);
+  const text = verbatim ? insert : insert.replace(/\r\n|\r|\n/g, style);
+  const start = p.toRaw(from);
+  let result = splice(source, start, p.toRaw(to), text);
+  // A lone \r that the edit puts before a \n would read as one line break with it, so it is
+  // rewritten in the file's main style (or, in a file of \r endings, the \n is).
+  for (const at of new Set([start + text.length, start]))
+    if (result[at - 1] === '\r' && result[at] === '\n')
+      result = style === '\r' ? splice(result, at, at + 1, '\r') : splice(result, at - 1, at, style);
+  return result;
 }
 export function markdownOffset(doc: PMNode, position: number) {
   let native = 0,

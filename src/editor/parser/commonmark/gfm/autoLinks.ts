@@ -1,9 +1,10 @@
-import { Sourcepos, createNode, text } from '../node';
+import { Node, Sourcepos, createNode, text } from '../node';
 import NodeWalker from '../nodeWalker';
 
 const DOMAIN = '(?:[\\w-]+\\.)*[A-Za-z0-9-]+\\.[A-Za-z0-9-]+';
 const PATH = '[^<\\s]*[^<?!.,:*_?~\\s]';
-const EMAIL = '[\\w.+-]+@(?:[\\w-]+\\.)+[\\w-]+';
+// Starts only at a word's start, so a long word isn't scanned again from each of its letters.
+const EMAIL = '(?<![\\w.+-])[\\w.+-]+@(?:[\\w-]+\\.)+[\\w-]+';
 
 function trimUnmatchedTrailingParens(source: string) {
   const trailingParen = /\)+$/.exec(source);
@@ -76,17 +77,26 @@ export function parseUrlLink(source: string) {
   return result;
 }
 
+/** The addresses in a text, in order; where two overlap, such as an e-mail address inside a web
+ * address, the first one stays. */
 function autolinkParser(source: string) {
-  return [...parseUrlLink(source), ...parseEmailLink(source)].sort(
-    (a, b) => a.range[0] - b.range[0]
-  );
+  let end = -1;
+  return [...parseUrlLink(source), ...parseEmailLink(source)]
+    .sort((a, b) => a.range[0] - b.range[0])
+    .filter(({ range }) => range[0] > end && ((end = range[1]), true));
+}
+
+function insideLink(node: Node) {
+  for (let parent = node.parent; parent; parent = parent.parent)
+    if (parent.type === 'link') return true;
+  return false;
 }
 
 export function convertExtAutoLinks(walker: NodeWalker) {
   let event;
   while ((event = walker.next())) {
     const { entering, node } = event;
-    if (entering && node.type === 'text' && node.parent!.type !== 'link') {
+    if (entering && node.type === 'text' && !insideLink(node)) {
       const literal = node.literal!;
       const linkInfos = autolinkParser(literal);
 
@@ -96,9 +106,17 @@ export function convertExtAutoLinks(walker: NodeWalker) {
 
       let lastIdx = 0;
       const [lineNum, chPos] = node.sourcepos![0];
+      // The source column of a literal index: merged text maps it through its pieces, since an
+      // entity or escape is longer in the source than in the literal.
+      const column = (index: number, isEnd: boolean) => {
+        const piece = node.pieces?.filter(({ at }) => at <= index).pop();
+        if (!piece) return chPos + index;
+        if (!piece.plain) return isEnd ? piece.end : piece.start;
+        return piece.start + index - piece.at;
+      };
       const sourcepos = (startIdx: number, endIdx: number): Sourcepos => [
-        [lineNum, chPos + startIdx],
-        [lineNum, chPos + endIdx],
+        [lineNum, column(startIdx, false)],
+        [lineNum, column(endIdx, true)],
       ];
       const newNodes = [];
       for (const { range, url, text: linkText } of linkInfos) {

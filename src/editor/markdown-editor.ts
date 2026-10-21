@@ -28,6 +28,8 @@ export interface MarkdownEditorOptions {
   /** After each dispatch: the state before it and the transactions it applied. */
   onSettled(before: EditorState, transactions: readonly Transaction[]): void;
   onNotice(message: string): void;
+  /** The file's exact text under the selection, which text dragged out of Edit carries. */
+  selectedSource(): string;
 }
 
 /** Edit's source view: one ProseMirror editor whose paragraphs are the lines of the source. */
@@ -35,7 +37,7 @@ export default class MarkdownEditor {
   readonly el = document.createElement('div');
   readonly view: EditorView;
 
-  constructor({ plugins, onSettled, onNotice }: MarkdownEditorOptions) {
+  constructor({ plugins, onSettled, onNotice, selectedSource }: MarkdownEditorOptions) {
     this.el.className = 'gittin-editor md-mode';
     const imageNotice = () => onNotice('Paste an image URL to insert an image.');
     this.view = new EditorView(this.el, {
@@ -47,6 +49,7 @@ export default class MarkdownEditor {
         this.view.updateState(state);
         onSettled(before, transactions);
       },
+      clipboardTextSerializer: () => selectedSource(),
       handleDOMEvents: {
         // Plain text only, as lines; the source takes the text with its own line endings.
         paste: (view, event) => {

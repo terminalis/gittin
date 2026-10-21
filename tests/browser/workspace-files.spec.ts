@@ -295,3 +295,14 @@ test('a file that is not UTF-8 is refused by name and stores no draft', async ({
   );
   expect(await savedSources(page)).toEqual([]);
 });
+
+test('a rename that changes the file type updates the outline at once', async ({ page }) => {
+  await openText(page, '# One\n\ntext\n\n## Two\n', 'notes.md');
+  const outline = page.locator('#outline');
+  await expect(outline.getByRole('button')).toHaveText(['One', 'Two']);
+  await page.locator('#document-title').click();
+  const dialog = page.getByRole('dialog', { name: 'Rename file' });
+  await dialog.getByLabel('File name').fill('notes.txt');
+  await dialog.getByRole('button', { name: 'Rename', exact: true }).click();
+  await expect(outline).toHaveText('Outline is available for Markdown files.');
+});

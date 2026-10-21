@@ -115,6 +115,10 @@ export class GittinController {
         if (transactions.some(tr => tr.docChanged || tr.selectionSet)) this.caretChanged();
       },
       onNotice: message => this.notices.emit(message),
+      selectedSource: () => {
+        const { from, to } = bounds(this.getSourceSelection());
+        return this.session.current.source.slice(from, to);
+      },
     });
     this.setPreferences(this.preferences);
     this.mounted = true;
@@ -605,7 +609,14 @@ export class GittinController {
     this.fileType = type;
     this.setPreferences(this.preferences);
     if(this.mounted)this.container.dataset.sourceLanguage=type;
-    if (this.mounted) { if (!this.composing) this.project(this.getSelection()); this.caretChanged(); }
+    if (this.mounted) {
+      if (!this.composing) {
+        this.project(this.getSelection());
+        // Preview or Diff now shows a different display, so offsets taken from the old one are stale.
+        if (this.mode !== 'markdown') this.displayChanged();
+      }
+      this.caretChanged();
+    }
   }
   getFileType() { return this.fileType; }
   getSourceSelection(): SourceSelection {

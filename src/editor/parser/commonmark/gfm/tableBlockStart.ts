@@ -96,10 +96,9 @@ export const tableHead: BlockStart = (parser, container) => {
     const reValidDelimCell = /^[ \t]*:?-+:?[ \t]*$/;
 
     if (
-      // not checking if the number of header cells and delimiter cells are the same
-      // to consider the case of merged-column (via plugin)
+      // As on GitHub, the header and divider rows must have the same number of cells.
       !headerCells.length ||
-      !delimCells.length ||
+      headerCells.length !== delimCells.length ||
       delimCells.some((cell) => !reValidDelimCell.test(cell)) ||
       // to prevent to regard setTextHeading as tabel delim cell with 'disallowDeepHeading' option
       (delimCells.length === 1 && delimContent.indexOf('|') !== 0)
@@ -175,17 +174,16 @@ export const tableHead: BlockStart = (parser, container) => {
   return Matched.None;
 };
 
+// As on GitHub, any line that starts no other block continues the table as a row, pipes or not.
 export const tableBody: BlockStart = (parser, container) => {
-  if (
-    (container.type !== 'table' && container.type !== 'tableBody') ||
-    (!parser.blank && parser.currentLine.indexOf('|') === -1)
-  ) {
+  if (container.type !== 'table' && container.type !== 'tableBody') {
     return Matched.None;
   }
 
-  parser.advanceOffset(parser.currentLine.length - parser.offset, false);
-
-  if (parser.blank) {
+  const content = parser.currentLine.slice(parser.nextNonspace);
+  const [offset, cellContents] = parseRowContent(content);
+  // A blank line ends the table, and so does a line of only pipes: it has no cells, so it shows as text.
+  if (parser.blank || !cellContents.length) {
     let table = container;
     if (container.type === 'tableBody') {
       table = container.parent as TableNode;
@@ -194,6 +192,8 @@ export const tableBody: BlockStart = (parser, container) => {
     parser.finalize(table, parser.lineNumber - 1);
     return Matched.None;
   }
+
+  parser.advanceOffset(parser.currentLine.length - parser.offset, false);
 
   let tableBody = container;
   if (container.type === 'table') {
@@ -207,8 +207,6 @@ export const tableBody: BlockStart = (parser, container) => {
   tableBody.appendChild(tableRow);
 
   const table = tableBody.parent as TableNode;
-  const content = parser.currentLine.slice(parser.nextNonspace);
-  const [offset, cellContents] = parseRowContent(content);
 
   generateTableCells(
     'tableCell',

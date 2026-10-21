@@ -1,12 +1,12 @@
 import { encode } from 'mdurl';
-import { decodeHTML } from 'entities';
+import { decodeHTMLStrict } from 'entities';
 
 export const ENTITY = '&(?:#x[a-f0-9]{1,6}|#[0-9]{1,7}|[a-z][a-z0-9]{1,31});';
 const reBackslashOrAmp = /[\\&]/;
 export const ESCAPABLE = '[!"#$%&\'()*+,./:;<=>?@[\\\\\\]^_`{|}~-]';
 const reEntityOrEscapedChar = new RegExp(`\\\\${ESCAPABLE}|${ENTITY}`, 'gi');
 
-const unescapeChar = (s: string) => (s[0] === '\\' ? s[1] : decodeHTML(s));
+const unescapeChar = (s: string) => (s[0] === '\\' ? s[1] : decodeHTMLStrict(s));
 
 // Replace entities and backslash escapes with literal characters.
 export function unescapeString(s: string) {

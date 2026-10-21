@@ -14,7 +14,7 @@ const pos = (a: number, b: number, c: number, d: number) => [
 
 describe('table', () => {
   it('basic', () => {
-    const root = reader.parse('  a |  b\n --| ---\n|  c |  |\n e');
+    const root = reader.parse('  a |  b\n --| ---\n|  c |  |\n\n e');
     const result = convertToArrayTree(root, [
       'type',
       'sourcepos',
@@ -24,7 +24,7 @@ describe('table', () => {
 
     expect(result).toEqual({
       type: 'document',
-      sourcepos: pos(1, 1, 4, 2),
+      sourcepos: pos(1, 1, 5, 2),
       children: [
         {
           type: 'table',
@@ -111,11 +111,11 @@ describe('table', () => {
         },
         {
           type: 'paragraph',
-          sourcepos: pos(4, 2, 4, 2),
+          sourcepos: pos(5, 2, 5, 2),
           children: [
             {
               type: 'text',
-              sourcepos: pos(4, 2, 4, 2),
+              sourcepos: pos(5, 2, 5, 2),
               literal: 'e',
             },
           ],
@@ -215,16 +215,15 @@ describe('GFM Exmaple', () => {
       input: ['| abc | def |', '| --- | --- |', '| bar | baz |', 'bar', '', 'bar'].join('\n'),
       output: [
         '<table>', '<thead>', '<tr>', '<th>abc</th>', '<th>def</th>', '</tr>', '</thead>',
-        '<tbody>', '<tr>', '<td>bar</td>', '<td>baz</td>', '</tr>', '</tbody>', '</table>',
-        '<p>bar</p>', '<p>bar</p>',
+        '<tbody>', '<tr>', '<td>bar</td>', '<td>baz</td>', '</tr>', '<tr>', '<td>bar</td>', '<td></td>',
+        '</tr>', '</tbody>', '</table>', '<p>bar</p>',
       ].join('\n'),
     },
-    // TODO: need to find a way to parse merged-column and re-activate this test case
-    // {
-    //   no: 203,
-    //   input: ['| abc | def |', '| --- |', '| bar |'].join('\n'),
-    //   output: ['<p>| abc | def |', '| --- |', '| bar |</p>'].join('\n'),
-    // },
+    {
+      no: 203,
+      input: ['| abc | def |', '| --- |', '| bar |'].join('\n'),
+      output: ['<p>| abc | def |', '| --- |', '| bar |</p>'].join('\n'),
+    },
     {
       no: 204,
       input: ['| abc | def |', '| --- | --- |', '| bar |', '| bar | baz | boo |'].join('\n'),
@@ -251,4 +250,17 @@ describe('GFM Exmaple', () => {
       expect(html).toBe(`${output}\n`);
     });
   });
+});
+
+describe('rows as GitHub reads them', () => {
+  const render = (markdown: string) => renderer.render(reader.parse(markdown));
+  it('makes no table when the header and divider rows differ in cells', () => {
+    expect(render('| a |\n| - | - |')).toBe('<p>| a |\n| - | - |</p>\n');
+  });
+});
+
+it('ends a table at a line of only a pipe, which shows as text, as GitHub does', () => {
+  expect(renderer.render(reader.parse('| a | b |\n| - | - |\n| '))).toBe(
+    ['<table>', '<thead>', '<tr>', '<th>a</th>', '<th>b</th>', '</tr>', '</thead>', '</table>', '<p>|</p>', ''].join('\n'),
+  );
 });

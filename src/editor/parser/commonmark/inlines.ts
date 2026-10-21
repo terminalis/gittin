@@ -5,7 +5,7 @@ import {
 import { normalizeURI, unescapeString, normalizeReference, ESCAPABLE, ENTITY } from './common';
 import { reHtmlTag } from './rawHtml';
 const fromCodePoint = String.fromCodePoint;
-import { decodeHTML } from 'entities';
+import { decodeHTMLStrict } from 'entities';
 import NodeWalker from './nodeWalker';
 import { convertExtAutoLinks } from './gfm/autoLinks';
 import { C_LESSTHAN, C_OPEN_BRACKET } from './blockHelper';
@@ -533,6 +533,10 @@ export class InlineParser {
         } else if (c === C_OPEN_PAREN) {
           this.pos += 1;
           openparens += 1;
+          // cmark's limit, which keeps unbalanced brackets from making every parse slow
+          if (openparens > 32) {
+            return null;
+          }
         } else if (c === C_CLOSE_PAREN) {
           if (openparens < 1) {
             break;
@@ -751,7 +755,7 @@ export class InlineParser {
     let m;
     const startpos = this.pos + 1;
     if ((m = this.match(reEntityHere))) {
-      block.appendChild(text(decodeHTML(m), this.sourcepos(startpos, this.pos)));
+      block.appendChild(text(decodeHTMLStrict(m), this.sourcepos(startpos, this.pos)));
       return true;
     }
     return false;
@@ -898,6 +902,14 @@ export class InlineParser {
       } else if (textNodes.length > 1) {
         const firstNode = textNodes[0];
         const lastNode = textNodes[textNodes.length - 1];
+        if (textNodes.every(({ sourcepos }) => sourcepos)) {
+          let at = 0;
+          firstNode.pieces = textNodes.map(({ literal, sourcepos }) => {
+            const [[, start], [, end]] = sourcepos!, piece = { at, start, end, plain: literal!.length === end - start + 1 };
+            at += literal!.length;
+            return piece;
+          });
+        }
         if (firstNode.sourcepos && lastNode.sourcepos) {
           firstNode.sourcepos![1] = lastNode.sourcepos![1];
         }
