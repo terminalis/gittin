@@ -232,6 +232,21 @@ describe('heading and list commands on lines with inline syntax', () => {
   it('apply after a leading --- that no closing line makes front matter', () => {
     expect(apply('---\n\n- a', range(8), 'taskList', 'markdown')?.source).toBe('---\n\n- [ ] a');
   });
+  it('keep quote and list markers and change only the # marker, which a tab may follow', () => {
+    expect(apply('> # Title', range(9), 'heading', 'markdown', 2)?.source).toBe('> ## Title');
+    expect(apply('> # Title', range(9), 'heading', 'markdown', 0)?.source).toBe('> Title');
+    expect(apply('- # Title', range(9), 'heading', 'markdown', 2)?.source).toBe('- ## Title');
+    expect(apply('> quoted', range(8), 'heading', 'markdown', 2)?.source).toBe('> ## quoted');
+    expect(apply('- [ ] item', range(10), 'heading', 'markdown', 2)?.source).toBe('- [ ] ## item');
+    expect(apply('#\tTitle', range(7), 'heading', 'markdown', 2)?.source).toBe('## Title');
+    expect(apply('#\tTitle', range(7), 'heading', 'markdown', 0)?.source).toBe('Title');
+  });
+  it('turn an underlined heading into a # heading, or into a paragraph', () => {
+    expect(apply('Title\n=====\nnext', range(5), 'heading', 'markdown', 2)).toEqual({ source: '## Title\nnext', selection: range(8) });
+    expect(apply('Title\r\n-----', range(5), 'heading', 'markdown', 0)?.source).toBe('Title');
+    expect(apply('Title\n=====', range(8), 'heading', 'markdown', 1)).toEqual({ source: '# Title', selection: range(7) });
+    expect(apply('> Title\n> ---', range(7), 'heading', 'markdown', 3)?.source).toBe('> ### Title');
+  });
 });
 
 describe('blockquote', () => {
