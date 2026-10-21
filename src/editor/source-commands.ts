@@ -133,11 +133,28 @@ function selectedLines({ source, from, to }: CommandContext) {
   return { lines, first, last, start: lines[first].start, end };
 }
 type Lines = ReturnType<typeof selectedLines>;
-/** Rewrites each selected line, keeping its newline, and selects the changed lines. */
+/** Rewrites each selected line, keeping its newline; the caret or selection stays on the same text. */
 function changeLines(c: CommandContext, { lines, first, last, start, end }: Lines,
   change: (line: Lines['lines'][number], index: number) => string) {
-  const text = lines.slice(first, last + 1).map((line, i) => change(line, i) + (i < last - first ? line.eol : ''));
-  return c.replace(start, end, text.join(''));
+  const edits: { from: number; to: number; size: number }[] = [];
+  const text = lines.slice(first, last + 1).map((line, i) => {
+    const old = line.text, next = change(line, i);
+    let p = 0, s = 0;
+    while (p < old.length && p < next.length && old[p] === next[p]) p++;
+    while (s < old.length - p && s < next.length - p && old.at(-1 - s) === next.at(-1 - s)) s++;
+    edits.push({ from: line.start + p, to: line.start + old.length - s, size: next.length - s - p });
+    return next + (i < last - first ? line.eol : '');
+  });
+  const map = (at: number) => {
+    let shift = 0;
+    for (const { from, to, size } of edits) {
+      if (at < from) break;
+      if (at < to) return from + shift + size;
+      shift += size - (to - from);
+    }
+    return at + shift;
+  };
+  return c.replace(start, end, text.join(''), map(c.from), map(c.to));
 }
 const wraps: Record<string, [string, string]> = {
   bold: ['**', '**'], italic: ['*', '*'], strike: ['~~', '~~'], code: ['`', '`'],

@@ -235,9 +235,9 @@ describe('heading and list commands on lines with inline syntax', () => {
 });
 
 describe('blockquote', () => {
-  it('adds and removes one level, keeping indentation, hard breaks and CRLF, and selects the lines', () => {
+  it('adds and removes one level, keeping indentation, hard breaks and CRLF', () => {
     const quoted = apply('one  \r\n  two', range(1, 9), 'blockQuote', 'markdown')!;
-    expect(quoted).toEqual({ source: '> one  \r\n  > two', selection: range(0, 16) });
+    expect(quoted).toEqual({ source: '> one  \r\n  > two', selection: range(3, 13) });
     expect(apply(quoted.source, quoted.selection, 'blockQuote', 'markdown')?.source).toBe('one  \r\n  two');
     expect(apply('>> a', range(0), 'blockQuote', 'markdown')?.source).toBe('> a');
   });
@@ -246,6 +246,23 @@ describe('blockquote', () => {
     expect(apply('', range(0), 'blockQuote', 'markdown')?.source).toBe('> ');
     expect(apply('```\ncode\n```', range(5), 'blockQuote', 'markdown')).toBeNull();
     expect(apply('a', range(0), 'blockQuote', 'javascript')).toBeNull();
+  });
+});
+
+describe('selection after line commands', () => {
+  it('keeps a caret next to the same character', () => {
+    expect(apply('- a\n- b', range(7), 'indent', 'markdown')).toEqual({ source: '- a\n  - b', selection: range(9) });
+    expect(apply('- a\n    - b', range(4), 'outdent', 'markdown')).toEqual({ source: '- a\n  - b', selection: range(4) });
+    expect(apply('- a\n    - b', range(11), 'outdent', 'markdown')).toEqual({ source: '- a\n  - b', selection: range(9) });
+    expect(apply('hello', range(5), 'heading', 'markdown', 2)).toEqual({ source: '## hello', selection: range(8) });
+    expect(apply('hello', range(0), 'blockQuote', 'markdown')).toEqual({ source: '> hello', selection: range(2) });
+    expect(apply('- item', range(6), 'orderedList', 'markdown')).toEqual({ source: '1. item', selection: range(7) });
+    expect(apply('if (a) {\n\n}', range(9), 'indent', 'javascript')).toEqual({ source: 'if (a) {\n  \n}', selection: range(11) });
+  });
+  it('keeps a selection on the same text, in its direction', () => {
+    expect(apply('one two', range(4, 7), 'heading', 'markdown', 2)).toEqual({ source: '## one two', selection: range(7, 10) });
+    expect(apply('one two', range(7, 4), 'heading', 'markdown', 2)).toEqual({ source: '## one two', selection: range(10, 7) });
+    expect(apply('a\nb', range(0, 3), 'indent', 'markdown')).toEqual({ source: '  a\n  b', selection: range(2, 7) });
   });
 });
 
