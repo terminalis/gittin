@@ -355,3 +355,20 @@ describe('GFM Examples', () => {
     });
   });
 });
+
+describe('as GitHub links them', () => {
+  const reader = new Parser({ extendedAutolinks: true });
+  const renderer = new Renderer();
+  const render = (markdown: string) => renderer.render(reader.parse(markdown));
+  it('links an e-mail address inside a web address once, as part of it', () => {
+    const url = 'https://example.com/contact?to=me@example.com';
+    expect(render(url)).toBe(`<p><a href="${url}">${url}</a></p>\n`);
+  });
+  it('links no address inside an existing link, however deep', () => {
+    expect(render('[*www.example.com*](/x)')).toBe('<p><a href="/x"><em>www.example.com</em></a></p>\n');
+  });
+  it('places an address after an entity at its source columns', () => {
+    const link = reader.parse('&amp; www.example.com').firstChild!.lastChild as LinkNode;
+    expect(link).toMatchObject({ type: 'link', sourcepos: pos(1, 7, 1, 21) });
+  });
+});

@@ -898,6 +898,14 @@ export class InlineParser {
       } else if (textNodes.length > 1) {
         const firstNode = textNodes[0];
         const lastNode = textNodes[textNodes.length - 1];
+        if (textNodes.every(({ sourcepos }) => sourcepos)) {
+          let at = 0;
+          firstNode.pieces = textNodes.map(({ literal, sourcepos }) => {
+            const [[, start], [, end]] = sourcepos!, piece = { at, start, end, plain: literal!.length === end - start + 1 };
+            at += literal!.length;
+            return piece;
+          });
+        }
         if (firstNode.sourcepos && lastNode.sourcepos) {
           firstNode.sourcepos![1] = lastNode.sourcepos![1];
         }

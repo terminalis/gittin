@@ -90,6 +90,10 @@ export class Node {
   // only for leaf node
   literal: string | null = null;
 
+  // only for text merged from several pieces: where each piece starts in the literal and in the
+  // source line, and whether its literal is its source (not an entity or escape)
+  pieces: { at: number; start: number; end: number; plain: boolean }[] | null = null;
+
   constructor(nodeType: MdNodeType, sourcepos?: Sourcepos) {
     this.type = nodeType;
     this.sourcepos = sourcepos;
