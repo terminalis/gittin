@@ -174,11 +174,9 @@ export const tableHead: BlockStart = (parser, container) => {
   return Matched.None;
 };
 
+// As on GitHub, any line that starts no other block continues the table as a row, pipes or not.
 export const tableBody: BlockStart = (parser, container) => {
-  if (
-    (container.type !== 'table' && container.type !== 'tableBody') ||
-    (!parser.blank && parser.currentLine.indexOf('|') === -1)
-  ) {
+  if (container.type !== 'table' && container.type !== 'tableBody') {
     return Matched.None;
   }
 

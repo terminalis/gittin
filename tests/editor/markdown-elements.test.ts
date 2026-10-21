@@ -25,12 +25,12 @@ describe('canonical element insertion', () => {
     });
 });
 describe('source table contexts', () => {
-    const s = 'before\r\n| A\\|B | `x\\|y` | C |\r\n| --- | :---: | ---: |\n| a | b | c |\r\nafter';
+    const s = 'before\r\n| A\\|B | `x\\|y` | C |\r\n| --- | :---: | ---: |\n| a | b | c |\r\n\r\nafter';
     it('recognizes escaped and code pipes, transforms only the table and preserves separators', () => {
         const context = tableContext(s, at(s.indexOf(' b ') + 1));
         expect(context?.column).toBe(1);
         const r = transformTable(s, at(s.indexOf(' b ') + 1), 'removeColumn');
-        expect(r?.source).toBe('before\r\n| A\\|B | C |\r\n| --- | ---: |\n| a | c |\r\nafter');
+        expect(r?.source).toBe('before\r\n| A\\|B | C |\r\n| --- | ---: |\n| a | c |\r\n\r\nafter');
     });
     it('gates literal tables and validates minimum dimensions', () => {
         expect(tableContext('```\n| A |\n| --- |\n```', at(8))).toBeNull();
@@ -96,14 +96,14 @@ it('rejects image formatting in comments, raw/literal regions and unsafe destina
         expect(imageContext(source, at(source.indexOf('img') >= 0 ? source.indexOf('img') + 2 : 3))).toBeNull();
 });
 it('supports the complete contextual row/column/alignment catalogue in a single bounded table span',()=>{
- const source='lead\r\n| A | B |\r\n| --- | --- |\n| a | b |\r\n| c | d |\nend',selection=at(source.indexOf(' b ')+1);
+ const source='lead\r\n| A | B |\r\n| --- | --- |\n| a | b |\r\n| c | d |\n\nend',selection=at(source.indexOf(' b ')+1);
  expect(transformTable(source,selection,'addRowToUp')?.source).toContain('| --- | --- |\n|  |  |\r\n| a | b |');
  expect(transformTable(source,selection,'addRowToDown')?.source).toContain('| a | b |\r\n|  |  |\r\n| c | d |');
- expect(transformTable(source,selection,'removeRow')?.source).toBe('lead\r\n| A | B |\r\n| --- | --- |\n| c | d |\nend');
+ expect(transformTable(source,selection,'removeRow')?.source).toBe('lead\r\n| A | B |\r\n| --- | --- |\n| c | d |\n\nend');
  expect(transformTable(source,selection,'addColumnToLeft')?.source).toContain('| A |  | B |');
  expect(transformTable(source,selection,'addColumnToRight')?.source).toContain('| A | B |  |');
  expect(transformTable(source,selection,'alignColumn','right')?.source).toContain('| --- | ---: |');
- expect(transformTable(source,selection,'removeTable')?.source).toBe('lead\r\n\nend');
+ expect(transformTable(source,selection,'removeTable')?.source).toBe('lead\r\n\n\nend');
 });
 describe('Task4 review regressions',()=>{
  it('rejects indented/fenced literal pipe tables without deleting code',()=>{

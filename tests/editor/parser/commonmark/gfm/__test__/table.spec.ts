@@ -14,7 +14,7 @@ const pos = (a: number, b: number, c: number, d: number) => [
 
 describe('table', () => {
   it('basic', () => {
-    const root = reader.parse('  a |  b\n --| ---\n|  c |  |\n e');
+    const root = reader.parse('  a |  b\n --| ---\n|  c |  |\n\n e');
     const result = convertToArrayTree(root, [
       'type',
       'sourcepos',
@@ -24,7 +24,7 @@ describe('table', () => {
 
     expect(result).toEqual({
       type: 'document',
-      sourcepos: pos(1, 1, 4, 2),
+      sourcepos: pos(1, 1, 5, 2),
       children: [
         {
           type: 'table',
@@ -111,11 +111,11 @@ describe('table', () => {
         },
         {
           type: 'paragraph',
-          sourcepos: pos(4, 2, 4, 2),
+          sourcepos: pos(5, 2, 5, 2),
           children: [
             {
               type: 'text',
-              sourcepos: pos(4, 2, 4, 2),
+              sourcepos: pos(5, 2, 5, 2),
               literal: 'e',
             },
           ],
@@ -215,8 +215,8 @@ describe('GFM Exmaple', () => {
       input: ['| abc | def |', '| --- | --- |', '| bar | baz |', 'bar', '', 'bar'].join('\n'),
       output: [
         '<table>', '<thead>', '<tr>', '<th>abc</th>', '<th>def</th>', '</tr>', '</thead>',
-        '<tbody>', '<tr>', '<td>bar</td>', '<td>baz</td>', '</tr>', '</tbody>', '</table>',
-        '<p>bar</p>', '<p>bar</p>',
+        '<tbody>', '<tr>', '<td>bar</td>', '<td>baz</td>', '</tr>', '<tr>', '<td>bar</td>', '<td></td>',
+        '</tr>', '</tbody>', '</table>', '<p>bar</p>',
       ].join('\n'),
     },
     {
