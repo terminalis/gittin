@@ -117,3 +117,10 @@ it('keeps a block that mixes an embed with other HTML or text as source', () => 
     expect(warnings.join(' ')).toMatch(/Unsupported HTML/);
   }
 });
+it('keeps a paragraph\'s leading non-breaking or full-width space, as GitHub does', () => {
+  for (const space of ['\u00a0', '\u3000']) {
+    const host = document.createElement('div');
+    renderPreview(space + 'hello', host, defaultDisplay);
+    expect(host.querySelector('p')?.textContent).toBe(space + 'hello');
+  }
+});

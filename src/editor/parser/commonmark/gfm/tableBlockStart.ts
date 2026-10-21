@@ -56,7 +56,8 @@ function generateTableCells(
       [lineNum, chPos + content.length - 1],
     ]) as TableCellNode;
 
-    tableCell.stringContent = trimmed.replace(/\\\|/g, '|'); // replace esacped pipe(\|)
+    // Escaped pipes stay, so positions match the source: the inline parser unescapes them.
+    tableCell.stringContent = trimmed;
     tableCell.startIdx = cells.length;
     tableCell.endIdx = cells.length;
     tableCell.lineOffsets = [chPosStart - 1];

@@ -1,6 +1,6 @@
 import type { RefMap, ParserOptions } from './blocks';
 import {
-  InlineNodeType, Sourcepos, Node, BlockNode, isHeading, LinkNode, createNode, text,
+  InlineNodeType, Sourcepos, Node, BlockNode, LinkNode, createNode, text,
 } from './node';
 import { normalizeURI, unescapeString, normalizeReference, ESCAPABLE, ENTITY } from './common';
 import { reHtmlTag } from './rawHtml';
@@ -8,7 +8,7 @@ const fromCodePoint = String.fromCodePoint;
 import { decodeHTML } from 'entities';
 import NodeWalker from './nodeWalker';
 import { convertExtAutoLinks } from './gfm/autoLinks';
-import { C_LESSTHAN, C_OPEN_BRACKET, reLineEnding } from './blockHelper';
+import { C_LESSTHAN, C_OPEN_BRACKET } from './blockHelper';
 
 export const C_NEWLINE = 10;
 const C_ASTERISK = 42;
@@ -116,6 +116,16 @@ export class InlineParser {
     this.linePosOffset = -this.pos;
   }
 
+  // Count the line breaks consumed since `from`, so later positions land on the right line.
+  passLines(from: number) {
+    const last = this.subject.lastIndexOf('\n', this.pos - 1);
+    if (last < from) {
+      return;
+    }
+    this.lineIdx += this.subject.slice(from, this.pos).split('\n').length - 1;
+    this.linePosOffset = -(last + 1);
+  }
+
   // If re matches at current position in the subject, advance
   // position in subject and return the match; otherwise return null.
   match(re: RegExp) {
@@ -158,17 +168,14 @@ export class InlineParser {
     let matched: string | null;
     while ((matched = this.match(reTicks)) !== null) {
       if (matched === ticks) {
-        let contents = this.subject.slice(afterOpenTicks, this.pos - ticks.length);
-        const sourcepos = this.sourcepos(startpos, this.pos);
-        const lines = contents.split('\n');
-        if (lines.length > 1) {
-          const lastLine = lines.at(-1)!;
-          this.lineIdx += lines.length - 1;
-          this.linePosOffset = -(this.pos - lastLine.length - ticks.length);
-          sourcepos[1] = this.sourcepos(this.pos);
-          contents = lines.join(' ');
+        let contents = this.subject.slice(afterOpenTicks, this.pos - ticks.length).replace(/\n/g, ' ');
+        // A table cell keeps its escaped pipes, and GFM shows them as pipes in code spans too.
+        if (block.type === 'tableCell') {
+          contents = contents.replace(/\\\|/g, '|');
         }
-        const node = createNode('code', sourcepos);
+        const start = this.sourcepos(startpos);
+        this.passLines(afterOpenTicks);
+        const node = createNode('code', [start, this.sourcepos(this.pos)]);
 
         if (
           contents.length > 0 &&
@@ -250,7 +257,9 @@ export class InlineParser {
     if (m === null) {
       return false;
     }
-    const node = createNode('htmlInline', this.sourcepos(startpos, this.pos));
+    const start = this.sourcepos(startpos);
+    this.passLines(startpos - 1);
+    const node = createNode('htmlInline', [start, this.sourcepos(this.pos)]);
     node.literal = m;
     block.appendChild(node);
     return true;
@@ -676,6 +685,7 @@ export class InlineParser {
     }
 
     if (matched) {
+      this.passLines(startpos);
       const node = createNode(isImage ? 'image' : 'link');
       node.destination = dest;
       node.title = title || '';
@@ -859,8 +869,16 @@ export class InlineParser {
       return 0;
     }
 
-    const sourcepos = this.getReferenceDefSourcepos(block);
-    block.sourcepos![0][0] = sourcepos[1][0] + 1;
+    // The definition ends where parsing it stopped; the paragraph's text and line offsets resume on
+    // the next line.
+    const lines = this.subject.slice(startpos, this.pos).replace(/\n$/, '').split('\n');
+    const offsets = block.lineOffsets!, first = block.sourcepos![0][0], last = lines.length - 1;
+    const sourcepos: Sourcepos = [
+      [first, offsets[0] + 1],
+      [first + last, offsets[last] + lines[last].length],
+    ];
+    block.sourcepos![0][0] = first + last + 1;
+    block.lineOffsets = offsets.slice(last + 1);
 
     block.insertBefore(createNode('refDef', sourcepos));
     refMap[normalLabel] ??= { destination: dest, title };
@@ -895,42 +913,6 @@ export class InlineParser {
         textNodes = [];
       }
     }
-  }
-
-  getReferenceDefSourcepos(block: BlockNode): Sourcepos {
-    const lines = block.stringContent!.split(reLineEnding);
-    let passedUrlLine = false;
-    let quotationCount = 0;
-    let lastLineOffset = { line: 0, ch: 0 };
-
-    for (let i = 0; i < lines.length; i += 1) {
-      const line = lines[i];
-
-      if (reWhitespaceChar.test(line)) {
-        break;
-      }
-      if (/\:/.test(line) && quotationCount === 0) {
-        if (passedUrlLine) {
-          break;
-        }
-        const lineOffset = line.indexOf(':') === line.length - 1 ? i + 1 : i;
-        lastLineOffset = { line: lineOffset, ch: lines[lineOffset].length };
-        passedUrlLine = true;
-      }
-      // should consider extendable title
-      const matched = line.match(/'|"/g);
-      if (matched) {
-        quotationCount += matched.length;
-      }
-      if (quotationCount === 2) {
-        lastLineOffset = { line: i, ch: line.length };
-        break;
-      }
-    }
-    return [
-      [block.sourcepos![0][0], block.sourcepos![0][1]],
-      [block.sourcepos![0][0] + lastLineOffset.line, lastLineOffset.ch],
-    ];
   }
 
   // Parse the next inline element in subject, advancing subject position.
@@ -989,7 +971,8 @@ export class InlineParser {
   // Parse string content in block into inline children,
   // using refmap to resolve references.
   parse(block: BlockNode) {
-    this.subject = block.stringContent!.trim();
+    // CommonMark strips spaces, tabs and line breaks only: a leading non-breaking space stays.
+    this.subject = block.stringContent!.replace(/^[ \t\n]+|[ \t\n]+$/g, '');
     this.pos = 0;
     this.delimiters = null;
     this.brackets = null;
@@ -997,9 +980,6 @@ export class InlineParser {
     this.lineIdx = 0;
     this.linePosOffset = 0;
     this.lineStartNum = block.sourcepos![0][0];
-    if (isHeading(block)) {
-      this.lineOffsets[0] += block.level + 1;
-    }
 
     while (this.parseInline(block)) {}
     block.stringContent = null; // allow raw string to be garbage collected

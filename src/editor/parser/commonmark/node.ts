@@ -267,10 +267,6 @@ export function isHtmlBlock(node: Node): node is HtmlBlockNode {
   return node.type === 'htmlBlock';
 }
 
-export function isHeading(node: Node): node is HeadingNode {
-  return node.type === 'heading';
-}
-
 export function text(s: string, sourcepos?: Sourcepos) {
   const node = createNode('text', sourcepos);
   node.literal = s;

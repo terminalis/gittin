@@ -161,6 +161,7 @@ const atxHeading: BlockStart = (parser) => {
     const heading = parser.addChild('heading', parser.nextNonspace) as HeadingNode;
     heading.level = match[0].trim().length; // number of #s
     heading.headingType = 'atx';
+    heading.lineOffsets = [parser.offset];
     // remove trailing ###s:
     heading.stringContent = parser.currentLine
       .slice(parser.offset)
@@ -238,6 +239,7 @@ const seTextHeading: BlockStart = (parser, container) => {
       heading.level = match[0][0] === '=' ? 1 : 2;
       heading.headingType = 'setext';
       heading.stringContent = container.stringContent;
+      heading.lineOffsets = container.lineOffsets;
       container.insertAfter(heading);
       container.unlink();
       parser.tip = heading;
