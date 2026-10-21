@@ -329,6 +329,8 @@ export class GittinController {
     } finally { this.projecting = false; }
     // A write that landed during the composition, such as Use disk version, shows once it ends.
     if (this.session.current.source !== this.projectedSource) this.project(this.session.bookmark);
+    // The toolbar, disabled while composing, comes back even when a cancelled composition changed nothing.
+    this.caretChanged();
   }
   /** Let an ended native composition publish before capturing a draft or file copy.
    * Active candidates remain provisional; ordinary navigation waits for completion. */
