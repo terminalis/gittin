@@ -56,3 +56,10 @@ it('explicit display ranges distinguish identical lines with different raw newli
   expect(replaceDisplay(raw, 2, 4, '')).toBe('A\r\nB');
   expect(replaceDisplay(raw, 0, 2, 'X\n')).toBe('X\r\nA\nB');
 });
+
+it('never joins a lone CR and an LF into one line break, rewriting the CR in the main style', () => {
+  const raw = 'one\rtwo\nthree\nfour';
+  expect(replaceDisplay(raw, 4, 4, '\n')).toBe('one\n\ntwo\nthree\nfour');
+  expect(replaceDisplay(raw, 4, 7, '')).toBe('one\n\nthree\nfour');
+  expect(replaceDisplay('a\rb\nc\r\nd\r\ne', 2, 3, '')).toBe('a\r\n\nc\r\nd\r\ne');
+});
