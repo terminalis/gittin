@@ -146,3 +146,32 @@ it('decodes image attributes using attribute-context entity rules',()=>{
  const source='<img src="https://x/?id=1&copy=2&notit;" alt="&notit; &copy &copy; &#169 &#xA9; &amp= &amp!" title="&quot title">';
  expect(transformImage(source,at(8),{width:120})?.source).toBe('<img src="https://x/?id=1&amp;copy=2&amp;notit;" alt="&amp;notit; \u00a9 \u00a9 \u00a9 \u00a9 &amp;amp= &amp;!" width="120" title="&quot; title">');
 });
+describe('image and link commands replace exactly the element', () => {
+    const img = '<img src="a.png" alt="logo" align="center">';
+    const centre = (s: string) => transformImage(s, at(s.indexOf('logo')), { align: 'center' })?.source;
+    const relink = (s: string, caret: number) => {
+        const c = linkContext(s, at(caret))!;
+        return insertElement(s, { anchor: c.from, head: c.to }, 'markdown', { kind: 'link', url: '/new', text: c.alt })?.source;
+    };
+    it('in underlined, spaced, indented, quoted and listed headings', () => {
+        expect(centre('![logo](a.png) Title\n=====')).toBe(`${img} Title\n=====`);
+        expect(relink('Read the [docs](/d) first\n---', 12)).toBe('Read the [docs](</new>) first\n---');
+        for (const prefix of ['##  ', ' # ', '> # ', '- # '])
+            expect(centre(prefix + '![logo](a.png)'), prefix).toBe(prefix + img);
+    });
+    it('after a link or HTML tag wrapping inside a quote, and on the wrapped link', () => {
+        expect(centre('> See [a](\n> /u) and ![logo](a.png)')).toBe(`> See [a](\n> /u) and ${img}`);
+        expect(centre('> See <span\n> title="x">a</span> and ![logo](a.png)')).toBe(`> See <span\n> title="x">a</span> and ${img}`);
+        expect(relink('> See [a](\n> /u) and more', 7)).toBe('> See [a](</new>) and more');
+    });
+    it('after an escaped pipe in a table cell and a leading Unicode space', () => {
+        expect(centre('| h |\n| - |\n| a \\| ![logo](a.png) |')).toBe(`| h |\n| - |\n| a \\| ${img} |`);
+        for (const space of ['\u00a0', '\u3000'])
+            expect(centre(space + '![logo](a.png)')).toBe(space + img);
+    });
+    it('directly after a reference definition', () => {
+        const s = '[r]: /url\nHe said "hi" ![logo](a.png)\nand then the text continues here';
+        expect(centre(s)).toBe(s.replace('![logo](a.png)', img));
+        expect(imageContext(s, at(s.indexOf('continues')))).toBeNull();
+    });
+});

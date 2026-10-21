@@ -459,7 +459,7 @@ describe('reference link definition', () => {
 
     expect(refDef.sourcepos).toEqual([
       [1, 1],
-      [2, 4],
+      [2, 6],
     ]);
   });
 
@@ -469,7 +469,7 @@ describe('reference link definition', () => {
 
     expect(refDef.sourcepos).toEqual([
       [1, 1],
-      [2, 12],
+      [2, 14],
     ]);
   });
 
@@ -479,7 +479,7 @@ describe('reference link definition', () => {
 
     expect(refDef.sourcepos).toEqual([
       [1, 1],
-      [5, 2],
+      [5, 4],
     ]);
   });
 });

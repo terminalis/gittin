@@ -521,7 +521,7 @@ export class GittinController {
       const accepted = this.markdown.view.state.doc;
       if (createProjection(source).text !== accepted.textBetween(0, accepted.content.size, '\n'))
         throw Error('Accepted Markdown does not match the canonical projection');
-      const pasted = transactions.some(tr => tr.getMeta('uiEvent') === 'paste');
+      const pasted = transactions.some(tr => ['paste', 'drop'].includes(tr.getMeta('uiEvent')));
       const shorter = source.length < this.projectedSource.length;
       const kind: EditKind = this.composing ? 'composition'
         : this.editKind ?? (pasted ? 'paste' : shorter ? 'delete' : 'typing');
