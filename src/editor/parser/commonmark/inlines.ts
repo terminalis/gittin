@@ -5,7 +5,7 @@ import {
 import { normalizeURI, unescapeString, normalizeReference, ESCAPABLE, ENTITY } from './common';
 import { reHtmlTag } from './rawHtml';
 const fromCodePoint = String.fromCodePoint;
-import { decodeHTML } from 'entities';
+import { decodeHTMLStrict } from 'entities';
 import NodeWalker from './nodeWalker';
 import { convertExtAutoLinks } from './gfm/autoLinks';
 import { C_LESSTHAN, C_OPEN_BRACKET } from './blockHelper';
@@ -751,7 +751,7 @@ export class InlineParser {
     let m;
     const startpos = this.pos + 1;
     if ((m = this.match(reEntityHere))) {
-      block.appendChild(text(decodeHTML(m), this.sourcepos(startpos, this.pos)));
+      block.appendChild(text(decodeHTMLStrict(m), this.sourcepos(startpos, this.pos)));
       return true;
     }
     return false;

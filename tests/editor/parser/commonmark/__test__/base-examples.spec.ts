@@ -27,4 +27,9 @@ describe('renders as GitHub does', () => {
   it('closes a code fence followed by a tab', () => {
     expect(render('```\ncode\n```\t\n\n# After')).toBe('<pre><code>code\n</code></pre>\n<h1>After</h1>\n');
   });
+  it('decodes an entity only with its semicolon', () => {
+    expect(render('Use &notx; here')).toBe('<p>Use &amp;notx; here</p>\n');
+    expect(render('&copyright;')).toBe('<p>&amp;copyright;</p>\n');
+    expect(render('[a](/x "&notx;")')).toBe('<p><a href="/x" title="&amp;notx;">a</a></p>\n');
+  });
 });
