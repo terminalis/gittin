@@ -1,7 +1,7 @@
 import { baseKeymap } from 'prosemirror-commands';
 import { keymap } from 'prosemirror-keymap';
 import { Fragment, Schema, Slice } from 'prosemirror-model';
-import { EditorState, type Plugin, type Transaction } from 'prosemirror-state';
+import { EditorState, TextSelection, type Plugin, type Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 
 /** Each line of source is one paragraph, drawn as a div, holding only text. */
@@ -61,13 +61,23 @@ export default class MarkdownEditor {
           } else if ([...data.items].some(item => item.kind === 'file')) imageNotice();
           return true;
         },
-        // ProseMirror's own drop handling stays off: dropped text goes in as the browser inserts
-        // it, and image files are refused.
-        drop: (_, event) => {
-          if ([...event.dataTransfer?.files ?? []].some(file => file.type.includes('image'))) {
-            event.preventDefault();
-            event.stopPropagation();
+        // ProseMirror moves text dragged within Edit; text from elsewhere goes in as lines, as Paste
+        // does, and image files are refused.
+        drop: (view, event) => {
+          if (view.dragging) return false;
+          event.preventDefault();
+          event.stopPropagation();
+          const data = event.dataTransfer;
+          if ([...data?.files ?? []].some(file => file.type.includes('image'))) {
             imageNotice();
+            return true;
+          }
+          const text = data?.getData('text/plain'), at = view.posAtCoords({ left: event.clientX, top: event.clientY });
+          if (text && at) {
+            const tr = view.state.tr.setSelection(TextSelection.create(view.state.doc, at.pos));
+            view.focus();
+            view.dispatch(tr.replaceSelection(new Slice(Fragment.from(lines(text)), 1, 1))
+              .setMeta('rawPaste', text).setMeta('uiEvent', 'drop'));
           }
           return true;
         },

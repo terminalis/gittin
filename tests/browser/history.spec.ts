@@ -71,6 +71,48 @@ test('Preview prevents a drop without source or history changes', async ({ page 
   await expect(editor(page)).toContainText('- [ ] one');
 });
 
+test('text dragged within Edit moves, one Undo restores it', async ({ page }) => {
+  await mountEditor(page, 'alpha beta gamma\nsecond line');
+  await select(page, 6, 10);
+  const from = await page.evaluate(() => {
+    const box = getSelection()!.getRangeAt(0).getBoundingClientRect();
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  });
+  const line = (await editor(page).locator('> div').nth(1).boundingBox())!;
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(line.x + line.width - 4, line.y + line.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(() => source(page)).toBe('alpha  gamma\nsecond linebeta');
+  await editor(page).press('ControlOrMeta+z');
+  await expect.poll(() => source(page)).toBe('alpha beta gamma\nsecond line');
+});
+
+test('text dropped from outside Edit goes in as plain lines, one Undo, never auto-corrected', async ({
+  page,
+}) => {
+  await mountEditor(page, 'teh');
+  await page.evaluate(() => {
+    (window as any).fixture.controller.setPreferences({
+      automaticSubstitution: true,
+      substitutions: [{ replace: 'teh', with: 'the', enabled: true }],
+    });
+    const outside = Object.assign(document.createElement('div'), { id: 'outside', draggable: true, textContent: 'drag' });
+    outside.addEventListener('dragstart', (event) => {
+      event.dataTransfer!.setData('text/plain', '.\nnext');
+      event.dataTransfer!.setData('text/html', '<b>.</b><p>next</p>');
+    });
+    document.body.prepend(outside);
+  });
+  const line = (await editor(page).locator('> div').first().boundingBox())!;
+  await page.dragAndDrop('#outside', '.md-mode .ProseMirror > div', {
+    targetPosition: { x: line.width - 4, y: line.height / 2 },
+  });
+  await expect.poll(() => source(page)).toBe('teh.\nnext');
+  await editor(page).press('ControlOrMeta+z');
+  await expect.poll(() => source(page)).toBe('teh');
+});
+
 test('typing groups, committed composition and source-only marker undo', async ({ page }) => {
   await mountEditor(page, 'A');
   const md = editor(page);
