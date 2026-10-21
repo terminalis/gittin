@@ -13,7 +13,7 @@ export const OPENTAG = `<${TAGNAME}${ATTRIBUTE}*\\s*/?>`;
 export const CLOSETAG = `</${TAGNAME}\\s*[>]`;
 
 const HTMLCOMMENT = '<!---->|<!--(?:-?[^>-])(?:-?[^-])*-->';
-const PROCESSINGINSTRUCTION = '[<][?].*?[?][>]';
+const PROCESSINGINSTRUCTION = '[<][?][\\s\\S]*?[?][>]';
 const DECLARATION = '<![A-Z]+\\s+[^>]*>';
 const CDATA = '<!\\[CDATA\\[[\\s\\S]*?\\]\\]>';
 

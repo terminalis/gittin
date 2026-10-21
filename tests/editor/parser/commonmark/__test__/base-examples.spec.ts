@@ -39,4 +39,7 @@ describe('renders as GitHub does', () => {
   it('gives a line break in alt text a space', () => {
     expect(render('![foo\nbar](/url)')).toBe('<p><img src="/url" alt="foo bar" /></p>\n');
   });
+  it('reads a processing instruction across lines as inline HTML', () => {
+    expect(render('a <?x\ny?> b')).toBe('<p>a <?x\ny?> b</p>\n');
+  });
 });
