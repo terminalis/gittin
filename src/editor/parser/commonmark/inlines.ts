@@ -533,6 +533,10 @@ export class InlineParser {
         } else if (c === C_OPEN_PAREN) {
           this.pos += 1;
           openparens += 1;
+          // cmark's limit, which keeps unbalanced brackets from making every parse slow
+          if (openparens > 32) {
+            return null;
+          }
         } else if (c === C_CLOSE_PAREN) {
           if (openparens < 1) {
             break;

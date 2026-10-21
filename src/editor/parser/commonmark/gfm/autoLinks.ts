@@ -3,7 +3,8 @@ import NodeWalker from '../nodeWalker';
 
 const DOMAIN = '(?:[\\w-]+\\.)*[A-Za-z0-9-]+\\.[A-Za-z0-9-]+';
 const PATH = '[^<\\s]*[^<?!.,:*_?~\\s]';
-const EMAIL = '[\\w.+-]+@(?:[\\w-]+\\.)+[\\w-]+';
+// Starts only at a word's start, so a long word isn't scanned again from each of its letters.
+const EMAIL = '(?<![\\w.+-])[\\w.+-]+@(?:[\\w-]+\\.)+[\\w-]+';
 
 function trimUnmatchedTrailingParens(source: string) {
   const trailingParen = /\)+$/.exec(source);

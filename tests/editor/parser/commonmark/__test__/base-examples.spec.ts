@@ -43,3 +43,24 @@ describe('renders as GitHub does', () => {
     expect(render('a <?x\ny?> b')).toBe('<p>a <?x\ny?> b</p>\n');
   });
 });
+
+describe('parses text built to be slow quickly', () => {
+  // Gittin parses with GitHub's extended autolinks on, as Preview and Edit do.
+  const gfm = new Parser({ extendedAutolinks: true });
+  const render = (markdown: string) => renderer.render(gfm.parse(markdown));
+  const time = (markdown: string) => {
+    const start = performance.now();
+    gfm.parse(markdown);
+    return performance.now() - start;
+  };
+  it('stops a link destination nesting more than 32 brackets, as cmark does', () => {
+    const nested = (depth: number) => render(`[a](${'('.repeat(depth)}b${')'.repeat(depth)})`);
+    expect(nested(32)).toContain('<a href=');
+    expect(nested(33)).not.toContain('<a href=');
+    expect(time('[a](b'.repeat(10000))).toBeLessThan(1000);
+  });
+  it('finds an e-mail address only from the start of a word', () => {
+    expect(time('a'.repeat(80000))).toBeLessThan(1000);
+    expect(render('x.y+z@example.com')).toContain('href="mailto:x.y+z@example.com"');
+  });
+});
