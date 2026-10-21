@@ -130,3 +130,11 @@ it.each(['hello  \nworld', 'hello\\\nworld'])('hard-break copy and visible plain
   expect(t.controller.visibleText()).toBe('hello\nworld\n');
   expect(t.session.current).toEqual({ source, revision: 0 });
 });
+
+it('a file type change redraws Preview as a new display, so Find takes no stale matches', () => {
+  const t = mount('# Title\n\nalpha and alpha', 'preview');
+  const snapshot = t.controller.findSnapshot();
+  expect(t.controller.validFind(snapshot)).toBe(true);
+  t.controller.setFileType('text');
+  expect(t.controller.validFind(snapshot)).toBe(false);
+});

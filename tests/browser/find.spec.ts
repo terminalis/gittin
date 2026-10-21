@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { editor, findField, holdModule, openText, readable } from './kit';
+import { command, editor, findField, holdModule, openText, readable } from './kit';
 async function open(page: Page, source: string, mode = 'Edit') {
   await openText(page, source, 'find.md', { timeout: 30000 });
   if (mode === 'Preview') await page.getByRole('button', { name: 'Preview', exact: true }).click();
@@ -197,4 +197,17 @@ test('Shift+Enter while a regular-expression search runs goes to the last match 
   await findField(page).press('Shift+Enter');
   release();
   await expect(page.locator('.find-bar output')).toHaveText('3 of 3 matches');
+});
+
+test('Find in Preview stays on the right text after a rename changes the file type', async ({ page }) => {
+  await open(page, '# Title\n\nalpha and alpha', 'Preview');
+  await findField(page).fill('alpha');
+  await expect(page.locator('.find-bar output')).toHaveText('1 of 2 matches');
+  await command(page, 'Rename…');
+  const rename = page.getByRole('dialog', { name: 'Rename file' });
+  await rename.getByLabel('File name').fill('find.txt');
+  await rename.getByRole('button', { name: 'Rename', exact: true }).click();
+  await findField(page).press('Enter');
+  await expect(page.locator('.find-bar output')).toHaveText('2 of 2 matches');
+  await expect(page.locator('mark[data-find]')).toHaveText(['alpha', 'alpha']);
 });
