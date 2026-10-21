@@ -21,3 +21,10 @@ it('collapses every whitespace run in a reference label', () => {
 
   expect(result).toBe('<p><a href="/u">a b  c</a></p>\n');
 });
+
+describe('renders as GitHub does', () => {
+  const render = (markdown: string) => renderer.render(reader.parse(markdown));
+  it('closes a code fence followed by a tab', () => {
+    expect(render('```\ncode\n```\t\n\n# After')).toBe('<pre><code>code\n</code></pre>\n<h1>After</h1>\n');
+  });
+});

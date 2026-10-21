@@ -11,7 +11,7 @@ export const reNonSpace = /[^ \t\f\v\r\n]/;
 
 export const reLineEnding = /\r\n|\n|\r/;
 
-export const reClosingCodeFence = /^(?:`{3,}|~{3,})(?= *$)/;
+export const reClosingCodeFence = /^(?:`{3,}|~{3,})(?=[ \t]*$)/;
 
 // Returns true if block ends with a blank line, descending if needed
 // into lists and sublists.
