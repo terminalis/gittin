@@ -246,7 +246,9 @@ const seTextHeading: BlockStart = (parser, container) => {
       parser.advanceOffset(parser.currentLine.length - parser.offset, false);
       return Matched.Leaf;
     }
-    return Matched.None;
+    // Definitions alone leave no heading text: the line becomes the paragraph's text, as in cmark.
+    parser.advanceNextNonspace();
+    return Matched.Leaf;
   }
   return Matched.None;
 };

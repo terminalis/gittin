@@ -32,4 +32,8 @@ describe('renders as GitHub does', () => {
     expect(render('&copyright;')).toBe('<p>&amp;copyright;</p>\n');
     expect(render('[a](/x "&notx;")')).toBe('<p><a href="/x" title="&amp;notx;">a</a></p>\n');
   });
+  it('keeps the line under a paragraph of definitions alone as text', () => {
+    expect(render('[foo]: /url\n---')).toBe('<p>---</p>\n');
+    expect(render('[foo]: /url\n===')).toBe('<p>===</p>\n');
+  });
 });
