@@ -59,6 +59,8 @@ function getChildrenText(node: Node) {
     const { node } = event;
     if (node.type === 'text' || node.type === 'code') {
       buffer.push(node.literal!);
+    } else if (node.type === 'softbreak' || node.type === 'linebreak') {
+      buffer.push(' ');
     }
   }
   return buffer.join('');
