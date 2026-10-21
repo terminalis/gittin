@@ -142,8 +142,9 @@ export class GittinController {
     const signal = this.abort.signal;
     for (const [target, type, handler, capture] of handlers)
       target.addEventListener(type, event => handler.call(this, event), { capture, signal });
+    // A change made by a command, Undo or Redo brings the caret into view.
     this.unsubscribe = session.subscribe(() => {
-      if (!this.projecting) this.project(this.session.bookmark);
+      if (!this.projecting) this.project(this.session.bookmark, true);
     });
     this.mode = mode;
     this.session.endGroup();
@@ -326,6 +327,10 @@ export class GittinController {
       if (this.compositionEnded) this.session.endComposition();
       else this.session.cancelComposition();
     } finally { this.projecting = false; }
+    // A write that landed during the composition, such as Use disk version, shows once it ends.
+    if (this.session.current.source !== this.projectedSource) this.project(this.session.bookmark);
+    // The toolbar, disabled while composing, comes back even when a cancelled composition changed nothing.
+    this.caretChanged();
   }
   /** Let an ended native composition publish before capturing a draft or file copy.
    * Active candidates remain provisional; ordinary navigation waits for completion. */
@@ -334,7 +339,7 @@ export class GittinController {
     if (this.composing) await new Promise<void>((resolve) => setTimeout(resolve, 40));
     return !this.composing;
   }
-  private project(bookmark?: Bookmark) {
+  private project(bookmark?: Bookmark, scroll = false) {
     this.projecting = true;
     try {
       const source = this.session.current.source;
@@ -342,7 +347,7 @@ export class GittinController {
       const projection = createProjection(source);
       if (this.mode === 'markdown') this.markdown.setMarkdown(projection.text);
       else this.showReadOnly(source);
-      if (bookmark) this.restoreSelection(bookmark);
+      if (bookmark) this.restoreSelection(bookmark, scroll);
     } finally {
       this.projecting = false;
       this.markdown.el.hidden = this.mode !== 'markdown';
@@ -634,7 +639,7 @@ export class GittinController {
   private tab(step: 1 | -1) {
     const source = this.session.current.source;
     const cell = this.fileType === 'markdown' ? tableCell(source, this.getSourceSelection(), step) : null;
-    if (cell) this.restoreSelection(this.sourceBookmark(source, cell));
+    if (cell) this.restoreSelection(this.sourceBookmark(source, cell), true);
     else this.applySourceCommand(step > 0 ? 'indent' : 'outdent');
     return true;
   }
@@ -744,7 +749,7 @@ export class GittinController {
     const { selection, doc } = this.markdown.view.state;
     return this.bookmarkFor(doc, selection.anchor, selection.head);
   }
-  private restoreSelection(bookmark: Bookmark) {
+  private restoreSelection(bookmark: Bookmark, scroll = false) {
     if (this.mode !== 'markdown') { this.restricted.scrollTop = bookmark.scrollTop; return; }
     const view = this.markdown.view, doc = view.state.doc, near = (at: number) =>
       Selection.near(doc.resolve(Math.max(0, Math.min(doc.content.size, at))));
@@ -753,7 +758,8 @@ export class GittinController {
       anchor = head = createProjection(this.projectedSource).toNative(bookmark.sourceAnchor);
     const a = near(anchor), h = near(head);
     const both = a instanceof TextSelection && h instanceof TextSelection;
-    view.dispatch(view.state.tr.setSelection(both ? TextSelection.create(doc, a.head, h.head) : a));
+    const tr = view.state.tr.setSelection(both ? TextSelection.create(doc, a.head, h.head) : a);
+    view.dispatch(scroll ? tr.scrollIntoView() : tr);
     this.markdown.setScrollTop(bookmark.scrollTop);
   }
   /** 1-based caret line and column in Edit. The Markdown document holds one paragraph per source line. */

@@ -76,4 +76,12 @@ describe('Task list item', () => {
 
     expect(html).toEqual(`${output}\n`);
   });
+
+  it('puts the checkbox inside the first paragraph of a spaced-out item, as GitHub does', () => {
+    const output = [
+      '<ul>', '<li>', `<p>${todo} one</p>`, '</li>', '<li>', `<p>${done} two</p>`, '<p>more</p>', '</li>', '</ul>',
+    ].join('\n');
+
+    expect(renderer.render(reader.parse('- [ ] one\n\n- [x] two\n\n  more\n'))).toEqual(`${output}\n`);
+  });
 });

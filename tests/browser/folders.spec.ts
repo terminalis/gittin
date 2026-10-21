@@ -168,6 +168,29 @@ test.describe('writable folders', () => {
     expect(await disk.read(page, 'a.md')).toBe('mine');
   });
 
+  test('Use disk version during an IME composition shows and saves the disk version', async ({ page }) => {
+    await useFolder(page, { 'a.md': 'one' });
+    await openFromFolder(page, 'a.md');
+    await editor(page).fill('mine');
+    await expectDraftSaved(page);
+    await disk.write(page, 'a.md', 'theirs');
+    await page.goto('/#/home');
+    await openFromFolder(page, 'a.md');
+    const banner = page.locator('#disk-change');
+    await expect(banner).toContainText('a.md changed on disk');
+    await editor(page).press('ControlOrMeta+End');
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.imeSetComposition', { text: '漢', selectionStart: 1, selectionEnd: 1 });
+    await expect(editor(page)).toHaveText('mine漢');
+    await banner.getByRole('button', { name: 'Use disk version', exact: true }).click();
+    await expect(editor(page)).toHaveText('theirs');
+    await editor(page).press('ControlOrMeta+End');
+    await editor(page).pressSequentially('!');
+    await save(page);
+    await expect(page.locator('#save-state')).toHaveText('Saved');
+    expect(await disk.read(page, 'a.md')).toBe('theirs!');
+  });
+
   test('reopening from Home checks the disk; after a reload Home keeps folder files available', async ({ page }) => {
     await useFolder(page, { 'a.md': 'one', 'b.md': 'one' });
     await openFromFolder(page, 'a.md');

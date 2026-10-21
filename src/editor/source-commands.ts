@@ -3,6 +3,7 @@ import {
   commentRanges, commentSyntax, frontMatterEnd, syntaxSpans, type SourceRange, type SyntaxSpan,
 } from './source-language';
 import { newlineStyle, createProjection, bounds, markdownNodes, sourceLines, splice } from './source-projection';
+import type { HeadingMdNode } from './parser';
 export interface SourceSelection {
   anchor: number;
   head: number;
@@ -133,18 +134,26 @@ function selectedLines({ source, from, to }: CommandContext) {
   return { lines, first, last, start: lines[first].start, end };
 }
 type Lines = ReturnType<typeof selectedLines>;
-/** Rewrites each selected line, keeping its newline; the caret or selection stays on the same text. */
+/** Rewrites each selected line, keeping its newline, or removes it with the line break before it when
+ * `change` returns null; the caret or selection stays on the same text. */
 function changeLines(c: CommandContext, { lines, first, last, start, end }: Lines,
-  change: (line: Lines['lines'][number], index: number) => string) {
+  change: (line: Lines['lines'][number], index: number) => string | null) {
   const edits: { from: number; to: number; size: number }[] = [];
-  const text = lines.slice(first, last + 1).map((line, i) => {
-    const old = line.text, next = change(line, i);
+  let text = '';
+  for (let i = first; i <= last; i++) {
+    const line = lines[i], old = line.text, next = change(line, i - first), eol = i < last ? line.eol : '';
+    if (next === null) {
+      const before = lines[i - 1].eol;
+      text = text.slice(0, text.length - before.length) + eol;
+      edits.push({ from: line.start - before.length, to: line.start + old.length, size: 0 });
+      continue;
+    }
     let p = 0, s = 0;
     while (p < old.length && p < next.length && old[p] === next[p]) p++;
     while (s < old.length - p && s < next.length - p && old.at(-1 - s) === next.at(-1 - s)) s++;
     edits.push({ from: line.start + p, to: line.start + old.length - s, size: next.length - s - p });
-    return next + (i < last - first ? line.eol : '');
-  });
+    text += next + eol;
+  }
   const map = (at: number) => {
     let shift = 0;
     for (const { from, to, size } of edits) {
@@ -154,7 +163,7 @@ function changeLines(c: CommandContext, { lines, first, last, start, end }: Line
     }
     return at + shift;
   };
-  return c.replace(start, end, text.join(''), map(c.from), map(c.to));
+  return c.replace(start, end, text, map(c.from), map(c.to));
 }
 const wraps: Record<string, [string, string]> = {
   bold: ['**', '**'], italic: ['*', '*'], strike: ['~~', '~~'], code: ['`', '`'],
@@ -327,22 +336,40 @@ function literalLines({ source }: CommandContext, { first, last, start }: Lines)
     node.sourcepos![0][0] <= last + 1 && node.sourcepos![1][0] >= first + 1);
 }
 const headingOrList: Transform = (c, command) => {
-  const lines = selectedLines(c), heading = c.level ? '#'.repeat(c.level) + ' ' : '';
+  let lines = selectedLines(c);
   if (literalLines(c, lines)) return null;
-  const marker = (index: number) => command === 'bulletList' ? '- ' : command === 'taskList' ? '- [ ] ' : `${index + 1}. `;
-  return changeLines(c, lines, ({ text }, index) => command === 'heading'
-    ? text.replace(/^( {0,3})(?:#{1,6} +)?/, '$1' + heading)
-    : text.replace(/^(\s*)(?:(?:[-+*]|\d+[.)]) +(?:\[[ xX]\] +)?)?/, '$1' + marker(index)));
+  if (command !== 'heading') {
+    const marker = (index: number) => command === 'bulletList' ? '- ' : command === 'taskList' ? '- [ ] ' : `${index + 1}. `;
+    return changeLines(c, lines, ({ text }, index) =>
+      text.replace(/^(\s*)(?:(?:[-+*]|\d+[.)]) +(?:\[[ xX]\] +)?)?/, '$1' + marker(index)));
+  }
+  // An underlined heading the selection touches is rewritten whole, and its underline goes.
+  const underlines = new Set<number>();
+  for (const node of markdownNodes(c.source)) {
+    const [[top], [bottom]] = node.sourcepos!;
+    if (node.type !== 'heading' || (node as HeadingMdNode).headingType !== 'setext' ||
+      top > lines.last + 1 || bottom < lines.first + 1) continue;
+    underlines.add(bottom - 1);
+    lines = { ...lines, first: Math.min(lines.first, top - 1), last: Math.max(lines.last, bottom - 1) };
+  }
+  const { first, last } = lines, heading = c.level ? '#'.repeat(c.level) + ' ' : '';
+  lines = { ...lines, start: lines.lines[first].start, end: lines.lines[last].start + lines.lines[last].text.length };
+  // Quote and list markers stay; only the # marker, which a tab may follow, changes.
+  return changeLines(c, lines, ({ text }, index) => underlines.has(first + index) ? null : text.replace(
+    /^((?:[ \t]{0,3}>[ \t]?|[ \t]*(?:[-+*]|\d{1,9}[.)])[ \t]+(?:\[[ xX]\][ \t]+)?)*)( {0,3})(?:#{1,6}(?:[ \t]+|$))?/,
+    '$1$2' + heading));
 };
-/** Adds one quote level to each line, or removes one when every non-blank line is quoted. */
+/** Adds one quote level to each line at the lines' smallest indentation, so nested lists stay nested,
+ * or removes one when every non-blank line is quoted. */
 const blockQuote: Transform = c => {
   const lines = selectedLines(c);
   if (literalLines(c, lines)) return null;
   const texts = lines.lines.slice(lines.first, lines.last + 1)
     .map(line => line.text).filter(text => text.trim());
   const quoted = texts.length > 0 && texts.every(text => /^[ \t]*>/.test(text));
+  const indent = Math.min(...texts.map(text => /^[ \t]*/.exec(text)![0].length));
   return changeLines(c, lines, ({ text }) =>
-    quoted ? text.replace(/^([ \t]*)> ?/, '$1') : text.replace(/^[ \t]*/, '$&> '));
+    quoted ? text.replace(/^([ \t]*)> ?/, '$1') : text.slice(0, indent) + '> ' + text.slice(indent));
 };
 const indentation: Transform = (c, command) => changeLines(c, selectedLines(c), ({ text }) =>
   command === 'indent' ? '  ' + text : text.replace(/^(?: {1,2}|\t)/, ''));
@@ -376,6 +403,9 @@ export function continuation(source: string, selection: SourceSelection): Source
   const c = commandContext(source, selection, 'markdown'), lines = selectedLines(c);
   const line = lines.lines[lines.first], item = listMarker.exec(line.text), nl = newlineStyle(source);
   if (c.from !== c.to || !item || c.from < line.start + item[0].length || literalLines(c, lines))
+    return null;
+  // A divider such as `* * *` or `- - -` starts like a list item but isn't one.
+  if (markdownNodes(source).some(node => node.type === 'thematicBreak' && node.sourcepos![0][0] === lines.first + 1))
     return null;
   if (!line.text.slice(item[0].length).trim()) {
     const caret = line.start + nl.length;

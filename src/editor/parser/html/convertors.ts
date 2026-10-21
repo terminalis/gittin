@@ -8,6 +8,23 @@ import { escapeXml } from '../commonmark/common';
 const element = (tagName: string, outerNewLine = false): HTMLConvertor => (_, { entering }) =>
   ({ type: entering ? 'openTag' : 'closeTag', tagName, outerNewLine });
 
+/** A read-only checkbox that reads as [x] or [ ] wherever scripts and form controls are stripped. */
+const checkbox = (checked: boolean): HTMLToken[] => [
+  {
+    type: 'openTag',
+    tagName: 'span',
+    attributes: {
+      role: 'checkbox',
+      'aria-checked': String(checked),
+      'aria-readonly': 'true',
+      'aria-label': checked ? 'Completed' : 'Not completed',
+    },
+  },
+  { type: 'text', content: checked ? '[x]' : '[ ]' },
+  { type: 'closeTag', tagName: 'span' },
+  { type: 'text', content: ' ' },
+];
+
 export const convertors: HTMLConvertorMap = {
   heading(node, { entering }) {
     const tagName = `h${(node as HeadingNode).level}`;
@@ -31,9 +48,12 @@ export const convertors: HTMLConvertorMap = {
   strike: element('del'),
 
   paragraph(node, { entering }) {
-    const grandparent = node.parent?.parent;
+    const item = node.parent, grandparent = item?.parent;
     if (grandparent?.type === 'list' && (grandparent as ListNode).listData!.tight) return null;
-    return { type: entering ? 'openTag' : 'closeTag', tagName: 'p', outerNewLine: true };
+    const tag: HTMLToken = { type: entering ? 'openTag' : 'closeTag', tagName: 'p', outerNewLine: true };
+    // In a spaced-out task list the checkbox sits inside the item's first paragraph, as on GitHub.
+    const { task, checked } = item?.type === 'item' ? (item as ListNode).listData! : { task: false, checked: false };
+    return entering && task && item!.firstChild === node ? [tag, ...checkbox(checked!)] : tag;
   },
 
   thematicBreak() {
@@ -59,24 +79,9 @@ export const convertors: HTMLConvertorMap = {
     if (!entering) return { type: 'closeTag', tagName: 'li', outerNewLine: true };
     const { checked, task } = (node as ListNode).listData!;
     const itemTag: HTMLToken = { type: 'openTag', tagName: 'li', outerNewLine: true };
-    if (!task) return itemTag;
-    // A read-only checkbox that reads as [x] or [ ] wherever scripts and form controls are stripped
-    return [
-      itemTag,
-      {
-        type: 'openTag',
-        tagName: 'span',
-        attributes: {
-          role: 'checkbox',
-          'aria-checked': String(checked),
-          'aria-readonly': 'true',
-          'aria-label': checked ? 'Completed' : 'Not completed',
-        },
-      },
-      { type: 'text', content: checked ? '[x]' : '[ ]' },
-      { type: 'closeTag', tagName: 'span' },
-      { type: 'text', content: ' ' },
-    ];
+    const tight = (node.parent as ListNode).listData!.tight;
+    if (!task || !tight && node.firstChild?.type === 'paragraph') return itemTag;
+    return [itemTag, ...checkbox(checked!)];
   },
 
   htmlInline(node) {

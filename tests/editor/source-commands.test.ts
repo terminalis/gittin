@@ -232,12 +232,27 @@ describe('heading and list commands on lines with inline syntax', () => {
   it('apply after a leading --- that no closing line makes front matter', () => {
     expect(apply('---\n\n- a', range(8), 'taskList', 'markdown')?.source).toBe('---\n\n- [ ] a');
   });
+  it('keep quote and list markers and change only the # marker, which a tab may follow', () => {
+    expect(apply('> # Title', range(9), 'heading', 'markdown', 2)?.source).toBe('> ## Title');
+    expect(apply('> # Title', range(9), 'heading', 'markdown', 0)?.source).toBe('> Title');
+    expect(apply('- # Title', range(9), 'heading', 'markdown', 2)?.source).toBe('- ## Title');
+    expect(apply('> quoted', range(8), 'heading', 'markdown', 2)?.source).toBe('> ## quoted');
+    expect(apply('- [ ] item', range(10), 'heading', 'markdown', 2)?.source).toBe('- [ ] ## item');
+    expect(apply('#\tTitle', range(7), 'heading', 'markdown', 2)?.source).toBe('## Title');
+    expect(apply('#\tTitle', range(7), 'heading', 'markdown', 0)?.source).toBe('Title');
+  });
+  it('turn an underlined heading into a # heading, or into a paragraph', () => {
+    expect(apply('Title\n=====\nnext', range(5), 'heading', 'markdown', 2)).toEqual({ source: '## Title\nnext', selection: range(8) });
+    expect(apply('Title\r\n-----', range(5), 'heading', 'markdown', 0)?.source).toBe('Title');
+    expect(apply('Title\n=====', range(8), 'heading', 'markdown', 1)).toEqual({ source: '# Title', selection: range(7) });
+    expect(apply('> Title\n> ---', range(7), 'heading', 'markdown', 3)?.source).toBe('> ### Title');
+  });
 });
 
 describe('blockquote', () => {
   it('adds and removes one level, keeping indentation, hard breaks and CRLF', () => {
     const quoted = apply('one  \r\n  two', range(1, 9), 'blockQuote', 'markdown')!;
-    expect(quoted).toEqual({ source: '> one  \r\n  > two', selection: range(3, 13) });
+    expect(quoted).toEqual({ source: '> one  \r\n>   two', selection: range(3, 13) });
     expect(apply(quoted.source, quoted.selection, 'blockQuote', 'markdown')?.source).toBe('one  \r\n  two');
     expect(apply('>> a', range(0), 'blockQuote', 'markdown')?.source).toBe('> a');
   });
@@ -246,6 +261,11 @@ describe('blockquote', () => {
     expect(apply('', range(0), 'blockQuote', 'markdown')?.source).toBe('> ');
     expect(apply('```\ncode\n```', range(5), 'blockQuote', 'markdown')).toBeNull();
     expect(apply('a', range(0), 'blockQuote', 'javascript')).toBeNull();
+  });
+  it('quotes at the smallest indentation, so nested lists stay nested', () => {
+    expect(apply('- parent\n  - child', range(0, 18), 'blockQuote', 'markdown')?.source).toBe('> - parent\n>   - child');
+    expect(apply('- parent\n  - child\n  - other', range(9, 27), 'blockQuote', 'markdown')?.source)
+      .toBe('- parent\n  > - child\n  > - other');
   });
 });
 
@@ -292,6 +312,11 @@ describe('Enter on a list item', () => {
   });
   it('continues a list after a leading --- that no closing line makes front matter', () => {
     expect(enter('---\n\n- a|')).toBe('---\n\n- a\n- |');
+  });
+  it('returns null on a divider written with list markers', () => {
+    for (const rule of ['* * *', '- - -', '-  -  -', '* * * *'])
+      expect(enter(rule + '|'), rule).toBeNull();
+    expect(enter('- a\n- - -|')).toBeNull();
   });
 });
 

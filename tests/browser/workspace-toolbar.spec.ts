@@ -330,3 +330,18 @@ test('toolbar groups and tools can be customized independently', async ({ page }
   await expect(toolbar(page).locator('[data-command=addImage]')).toBeHidden();
   await expect(toolbar(page).locator('[data-command=bold]')).toBeHidden();
 });
+
+test('the toolbar comes back as soon as an IME composition is cancelled', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'IME emulation is Chromium only');
+  await newFile(page);
+  await editor(page).pressSequentially('hello');
+  const bold = toolbar(page).locator('[data-command=bold]');
+  await expect(bold).toBeEnabled();
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.imeSetComposition', { text: 'x', selectionStart: 1, selectionEnd: 1 });
+  await expect(bold).toBeDisabled();
+  // An IME's Esc: the composition text goes and the composition ends with no text.
+  await cdp.send('Input.imeSetComposition', { text: '', selectionStart: 0, selectionEnd: 0 });
+  await expect(editor(page)).toHaveText('hello');
+  await expect(bold).toBeEnabled();
+});
