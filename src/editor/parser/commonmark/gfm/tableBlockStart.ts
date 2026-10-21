@@ -96,10 +96,9 @@ export const tableHead: BlockStart = (parser, container) => {
     const reValidDelimCell = /^[ \t]*:?-+:?[ \t]*$/;
 
     if (
-      // not checking if the number of header cells and delimiter cells are the same
-      // to consider the case of merged-column (via plugin)
+      // As on GitHub, the header and divider rows must have the same number of cells.
       !headerCells.length ||
-      !delimCells.length ||
+      headerCells.length !== delimCells.length ||
       delimCells.some((cell) => !reValidDelimCell.test(cell)) ||
       // to prevent to regard setTextHeading as tabel delim cell with 'disallowDeepHeading' option
       (delimCells.length === 1 && delimContent.indexOf('|') !== 0)

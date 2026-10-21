@@ -219,12 +219,11 @@ describe('GFM Exmaple', () => {
         '<p>bar</p>', '<p>bar</p>',
       ].join('\n'),
     },
-    // TODO: need to find a way to parse merged-column and re-activate this test case
-    // {
-    //   no: 203,
-    //   input: ['| abc | def |', '| --- |', '| bar |'].join('\n'),
-    //   output: ['<p>| abc | def |', '| --- |', '| bar |</p>'].join('\n'),
-    // },
+    {
+      no: 203,
+      input: ['| abc | def |', '| --- |', '| bar |'].join('\n'),
+      output: ['<p>| abc | def |', '| --- |', '| bar |</p>'].join('\n'),
+    },
     {
       no: 204,
       input: ['| abc | def |', '| --- | --- |', '| bar |', '| bar | baz | boo |'].join('\n'),
@@ -250,5 +249,12 @@ describe('GFM Exmaple', () => {
       const html = renderer.render(root);
       expect(html).toBe(`${output}\n`);
     });
+  });
+});
+
+describe('rows as GitHub reads them', () => {
+  const render = (markdown: string) => renderer.render(reader.parse(markdown));
+  it('makes no table when the header and divider rows differ in cells', () => {
+    expect(render('| a |\n| - | - |')).toBe('<p>| a |\n| - | - |</p>\n');
   });
 });
