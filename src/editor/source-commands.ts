@@ -334,15 +334,17 @@ const headingOrList: Transform = (c, command) => {
     ? text.replace(/^( {0,3})(?:#{1,6} +)?/, '$1' + heading)
     : text.replace(/^(\s*)(?:(?:[-+*]|\d+[.)]) +(?:\[[ xX]\] +)?)?/, '$1' + marker(index)));
 };
-/** Adds one quote level to each line, or removes one when every non-blank line is quoted. */
+/** Adds one quote level to each line at the lines' smallest indentation, so nested lists stay nested,
+ * or removes one when every non-blank line is quoted. */
 const blockQuote: Transform = c => {
   const lines = selectedLines(c);
   if (literalLines(c, lines)) return null;
   const texts = lines.lines.slice(lines.first, lines.last + 1)
     .map(line => line.text).filter(text => text.trim());
   const quoted = texts.length > 0 && texts.every(text => /^[ \t]*>/.test(text));
+  const indent = Math.min(...texts.map(text => /^[ \t]*/.exec(text)![0].length));
   return changeLines(c, lines, ({ text }) =>
-    quoted ? text.replace(/^([ \t]*)> ?/, '$1') : text.replace(/^[ \t]*/, '$&> '));
+    quoted ? text.replace(/^([ \t]*)> ?/, '$1') : text.slice(0, indent) + '> ' + text.slice(indent));
 };
 const indentation: Transform = (c, command) => changeLines(c, selectedLines(c), ({ text }) =>
   command === 'indent' ? '  ' + text : text.replace(/^(?: {1,2}|\t)/, ''));

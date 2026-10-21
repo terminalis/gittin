@@ -237,7 +237,7 @@ describe('heading and list commands on lines with inline syntax', () => {
 describe('blockquote', () => {
   it('adds and removes one level, keeping indentation, hard breaks and CRLF', () => {
     const quoted = apply('one  \r\n  two', range(1, 9), 'blockQuote', 'markdown')!;
-    expect(quoted).toEqual({ source: '> one  \r\n  > two', selection: range(3, 13) });
+    expect(quoted).toEqual({ source: '> one  \r\n>   two', selection: range(3, 13) });
     expect(apply(quoted.source, quoted.selection, 'blockQuote', 'markdown')?.source).toBe('one  \r\n  two');
     expect(apply('>> a', range(0), 'blockQuote', 'markdown')?.source).toBe('> a');
   });
@@ -246,6 +246,11 @@ describe('blockquote', () => {
     expect(apply('', range(0), 'blockQuote', 'markdown')?.source).toBe('> ');
     expect(apply('```\ncode\n```', range(5), 'blockQuote', 'markdown')).toBeNull();
     expect(apply('a', range(0), 'blockQuote', 'javascript')).toBeNull();
+  });
+  it('quotes at the smallest indentation, so nested lists stay nested', () => {
+    expect(apply('- parent\n  - child', range(0, 18), 'blockQuote', 'markdown')?.source).toBe('> - parent\n>   - child');
+    expect(apply('- parent\n  - child\n  - other', range(9, 27), 'blockQuote', 'markdown')?.source)
+      .toBe('- parent\n  > - child\n  > - other');
   });
 });
 
