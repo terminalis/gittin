@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { editor, mountEditor, newFile, select, source, sourceSelection } from './kit';
+import { editor, mountEditor, newFile, openText, select, source, sourceSelection } from './kit';
 test('search and dialog fields retain native undo while document shortcuts use registry', async ({
   page,
 }) => {
@@ -88,4 +88,35 @@ test('Enter in a code file is typing: one Undo removes the new line and the text
   expect(await source(page)).toBe('let a;\nx');
   await editor(page).press('ControlOrMeta+z');
   expect(await source(page)).toBe('let a;');
+});
+
+test('Alt+Down, Undo and Tab to the next table row scroll the caret into view', async ({ page }) => {
+  await page.setViewportSize({ width: 1000, height: 600 });
+  const rows = Array.from({ length: 120 }, (_, i) => `| r${i + 1} | s${i + 1} |`).join('\n');
+  await openText(page, `| a | b |\n| - | - |\n${rows}\n`);
+  const line = (n: number) => editor(page).locator('> div').nth(n - 1);
+  // Scrolls so line n sits exactly at the bottom edge of the writing column.
+  const toBottom = (n: number) => line(n).evaluate((el) => {
+    const column = document.querySelector('.writing-column')!;
+    column.scrollTop += el.getBoundingClientRect().bottom - column.getBoundingClientRect().bottom;
+  });
+  const caretInView = () => page.evaluate(() => {
+    const node = getSelection()!.focusNode!;
+    const row = (node.nodeType === 1 ? node as Element : node.parentElement!).closest('.ProseMirror > div')!;
+    const box = row.getBoundingClientRect(), column = document.querySelector('.writing-column')!.getBoundingClientRect();
+    return box.top >= column.top - 1 && box.bottom <= column.bottom + 1;
+  });
+  await line(40).click();
+  await page.keyboard.press('End');
+  await toBottom(40);
+  await page.keyboard.press('Alt+ArrowDown');
+  await expect.poll(caretInView).toBe(true);
+  await page.evaluate(() => { document.querySelector('.writing-column')!.scrollTop = 0; });
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect.poll(caretInView).toBe(true);
+  await toBottom(40);
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect.poll(caretInView).toBe(true);
 });
