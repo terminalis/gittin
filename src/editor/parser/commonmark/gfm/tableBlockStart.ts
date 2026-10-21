@@ -180,9 +180,10 @@ export const tableBody: BlockStart = (parser, container) => {
     return Matched.None;
   }
 
-  parser.advanceOffset(parser.currentLine.length - parser.offset, false);
-
-  if (parser.blank) {
+  const content = parser.currentLine.slice(parser.nextNonspace);
+  const [offset, cellContents] = parseRowContent(content);
+  // A blank line ends the table, and so does a line of only pipes: it has no cells, so it shows as text.
+  if (parser.blank || !cellContents.length) {
     let table = container;
     if (container.type === 'tableBody') {
       table = container.parent as TableNode;
@@ -191,6 +192,8 @@ export const tableBody: BlockStart = (parser, container) => {
     parser.finalize(table, parser.lineNumber - 1);
     return Matched.None;
   }
+
+  parser.advanceOffset(parser.currentLine.length - parser.offset, false);
 
   let tableBody = container;
   if (container.type === 'table') {
@@ -204,8 +207,6 @@ export const tableBody: BlockStart = (parser, container) => {
   tableBody.appendChild(tableRow);
 
   const table = tableBody.parent as TableNode;
-  const content = parser.currentLine.slice(parser.nextNonspace);
-  const [offset, cellContents] = parseRowContent(content);
 
   generateTableCells(
     'tableCell',

@@ -258,3 +258,9 @@ describe('rows as GitHub reads them', () => {
     expect(render('| a |\n| - | - |')).toBe('<p>| a |\n| - | - |</p>\n');
   });
 });
+
+it('ends a table at a line of only a pipe, which shows as text, as GitHub does', () => {
+  expect(renderer.render(reader.parse('| a | b |\n| - | - |\n| '))).toBe(
+    ['<table>', '<thead>', '<tr>', '<th>a</th>', '<th>b</th>', '</tr>', '</thead>', '</table>', '<p>|</p>', ''].join('\n'),
+  );
+});
