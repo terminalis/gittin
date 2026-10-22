@@ -35,6 +35,7 @@ import MarkdownEditor from './markdown-editor';
 import { commandRegistry, type CommandId } from './commands';
 import { shortcutCommand } from '../ui/shortcuts';
 import { sanitizeHTML } from './sanitizer/htmlSanitizer';
+import { pastedMarkdown } from './pasted-markdown';
 import { safeURL } from './safe-url';
 import { signal } from '../signal';
 /** Toolbar states that hold wherever their node encloses the caret; lists are handled apart. */
@@ -118,6 +119,12 @@ export class GittinController {
       selectedSource: () => {
         const { from, to } = bounds(this.getSourceSelection());
         return this.session.current.source.slice(from, to);
+      },
+      pastedText: (html, text, plain, at) => {
+        const { source } = this.session.current;
+        const { from, to } = at === undefined ? bounds(this.getSourceSelection())
+          : { from: this.rawOffset(source, at), to: this.rawOffset(source, at) };
+        return plain ? text : this.pasted(source, from, to, html, text);
       },
     });
     this.setPreferences(this.preferences);
@@ -620,9 +627,8 @@ export class GittinController {
   }
   getFileType() { return this.fileType; }
   getSourceSelection(): SourceSelection {
-    const { anchor, head } = this.markdown.view.state.selection;
-    const doc = this.markdown.view.state.doc, projection = createProjection(this.session.current.source);
-    return { anchor: projection.toRaw(markdownOffset(doc, anchor)), head: projection.toRaw(markdownOffset(doc, head)) };
+    const { anchor, head } = this.markdown.view.state.selection, { source } = this.session.current;
+    return { anchor: this.rawOffset(source, anchor), head: this.rawOffset(source, head) };
   }
   private sourceBookmark(source: string, selection: SourceSelection): Bookmark {
     const p = createProjection(source);
@@ -731,7 +737,9 @@ export class GittinController {
     const { source, selection, valid } = this.captureSourceContext(), { from, to } = bounds(selection);
     try {
       if (action === 'paste') {
-        const text = await navigator.clipboard.readText();
+        const [item] = await navigator.clipboard.read();
+        const read = async (type: string) => item?.types.includes(type) ? (await item.getType(type)).text() : '';
+        const text = this.pasted(source, from, to, await read('text/html'), await read('text/plain'));
         return valid() && this.spliceSource(source, from, to, text);
       }
       const text = this.mode === 'markdown' ? source.slice(from, to) : this.selectedReadableText();
@@ -743,6 +751,12 @@ export class GittinController {
         'Clipboard access is unavailable. Use the device keyboard shortcut to ' + action + ' plain text.');
       return false;
     }
+  }
+  private pasted(source: string, from: number, to: number, html: string, text: string) {
+    return this.fileType === 'markdown' && pastedMarkdown(source, from, to, html, text) || text;
+  }
+  private rawOffset(source: string, position: number) {
+    return createProjection(source).toRaw(markdownOffset(this.markdown.view.state.doc, position));
   }
   /** Replaces from..to of the source with text as one command step, leaving the caret after it. */
   private spliceSource(source: string, from: number, to: number, text = '') {

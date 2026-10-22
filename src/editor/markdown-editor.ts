@@ -30,14 +30,16 @@ export interface MarkdownEditorOptions {
   onNotice(message: string): void;
   /** The file's exact text under the selection, which text dragged out of Edit carries. */
   selectedSource(): string;
+  pastedText(html: string, text: string, plain: boolean, at?: number): string;
 }
 
 /** Edit's source view: one ProseMirror editor whose paragraphs are the lines of the source. */
 export default class MarkdownEditor {
   readonly el = document.createElement('div');
   readonly view: EditorView;
+  private plainPaste = false;
 
-  constructor({ plugins, onSettled, onNotice, selectedSource }: MarkdownEditorOptions) {
+  constructor({ plugins, onSettled, onNotice, selectedSource, pastedText }: MarkdownEditorOptions) {
     this.el.className = 'gittin-editor md-mode';
     const imageNotice = () => onNotice('Paste an image URL to insert an image.');
     this.view = new EditorView(this.el, {
@@ -51,12 +53,18 @@ export default class MarkdownEditor {
       },
       clipboardTextSerializer: () => selectedSource(),
       handleDOMEvents: {
-        // Plain text only, as lines; the source takes the text with its own line endings.
+        keydown: (_view, event) => {
+          this.plainPaste = event.code === 'KeyV' && (event.ctrlKey || event.metaKey) && event.shiftKey;
+          return false;
+        },
+        // As lines; the source takes the text with its own line endings.
         paste: (view, event) => {
           const data = event.clipboardData;
           if (!data) return false;
           event.preventDefault();
-          const text = data.getData('text/plain');
+          const plain = data.getData('text/plain');
+          const text = plain && pastedText(data.getData('text/html'), plain, this.plainPaste);
+          this.plainPaste = false;
           if (text) {
             const slice = new Slice(Fragment.from(lines(text)), 1, 1);
             view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView()
@@ -75,7 +83,8 @@ export default class MarkdownEditor {
             imageNotice();
             return true;
           }
-          const text = data?.getData('text/plain'), at = view.posAtCoords({ left: event.clientX, top: event.clientY });
+          const plain = data?.getData('text/plain'), at = view.posAtCoords({ left: event.clientX, top: event.clientY });
+          const text = plain && at && pastedText(data!.getData('text/html'), plain, false, at.pos);
           if (text && at) {
             const tr = view.state.tr.setSelection(TextSelection.create(view.state.doc, at.pos));
             view.focus();
