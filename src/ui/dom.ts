@@ -7,7 +7,7 @@ export const brand = (href = '#/home', logoOnly = false) =>
   + `${logoOnly ? '' : '<strong>Gittin</strong>'}</a>`;
 
 /** Phones and small tablets, where side panels become drawers. Unit tests run without a window. */
-export const narrow = globalThis.matchMedia?.('(max-width: 760px)');
+export const narrow = globalThis.matchMedia?.('screen and (max-width: 760px)');
 
 /** An element with properties, ARIA ones too, and children: el('p', { role: 'note' }, 'Text'). */
 export function el<K extends keyof HTMLElementTagNameMap>(

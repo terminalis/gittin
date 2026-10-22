@@ -307,6 +307,18 @@ test('desktop-to-narrow resize reveals writing and narrow drawers are mutually e
   await expect(heading).toBeVisible();
 });
 
+test('printing at paper width leaves the side panels open', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openText(page, '# Printed');
+  await expect(page.locator('#documents-panel')).toBeVisible();
+  await page.emulateMedia({ media: 'print' });
+  await page.setViewportSize({ width: 718, height: 900 });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ media: 'screen' });
+  await expect(page.locator('#documents-panel')).toBeVisible();
+  await expect(page.locator('#repository-panel')).toBeVisible();
+});
+
 test('keyboard menu arrows and retained outer reading position', async ({ page }) => {
   await openText(page, '# Long\n\n' + 'A paragraph for scrolling.\n\n'.repeat(70), 'Long.md');
   const column = page.locator('.writing-column');
