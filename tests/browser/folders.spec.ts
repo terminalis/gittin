@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { unzipSync } from 'fflate';
 import {
   chromiumOnly,
   command,
@@ -7,12 +8,14 @@ import {
   editor,
   expectDraftSaved,
   home,
+  homeMenu,
   menu,
   newFile,
   openFromFolder,
   readable,
   useFolder,
   useReadOnlyFolder,
+  withoutPickers,
 } from './kit';
 
 const folderPanel = (page: Page) => page.getByRole('complementary', { name: 'Folder', exact: true });
@@ -802,4 +805,25 @@ test('without a folder picker, a folder opens read-only, Save downloads and edit
   await editor(page).pressSequentially(' edited');
   await expect(openRow).toHaveAttribute('data-unsaved', '');
   await expect(treeRow).toHaveAttribute('data-unsaved', '');
+});
+
+test.describe('drafts backup', () => {
+  chromiumOnly();
+
+  test('a drafts backup places each draft as in its folder and numbers a name already taken', async ({ page }) => {
+    await withoutPickers(page, 'save');
+    await useFolder(page, { 'docs/a.md': 'A' });
+    await openFromFolder(page, 'docs/a.md');
+    await expectDraftSaved(page);
+    for (let i = 0; i < 2; i++) {
+      await newFile(page);
+      await expectDraftSaved(page);
+    }
+    await home(page);
+    await homeMenu(page, 'Export drafts');
+    const backup = await download(page, () =>
+      page.getByRole('dialog', { name: 'Export drafts' }).getByRole('button', { name: 'Export backup' }).click());
+    expect(Object.keys(unzipSync(backup.bytes)).sort())
+      .toEqual(['Untitled file (2).md', 'Untitled file.md', 'gittin-drafts.json', 'project/docs/a.md']);
+  });
 });

@@ -20,10 +20,12 @@ export function otherTs(name: string, text: string | null): string | null {
   if (text === null) return 'a video file';
   return /^\s*(?:<\?xml[^>]*\?>\s*)?(?:<!DOCTYPE TS>\s*)?<TS[\s>]/.test(text) ? 'a Qt translation file' : null;
 }
-export function fileDescriptor(type: FileType) {
-  return fileTypes.find(t => t.id === type);
+const zip = { id: 'zip', label: 'Zip archive', tag: 'ZIP', extensions: ['.zip'], mime: 'application/zip' } as const;
+export type ExportType = FileType | 'zip';
+export function fileDescriptor(type: ExportType) {
+  return type === 'zip' ? zip : fileTypes.find(t => t.id === type);
 }
-export function fileName(title: string, type: FileType): string {
+export function fileName(title: string, type: ExportType): string {
   const descriptor = fileDescriptor(type);
   // An existing extension (including an unknown import's) is preserved exactly.
   return /\.[^./\\]+$/.test(title) || !descriptor ? title : title + descriptor.extensions[0];
