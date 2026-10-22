@@ -162,12 +162,14 @@ test('paste and Edit › Paste write pasted links as Markdown; Ctrl+Shift+V and 
   const html = '<p>See <a href="https://a.test/">the docs</a></p>';
   await editor(page).click();
   await editor(page).press('ControlOrMeta+End');
+  await selectionIs(page, 7, 7);
   await paste(html, 'See the docs');
   expect(await source(page)).toBe('`code` See [the docs](https://a.test/)');
   await paste(html, ' plain', true);
   expect(await source(page)).toBe('`code` See [the docs](https://a.test/) plain');
   await editor(page).press('ControlOrMeta+Home');
   await editor(page).press('ArrowRight');
+  await selectionIs(page, 1, 1);
   await paste(html, 'x');
   expect(await source(page)).toBe('`xcode` See [the docs](https://a.test/) plain');
   await page.evaluate(() => {
@@ -183,6 +185,7 @@ test('paste and Edit › Paste write pasted links as Markdown; Ctrl+Shift+V and 
     });
   });
   await editor(page).press('ControlOrMeta+End');
+  await selectionIs(page, 45, 45);
   await menuAction(page, 'Paste');
   expect(await source(page)).toBe('`xcode` See [the docs](https://a.test/) plain[more](https://b.test/)');
 });
