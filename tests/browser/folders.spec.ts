@@ -688,7 +688,7 @@ test.describe('writable folders', () => {
     await expect(page.locator('#document-title')).toHaveText('a.md');
     await expect(folderPanel(page).getByRole('button', { name: 'a.md', exact: true })).toHaveAttribute('aria-current', 'true');
     await page.goto('/#/home');
-    expect(await recentRows(page)).toEqual([['a.md', 'project › docs']]);
+    await expect.poll(() => recentRows(page)).toEqual([['a.md', 'project › docs']]);
   });
 
   test('a file opened on its own becomes part of its folder once the folder is opened', async ({ page }) => {
@@ -705,7 +705,7 @@ test.describe('writable folders', () => {
     await expectDraftSaved(page);
     await expect(page.locator('#repository-panel')).toContainText('This file was opened on its own');
     await page.goto('/#/home');
-    expect(await recentRows(page)).toEqual([['a.md', 'Opened on its own'], ['b.md', 'Opened on its own']]);
+    await expect.poll(() => recentRows(page)).toEqual([['a.md', 'Opened on its own'], ['b.md', 'Opened on its own']]);
     await openFromFolder(page, 'docs/a.md');
     await expect(editor(page)).toHaveText('mine');
     await expect(page.locator('#disk-change')).toBeHidden();
@@ -713,7 +713,7 @@ test.describe('writable folders', () => {
     await expect(page.getByRole('dialog', { name: 'Version history', exact: true }).locator('li')).toHaveCount(1);
     await page.keyboard.press('Escape');
     await page.goto('/#/home');
-    expect(await recentRows(page)).toEqual([['a.md', 'project › docs'], ['b.md', 'project']]);
+    await expect.poll(() => recentRows(page)).toEqual([['a.md', 'project › docs'], ['b.md', 'project']]);
     await page.locator('#recent').getByRole('button', { name: 'b.md', exact: true }).click();
     await expect(editor(page)).toHaveText('B');
     await expect(folderPanel(page).getByRole('button', { name: 'b.md', exact: true })).toHaveAttribute('aria-current', 'true');
