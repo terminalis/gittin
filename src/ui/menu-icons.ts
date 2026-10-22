@@ -14,7 +14,7 @@ const actionIcons: Record<string, IconName> = {
   'line-numbers': 'list-numbers', showComments: 'message', syntaxHighlighting: 'code',
   whitespace: 'pilcrow', wordWrap: 'text-wrap', fullscreen: 'maximize', focus: 'focus-2',
   markdown: 'code', diff: 'git-compare', preview: 'file-text', light: 'sun', dark: 'moon', system: 'brightness-half',
-  addTable: 'table', addImage: 'photo', 'folder-image': 'folder', addLink: 'link',
+  addTable: 'table', addImage: 'photo', 'device-image': 'device-desktop', 'folder-image': 'folder', addLink: 'link',
   'heading-link': 'link', symbols: 'mood-smile', hr: 'separator-horizontal',
   'line-break': 'page-break', codeBlock: 'code', toc: 'list-details', footnote: 'superscript',
   'collapsible-section': 'arrows-vertical', 'comment-stub': 'message', alert: 'alert-triangle',

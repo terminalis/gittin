@@ -60,6 +60,17 @@ it('toolbar state at the caret comes from the parse of the current source', () =
     expect(controller.blockLabel(), source).toBe(command === 'heading' ? 'Heading 1' : 'Paragraph');
   }
 });
+it('refuses device images outside a folder it can save to, and inserts the saved paths inside one', async () => {
+  const { controller, session } = mount('');
+  const notices: string[] = [], image = new File(['x'], 'shot.png', { type: 'image/png' });
+  controller.subscribeNotice(message => notices.push(message));
+  await controller.insertDeviceImages([image]);
+  expect(notices).toEqual(['Images from this device can be added only to Markdown files in a folder Gittin can save to.']);
+  controller.setImageSaver(async files => files.map(file => 'img/' + file.name));
+  expect(controller.canInsertDeviceImages()).toBe(true);
+  await controller.insertDeviceImages([image]);
+  expect(session.current.source).toBe('![shot](<img/shot.png>)');
+});
 it('marks the list button of the nearest list item only', () => {
   const cases = [
     ['- [ ] a', 6, 'taskList'], ['- a\n- [ ] b', 10, 'taskList'], ['- [x] a\n- b', 10, 'bulletList'],

@@ -46,6 +46,13 @@ function insertionActions(controller: GittinController, controls: EditorControls
   const aligns = { left: 'Align image left', center: 'Centre image', right: 'Align image right' };
   const types = ['markdown', 'javascript', 'typescript', 'html', 'css', 'json', 'yaml'] as const;
   return [
+    { id: 'device-image', label: 'From device…', menu: 'Insert/Image',
+      run: () => {
+        const input = el('input', { type: 'file', accept: 'image/*', multiple: true });
+        input.onchange = () => void controller.insertDeviceImages([...input.files ?? []]);
+        input.click();
+      },
+      state: () => ({ disabled: !controller.canInsertDeviceImages() }) },
     { id: 'folder-image', label: 'From folder…', menu: 'Insert/Image',
       run: () => controls.openInsert('folderImage'),
       state: () => ({ disabled: markdown().disabled || !controls.onFolderImage }) },
