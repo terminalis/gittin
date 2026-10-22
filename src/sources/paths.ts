@@ -1,6 +1,10 @@
 export const join = (directory: string, name: string) => (directory ? directory + '/' + name : name);
 export const dirname = (path: string) => (path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '');
 export const basename = (path: string) => path.slice(path.lastIndexOf('/') + 1);
+export function suffixed(path: string, suffix: string) {
+  const dot = path.lastIndexOf('.'), name = path.lastIndexOf('/') + 1;
+  return dot > name ? `${path.slice(0, dot)} (${suffix})${path.slice(dot)}` : `${path} (${suffix})`;
+}
 /** True for `target` itself and anything inside it. */
 export const isWithin = (path: string, target: string) => path === target || path.startsWith(target + '/');
 /** What follows `#` in a link, or '' when it has none. */

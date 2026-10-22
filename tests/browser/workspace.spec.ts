@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
+import { strFromU8, unzipSync } from 'fflate';
 import {
   command,
   download,
@@ -197,7 +198,7 @@ test('a draft changed in another window is kept beside a recovery copy, and Clos
   expect(await savedSources(page)).toEqual(['base mine', 'other window']);
 });
 
-test('backs up all drafts to one file and restores them in an empty browser', async ({
+test('backs up all drafts to a zip and restores it, or a JSON backup, in an empty browser', async ({
   page,
   browser,
 }) => {
@@ -212,28 +213,31 @@ test('backs up all drafts to one file and restores them in an empty browser', as
       .getByRole('button', { name: 'Export backup' })
       .click(),
   );
-  expect(backup.name).toMatch(/^gittin-drafts-\d{4}-\d{2}-\d{2}\.json$/);
+  expect(backup.name).toMatch(/^gittin-drafts-\d{4}-\d{2}-\d{2}\.zip$/);
+  const files = unzipSync(backup.bytes), list = files['gittin-drafts.json'];
+  expect(Object.keys(files).sort()).toEqual(['gittin-drafts.json', 'kept.md']);
+  expect(strFromU8(files['kept.md'])).toBe('# Kept\n\nBody');
   expect(
-    JSON.parse(backup.bytes.toString()).drafts.map((draft: { title: string }) => draft.title),
+    JSON.parse(strFromU8(list)).drafts.map((draft: { title: string }) => draft.title),
   ).toEqual(['kept.md']);
 
   // A context made here has no base URL, so the address is spelled out.
   const context = await browser.newContext();
   const other = await context.newPage();
   await other.goto(new URL(page.url()).origin + '/#/home');
-  const restore = async () => {
+  const restore = async (name: string, mimeType: string, buffer: Buffer) => {
     await homeMenu(other, 'Restore drafts');
     await other
       .getByRole('dialog', { name: 'Restore drafts' })
       .getByLabel('Backup file')
-      .setInputFiles({ name: 'backup.json', mimeType: 'application/json', buffer: backup.bytes });
+      .setInputFiles({ name, mimeType, buffer });
   };
-  await restore();
+  await restore('backup.zip', 'application/zip', backup.bytes);
   await expect(other.locator('#notice')).toContainText(
     'Restored 1 draft. 0 already on this device were kept unchanged.',
   );
   await expect(other.locator('#recent')).toContainText('kept.md');
-  await restore();
+  await restore('backup.json', 'application/json', Buffer.from(list));
   await expect(other.locator('#notice')).toContainText(
     'Restored 0 drafts. 1 already on this device was kept unchanged.',
   );
@@ -245,7 +249,7 @@ test('Export backup asks where to save when the browser can', async ({ page, bro
   await page.addInitScript(() => {
     (window as any).showSaveFilePicker = async (options: { suggestedName: string }) => {
       (window as any).suggested = options.suggestedName;
-      return (await navigator.storage.getDirectory()).getFileHandle('backup.json', {
+      return (await navigator.storage.getDirectory()).getFileHandle('backup.zip', {
         create: true,
       });
     };
@@ -260,16 +264,17 @@ test('Export backup asks where to save when the browser can', async ({ page, bro
     .click();
   // The picker creates the file after the click returns, so poll until it exists and holds the backup.
   await expect
-    .poll(() =>
-      page.evaluate(async () => {
+    .poll(async () => {
+      const bytes = await page.evaluate(async () => {
         const storage = await navigator.storage.getDirectory();
-        const file = await storage.getFileHandle('backup.json').catch(() => null);
-        return file ? (await file.getFile()).text() : '';
-      }),
-    )
-    .toContain('Kept');
+        const file = await storage.getFileHandle('backup.zip').catch(() => null);
+        return file ? [...new Uint8Array(await (await file.getFile()).arrayBuffer())] : [];
+      });
+      try { return strFromU8(unzipSync(new Uint8Array(bytes))['kept.md']); } catch { return ''; }
+    })
+    .toBe('# Kept\n\nBody');
   expect(await page.evaluate(() => (window as any).suggested)).toMatch(
-    /^gittin-drafts-\d{4}-\d{2}-\d{2}\.json$/,
+    /^gittin-drafts-\d{4}-\d{2}-\d{2}\.zip$/,
   );
   await expect(page.getByRole('dialog', { name: 'Export drafts' })).toBeHidden();
 });
@@ -300,6 +305,18 @@ test('desktop-to-narrow resize reveals writing and narrow drawers are mutually e
   await expect(page.locator('#repository-panel')).toBeVisible();
   await page.getByRole('button', { name: 'Folder', exact: true }).click();
   await expect(heading).toBeVisible();
+});
+
+test('printing at paper width leaves the side panels open', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openText(page, '# Printed');
+  await expect(page.locator('#documents-panel')).toBeVisible();
+  await page.emulateMedia({ media: 'print' });
+  await page.setViewportSize({ width: 718, height: 900 });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ media: 'screen' });
+  await expect(page.locator('#documents-panel')).toBeVisible();
+  await expect(page.locator('#repository-panel')).toBeVisible();
 });
 
 test('keyboard menu arrows and retained outer reading position', async ({ page }) => {

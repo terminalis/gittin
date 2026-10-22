@@ -1,4 +1,4 @@
-import { fileDescriptor, fileName, type FileType } from '../documents/file-types';
+import { fileDescriptor, fileName, type ExportType } from '../documents/file-types';
 import type { DirectoryHandle, FileHandle } from './handle';
 type PickerWindow = Window & {
   showDirectoryPicker?(options?: { mode?: 'readwrite' }): Promise<DirectoryHandle>;
@@ -26,11 +26,11 @@ export async function chooseFolder(): Promise<DirectoryHandle | null | 'input'> 
 }
 export const canPickSaveLocation = () => typeof pickers().showSaveFilePicker === 'function';
 /** Call directly from the click handler, before other asynchronous work. */
-export function pickSaveLocation(name: string, fileType: FileType): Promise<FileHandle | null> {
-  const descriptor = fileDescriptor(fileType);
+export function pickSaveLocation(name: string, type: ExportType): Promise<FileHandle | null> {
+  const descriptor = fileDescriptor(type);
   const types = descriptor
     ? [{ description: descriptor.label, accept: { [descriptor.mime]: [...descriptor.extensions] } }]
     : undefined;
-  const options = { suggestedName: fileName(name, fileType), ...(types ? { types } : {}) };
+  const options = { suggestedName: fileName(name, type), ...(types ? { types } : {}) };
   return pick(() => pickers().showSaveFilePicker!.call(window, options));
 }

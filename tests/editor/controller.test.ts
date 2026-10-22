@@ -60,6 +60,29 @@ it('toolbar state at the caret comes from the parse of the current source', () =
     expect(controller.blockLabel(), source).toBe(command === 'heading' ? 'Heading 1' : 'Paragraph');
   }
 });
+it('refuses device images outside a folder it can save to, and inserts the saved paths inside one', async () => {
+  const { controller, session } = mount('');
+  const notices: string[] = [], image = new File(['x'], 'shot.png', { type: 'image/png' });
+  controller.subscribeNotice(message => notices.push(message));
+  await controller.insertDeviceImages([image]);
+  expect(notices).toEqual(['Images from this device can be added only to Markdown files in a folder Gittin can save to.']);
+  controller.setImageSaver(async files => files.map(file => 'img/' + file.name));
+  expect(controller.canInsertDeviceImages()).toBe(true);
+  await controller.insertDeviceImages([image]);
+  expect(session.current.source).toBe('![shot](<img/shot.png>)');
+});
+it('marks the list button of the nearest list item only', () => {
+  const cases = [
+    ['- [ ] a', 6, 'taskList'], ['- a\n- [ ] b', 10, 'taskList'], ['- [x] a\n- b', 10, 'bulletList'],
+    ['> - a', 5, 'bulletList'], ['- a\n  1. b', 10, 'orderedList'],
+  ] as const;
+  for (const [source, at, list] of cases) {
+    const { controller } = mount(source);
+    controller.goToSource(at);
+    expect((['bulletList', 'orderedList', 'taskList'] as const).filter(id => controller.commandState(id).selected), source)
+      .toEqual([list]);
+  }
+});
 it('Edit shows Markdown emphasis from the parse of the text it draws, and none in code files', () => {
   const { controller, host, markdown } = mount('**a** *b* ~~c~~ ~d~\n# h\n- [x] t\n- [ ] u');
   const styled = (kind: string) =>

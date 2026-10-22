@@ -335,13 +335,24 @@ function literalLines({ source }: CommandContext, { first, last, start }: Lines)
   return start < frontMatterEnd(source) || markdownNodes(source).some(node => node.type === 'codeBlock' &&
     node.sourcepos![0][0] <= last + 1 && node.sourcepos![1][0] >= first + 1);
 }
+const continues = ({ lines, first }: Lines) =>
+  first > 0 && !!lines[first].text.trim() && !!lines[first - 1].text.replace(/^[ \t>]*/, '').trim();
+const apart = ({ source }: CommandContext, apart: boolean, text: string) =>
+  apart ? /^(?:[ \t]{0,3}>[ \t]?)*/.exec(text)![0].trimEnd() + newlineStyle(source) + text : text;
+const listLine = /^((?:[ \t]{0,3}>[ \t]?)*[ \t]*)((?:[-+*]|\d{1,9}[.)])[ \t]+(\[[ xX]\][ \t]+)?)?/;
 const headingOrList: Transform = (c, command) => {
   let lines = selectedLines(c);
   if (literalLines(c, lines)) return null;
   if (command !== 'heading') {
+    const listed = lines.lines.slice(lines.first, lines.last + 1).map(({ text }) => listLine.exec(text)!)
+      .filter(match => match[2] || match.input.slice(match[0].length).trim());
+    const off = listed.length > 0 && listed.every(([, , marker, task]) =>
+      marker && (task ? 'taskList' : /\d/.test(marker) ? 'orderedList' : 'bulletList') === command);
     const marker = (index: number) => command === 'bulletList' ? '- ' : command === 'taskList' ? '- [ ] ' : `${index + 1}. `;
-    return changeLines(c, lines, ({ text }, index) =>
-      text.replace(/^(\s*)(?:(?:[-+*]|\d+[.)]) +(?:\[[ xX]\] +)?)?/, '$1' + marker(index)));
+    const joins = off && continues(lines) && markdownNodes(c.source).some(node =>
+      node.type === 'item' && node.sourcepos![0][0] <= lines.first && node.sourcepos![1][0] >= lines.first);
+    return changeLines(c, lines, ({ text }, index) => apart(c, joins && index === 0,
+      text.replace(listLine, (_, prefix: string) => off ? prefix : prefix + marker(index))));
   }
   // An underlined heading the selection touches is rewritten whole, and its underline goes.
   const underlines = new Set<number>();
@@ -368,8 +379,9 @@ const blockQuote: Transform = c => {
     .map(line => line.text).filter(text => text.trim());
   const quoted = texts.length > 0 && texts.every(text => /^[ \t]*>/.test(text));
   const indent = Math.min(...texts.map(text => /^[ \t]*/.exec(text)![0].length));
-  return changeLines(c, lines, ({ text }) =>
-    quoted ? text.replace(/^([ \t]*)> ?/, '$1') : text.slice(0, indent) + '> ' + text.slice(indent));
+  const joins = quoted && continues(lines) && /^[ \t]*>/.test(lines.lines[lines.first - 1].text);
+  return changeLines(c, lines, ({ text }, index) => apart(c, joins && index === 0,
+    quoted ? text.replace(/^([ \t]*)> ?/, '$1') : text.slice(0, indent) + '> ' + text.slice(indent)));
 };
 const indentation: Transform = (c, command) => changeLines(c, selectedLines(c), ({ text }) =>
   command === 'indent' ? '  ' + text : text.replace(/^(?: {1,2}|\t)/, ''));

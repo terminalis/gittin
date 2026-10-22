@@ -1,5 +1,5 @@
 import type { DevicePreferences, Preferences } from '../preferences';
-import { exportDrafts, importDrafts } from '../documents/drafts';
+import { exportDraftsArchive, importDrafts, readBackup } from '../documents/drafts';
 import { exportFile } from '../documents/files';
 import {
   button, el, errorText, field, fileDialog, iconButton, legalPages, legalRel, notice, segmented,
@@ -65,32 +65,31 @@ export function homeMenu(
     el('span', { id: 'home-menu-recent-limit', textContent: 'Recent files shown' }), limits));
   const drafts = group('Drafts');
   add(drafts, 'Export drafts', 'download', () => fileDialog('Export drafts', (body, close, footer) => {
-    const text = el('p', { textContent: `Export every draft in ${place} as one file.`
-      + (desktop ? '' : ' Keep it somewhere safe: browser storage can be cleared.') });
+    const text = el('p', { textContent: `Export every draft in ${place} as one .zip file,`
+      + ' with each draft in it as its own file.' + (desktop ? '' : ' Keep it somewhere safe: browser storage can be cleared.') });
     body.append(text);
     footer.append(button('Export backup', () => {
-      const name = `gittin-drafts-${new Date().toISOString().slice(0, 10)}.json`;
-      void exportFile(name, 'json', async () => JSON.stringify(await exportDrafts(), null, 2))
+      const name = `gittin-drafts-${new Date().toISOString().slice(0, 10)}.zip`;
+      void exportFile(name, 'zip', exportDraftsArchive)
         .then(done => { if (done) close(); })
         .catch(error => { text.textContent = 'The backup could not be made. ' + errorText(error); });
     }, 'primary'));
   }));
   add(drafts, 'Restore drafts', 'history', () => fileDialog('Restore drafts', (body, closeRestore) => {
-    const input = el('input', { type: 'file', accept: '.json,application/json' });
+    const input = el('input', { type: 'file', accept: '.zip,.json,application/zip,application/json' });
     const text = el('p', { textContent: 'Drafts already on this device are kept unchanged.' });
     body.append(text, field('Backup file', input));
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return;
       try {
-        const { restored, kept } = await importDrafts(JSON.parse(await file.text()));
+        const { restored, kept } = await importDrafts(await readBackup(file));
         closeRestore();
         notice(`Restored ${restored} draft${restored === 1 ? '' : 's'}. `
           + `${kept} already on this device ${kept === 1 ? 'was' : 'were'} kept unchanged.`);
         actions.refresh();
       } catch (error) {
-        text.textContent = error instanceof SyntaxError ? 'This file is not a Gittin drafts backup.'
-          : errorText(error);
+        text.textContent = errorText(error);
         input.value = '';
       }
     };

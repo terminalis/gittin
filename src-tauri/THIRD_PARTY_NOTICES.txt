@@ -6405,3 +6405,5 @@ the following restrictions:
 
 3. This notice may not be removed or altered from any source distribution.
 
+
+In Cargo.lock but not built into the app: android_system_properties, bs58, chrono, defmt, defmt-macros, defmt-parser, iana-time-zone, iana-time-zone-haiku, jiff, jiff-core, jiff-static, jiff-tzdb, jiff-tzdb-platform, libappindicator, libappindicator-sys, num-traits, objc2-io-surface, portable-atomic, portable-atomic-util, ref-cast, ref-cast-impl, tinyvec, tray-icon, zerocopy-derive, zlib-rs.

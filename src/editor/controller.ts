@@ -35,11 +35,12 @@ import MarkdownEditor from './markdown-editor';
 import { commandRegistry, type CommandId } from './commands';
 import { shortcutCommand } from '../ui/shortcuts';
 import { sanitizeHTML } from './sanitizer/htmlSanitizer';
+import { pastedMarkdown } from './pasted-markdown';
 import { safeURL } from './safe-url';
 import { signal } from '../signal';
 /** Toolbar states that hold wherever their node encloses the caret; lists are handled apart. */
 const caretStateTypes = [
-  'taskList', 'strong', 'emph', 'strike', 'heading', 'thematicBreak', 'blockQuote', 'code', 'codeBlock',
+  'strong', 'emph', 'strike', 'heading', 'thematicBreak', 'blockQuote', 'code', 'codeBlock',
 ];
 /** Keeps an event from its default action and from other handlers. */
 function stop(event: Event) { event.preventDefault(); event.stopPropagation(); }
@@ -63,6 +64,7 @@ export class GittinController {
   private comparison: { source: string; label: string } | null = null;
   private imageResolver: ImageResolver | null = null;
   private linkOpener: LinkOpener | null = null;
+  private imageSaver: ((files: File[]) => Promise<string[]>) | null = null;
   private displayEpoch = 0;
   private contextEpoch = 0;
   private session!: DocumentSession;
@@ -114,10 +116,16 @@ export class GittinController {
         this.acceptChange(before, transactions);
         if (transactions.some(tr => tr.docChanged || tr.selectionSet)) this.caretChanged();
       },
-      onNotice: message => this.notices.emit(message),
+      pastedImages: files => void this.insertDeviceImages(files),
       selectedSource: () => {
         const { from, to } = bounds(this.getSourceSelection());
         return this.session.current.source.slice(from, to);
+      },
+      pastedText: (html, text, plain, at) => {
+        const { source } = this.session.current;
+        const { from, to } = at === undefined ? bounds(this.getSourceSelection())
+          : { from: this.rawOffset(source, at), to: this.rawOffset(source, at) };
+        return plain ? text : this.pasted(source, from, to, html, text);
       },
     });
     this.setPreferences(this.preferences);
@@ -412,6 +420,7 @@ export class GittinController {
   setComparison(source:string,label:string) {this.comparison={source,label:label.trim()||'Comparison source'};if(this.mounted) this.setMode('diff');}
   setLinkOpener(open:LinkOpener|null) {this.linkOpener=open;}
   setImageResolver(resolver:ImageResolver|null) {this.imageResolver=resolver;if(this.mounted&&this.mode==='preview')this.refreshDisplay();}
+  setImageSaver(save: ((files: File[]) => Promise<string[]>) | null) { this.imageSaver = save; }
   /** Replace the whole source as one undoable edit. */
   replaceSource(source:string) {this.session.applyWriteSource(source,'replace',this.getSelection());}
   clearComparison() {this.comparison=null;if(this.mounted && this.mode==='diff')this.refreshDisplay();}
@@ -620,9 +629,8 @@ export class GittinController {
   }
   getFileType() { return this.fileType; }
   getSourceSelection(): SourceSelection {
-    const { anchor, head } = this.markdown.view.state.selection;
-    const doc = this.markdown.view.state.doc, projection = createProjection(this.session.current.source);
-    return { anchor: projection.toRaw(markdownOffset(doc, anchor)), head: projection.toRaw(markdownOffset(doc, head)) };
+    const { anchor, head } = this.markdown.view.state.selection, { source } = this.session.current;
+    return { anchor: this.rawOffset(source, anchor), head: this.rawOffset(source, head) };
   }
   private sourceBookmark(source: string, selection: SourceSelection): Bookmark {
     const p = createProjection(source);
@@ -694,6 +702,17 @@ export class GittinController {
     };
   }
   insertElement(request:ElementRequest) { return this.captureSourceContext().apply((source,selection,type)=>insertElement(source,selection,type,request)); }
+  canInsertDeviceImages() { return !!this.imageSaver && this.isEditable() && this.fileType === 'markdown'; }
+  async insertDeviceImages(files: File[]) {
+    if (!this.canInsertDeviceImages())
+      return this.notices.emit('Images from this device can be added only to Markdown files in a folder Gittin can save to.');
+    try {
+      const paths = await this.imageSaver!(files);
+      paths.forEach((url, i) => this.insertElement({ kind: 'image', url, text: files[i].name.replace(/\.[^.]*$/, '') }));
+    } catch (error) {
+      this.notices.emit(error instanceof Error ? error.message : String(error));
+    }
+  }
   transformTable(operation:TableOperation,align?:'left'|'center'|'right') {return this.captureSourceContext().apply((source,selection,type)=>type==='markdown'?transformTable(source,selection,operation,align):null);}
   transformImage(request:ImageTransform) {return this.captureSourceContext().apply((source,selection,type)=>type==='markdown'?transformImage(source,selection,request):null);}
   sourceTableContext() {return this.isEditable()&&this.fileType==='markdown'?tableContext(this.session.current.source,this.getSourceSelection()):null;}
@@ -731,7 +750,9 @@ export class GittinController {
     const { source, selection, valid } = this.captureSourceContext(), { from, to } = bounds(selection);
     try {
       if (action === 'paste') {
-        const text = await navigator.clipboard.readText();
+        const [item] = await navigator.clipboard.read();
+        const read = async (type: string) => item?.types.includes(type) ? (await item.getType(type)).text() : '';
+        const text = this.pasted(source, from, to, await read('text/html'), await read('text/plain'));
         return valid() && this.spliceSource(source, from, to, text);
       }
       const text = this.mode === 'markdown' ? source.slice(from, to) : this.selectedReadableText();
@@ -743,6 +764,12 @@ export class GittinController {
         'Clipboard access is unavailable. Use the device keyboard shortcut to ' + action + ' plain text.');
       return false;
     }
+  }
+  private pasted(source: string, from: number, to: number, html: string, text: string) {
+    return this.fileType === 'markdown' && pastedMarkdown(source, from, to, html, text) || text;
+  }
+  private rawOffset(source: string, position: number) {
+    return createProjection(source).toRaw(markdownOffset(this.markdown.view.state.doc, position));
   }
   /** Replaces from..to of the source with text as one command step, leaving the caret after it. */
   private spliceSource(source: string, from: number, to: number, text = '') {
@@ -854,18 +881,16 @@ export class GittinController {
     const root = markdownNodes(this.session.current.source)[0];
     return findNodeAtPosition(root, [$from.index(0) + 1, Math.max(1, $from.parentOffset)]);
   }
-  /** Toolbar states at the caret: of its node and the node's ancestors, and of the nearest list only. */
+  /** Toolbar states at the caret: of its node and the node's ancestors, and of the nearest list item only. */
   private caretStates() {
     const states = new Set<string>();
     let inList = false;
     for (let node = this.caretNode(); node && node.type !== 'document'; node = node.parent) {
-      const data = node.type === 'list' || node.type === 'item' ? (node as ListItemMdNode).listData : null;
-      const list = data && (data.task ? 'taskList' : data.type === 'ordered' ? 'orderedList' : 'bulletList');
-      const type = list || node.type;
-      if (type === 'bulletList' || type === 'orderedList') {
-        if (!inList) states.add(type);
+      if (node.type === 'item') {
+        const data = (node as ListItemMdNode).listData;
+        if (!inList) states.add(data.task ? 'taskList' : data.type === 'ordered' ? 'orderedList' : 'bulletList');
         inList = true;
-      } else if (caretStateTypes.includes(type)) states.add(type);
+      } else if (caretStateTypes.includes(node.type)) states.add(node.type);
     }
     return states;
   }

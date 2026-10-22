@@ -5,10 +5,12 @@ import MarkdownEditor from '@/markdown-editor';
 
 describe('MarkdownEditor', () => {
   let editor: MarkdownEditor;
-  const onSettled = vi.fn(), onNotice = vi.fn();
+  const onSettled = vi.fn(), pastedImages = vi.fn();
 
   beforeEach(() => {
-    editor = new MarkdownEditor({ plugins: [], onSettled, onNotice, selectedSource: () => '' });
+    editor = new MarkdownEditor({
+      plugins: [], onSettled, pastedImages, selectedSource: () => '', pastedText: (_html, text) => text,
+    });
     document.body.append(editor.el);
   });
 
@@ -26,9 +28,9 @@ describe('MarkdownEditor', () => {
     expect(lines).toEqual(['DIV:# myText', 'DIV:next', 'DIV:']);
   });
 
-  const paste = (text: string, items: { kind: string }[] = []) => {
+  const paste = (text: string, files: File[] = []) => {
     const event = new Event('paste', { bubbles: true, cancelable: true });
-    editor.view.dom.dispatchEvent(Object.assign(event, { clipboardData: { getData: () => text, items } }));
+    editor.view.dom.dispatchEvent(Object.assign(event, { clipboardData: { getData: () => text, files } }));
   };
 
   it('pastes plain text as lines and keeps the raw text for the source', () => {
@@ -39,10 +41,11 @@ describe('MarkdownEditor', () => {
     expect(editor.view.state.doc.childCount).toBe(2);
   });
 
-  it('asks for an image URL when a pasted file has no text', () => {
-    paste('', [{ kind: 'file' }]);
+  it('hands on pasted image files, and only image files, when the paste has no text', () => {
+    const image = new File(['x'], 'shot.png', { type: 'image/png' });
+    paste('', [new File(['x'], 'notes.pdf', { type: 'application/pdf' }), image]);
 
-    expect(onNotice).toHaveBeenCalledWith('Paste an image URL to insert an image.');
+    expect(pastedImages).toHaveBeenCalledWith([image]);
     expect(onSettled).not.toHaveBeenCalled();
   });
 

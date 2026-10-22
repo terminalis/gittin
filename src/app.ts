@@ -8,7 +8,7 @@ import {
   DraftAutosave, deleteDraft, deleteDraftsAt, findDraft, listRecent, loadDraft, moveDraft, saveDraft,
   type DraftRecord,
 } from './documents/drafts';
-import { downloadMarkdown, exportFile } from './documents/files';
+import { downloadFile, exportFile } from './documents/files';
 import { decodeSource, encodeSource } from './editor/source-projection';
 import { headingAnchors } from './editor/heading-anchors';
 import { fileName, fileTypeForName, otherTs, type FileType } from './documents/file-types';
@@ -19,7 +19,7 @@ import {
 } from './sources/registry';
 import { FolderSource } from './sources/folder';
 import { countFiles } from './sources/search';
-import { basename, dirname } from './sources/paths';
+import { basename, dirname, suffixed } from './sources/paths';
 import type { FileHandle } from './sources/handle';
 import type { FileSource } from './sources/types';
 import { canPickSaveLocation, chooseFile, chooseFolder, pickSaveLocation } from './sources/pickers';
@@ -55,11 +55,7 @@ function newDraft(
 }
 /** A browser-only copy of the document, titled "name (suffix).ext". */
 function copyOf(doc: OpenDocument, suffix: string) {
-  const dot = doc.title.lastIndexOf('.');
-  const title = dot > 0
-    ? `${doc.title.slice(0, dot)} (${suffix})${doc.title.slice(dot)}`
-    : `${doc.title} (${suffix})`;
-  return newDraft({ source: doc.session.current.source, title, fileType: doc.fileType });
+  return newDraft({ source: doc.session.current.source, title: suffixed(doc.title, suffix), fileType: doc.fileType });
 }
 /** What Home and the workspace ask of the app. */
 const actions = {
@@ -490,7 +486,7 @@ function exportCopy() {
 /** Resolves true once the browser has been given the file to download. */
 async function download(doc = workspace?.document) {
   if (!doc || (workspace?.document === doc && !(await settle()))) return false;
-  downloadMarkdown(doc.title, doc.session.current.source, doc.fileType);
+  downloadFile(doc.title, doc.session.current.source, doc.fileType);
   return true;
 }
 /** Starts writing the document to its file, unless a write is already under way. */

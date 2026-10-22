@@ -1,7 +1,8 @@
-import { fileTypeForName, type FileType } from './file-types';
+import { fileName, fileTypeForName, type FileType } from './file-types';
 import { change, get, getAll } from './database';
-import { basename } from '../sources/paths';
-import { isAt } from '../sources/registry';
+import { encodeSource } from '../editor/source-projection';
+import { basename, join, suffixed } from '../sources/paths';
+import { isAt, sourceInfo } from '../sources/registry';
 import type { DocumentSession, Identity, SavedBaseline, SourceVersion } from './types';
 import { signal } from '../signal';
 interface DraftMetadata {
@@ -108,9 +109,34 @@ export async function saveDraft(record: DraftRecord, expectedStorageRevision: nu
   }
 }
 interface DraftBackup { format: 'gittin-drafts'; version: 1; exportedAt: string; drafts: DraftRecord[] }
-export async function exportDrafts(): Promise<DraftBackup> {
+async function exportDrafts(): Promise<DraftBackup> {
   const drafts = await getAll<DraftRecord>('documents');
   return { format: 'gittin-drafts', version: 1, exportedAt: new Date().toISOString(), drafts };
+}
+const listFile = 'gittin-drafts.json', notBackup = 'This file is not a Gittin drafts backup.';
+export async function exportDraftsArchive(): Promise<Uint8Array> {
+  const { zipSync, strToU8 } = await import('fflate');
+  const backup = await exportDrafts();
+  const files: Record<string, Uint8Array> = { [listFile]: strToU8(JSON.stringify(backup, null, 2)) };
+  const taken = new Set([listFile]);
+  for (const draft of backup.drafts) {
+    const { identity } = draft, info = identity.kind === 'source' ? sourceInfo(identity.sourceId) : undefined;
+    const path = identity.kind === 'local' ? fileName(draft.title, draft.fileType)
+      : info && info.kind !== 'file' ? join(info.label, identity.path) : identity.path;
+    let name = path;
+    for (let n = 2; taken.has(name.toLowerCase()); n++) name = suffixed(path, String(n));
+    taken.add(name.toLowerCase());
+    files[name] = encodeSource(draft.current.source);
+  }
+  return zipSync(files);
+}
+export async function readBackup(file: Blob): Promise<unknown> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const text = bytes[0] === 0x50 && bytes[1] === 0x4b
+    ? import('fflate').then(({ unzipSync, strFromU8 }) =>
+      strFromU8(unzipSync(bytes, { filter: entry => entry.name === listFile })[listFile]))
+    : Promise.resolve(new TextDecoder().decode(bytes));
+  try { return JSON.parse(await text); } catch { throw Error(notBackup); }
 }
 function isBackup(value: unknown): value is DraftBackup {
   const backup = value as DraftBackup;
@@ -120,7 +146,7 @@ function isBackup(value: unknown): value is DraftBackup {
 }
 /** Add backed-up drafts that are not on this device; an existing draft with the same id is never replaced. */
 export async function importDrafts(value: unknown): Promise<{ restored: number; kept: number }> {
-  if (!isBackup(value)) throw Error('This file is not a Gittin drafts backup.');
+  if (!isBackup(value)) throw Error(notBackup);
   let restored = 0, kept = 0;
   await change(['documents'], tx => {
     const store = tx.objectStore('documents');

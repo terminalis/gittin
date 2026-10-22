@@ -120,7 +120,7 @@ test('clipboard denial and stale async completion preserve source; plain-text pa
       configurable: true,
       value: {
         writeText: () => Promise.reject(Error('denied')),
-        readText: () => Promise.resolve('<b>plain</b>\r\n'),
+        read: async () => [{ types: ['text/plain'], getType: async () => new Blob(['<b>plain</b>\r\n']) }],
       },
     });
   });
@@ -134,16 +134,60 @@ test('clipboard denial and stale async completion preserve source; plain-text pa
     let complete: any;
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
-      value: { readText: () => new Promise((resolve) => (complete = resolve)) },
+      value: { read: () => new Promise((resolve) => (complete = resolve)) },
     });
     const { controller } = (window as any).fixture;
     (window as any).paste = controller.clipboard('paste');
     controller.setMode('preview');
     controller.setMode('markdown');
-    complete('late');
+    complete([{ types: ['text/plain'], getType: async () => new Blob(['late']) }]);
   });
   expect(await page.evaluate(() => (window as any).paste)).toBe(false);
   expect(await source(page)).toBe('alpha');
+});
+
+test('paste and Edit › Paste write pasted links as Markdown; Ctrl+Shift+V and code take plain text', async ({
+  page,
+}) => {
+  await mount(page, '`code` ');
+  const paste = (html: string, text: string, plain = false) =>
+    page.evaluate(([selector, html, text, plain]) => {
+      const target = document.querySelector(selector as string)!, data = new DataTransfer();
+      if (plain)
+        target.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyV', ctrlKey: true, shiftKey: true, bubbles: true }));
+      data.setData('text/html', html as string);
+      data.setData('text/plain', text as string);
+      target.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }));
+    }, [EDITOR, html, text, plain]);
+  const html = '<p>See <a href="https://a.test/">the docs</a></p>';
+  await editor(page).click();
+  await editor(page).press('ControlOrMeta+End');
+  await selectionIs(page, 7, 7);
+  await paste(html, 'See the docs');
+  expect(await source(page)).toBe('`code` See [the docs](https://a.test/)');
+  await paste(html, ' plain', true);
+  expect(await source(page)).toBe('`code` See [the docs](https://a.test/) plain');
+  await editor(page).press('ControlOrMeta+Home');
+  await editor(page).press('ArrowRight');
+  await selectionIs(page, 1, 1);
+  await paste(html, 'x');
+  expect(await source(page)).toBe('`xcode` See [the docs](https://a.test/) plain');
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        read: async () => [{
+          types: ['text/html', 'text/plain'],
+          getType: async (type: string) =>
+            new Blob([type === 'text/html' ? '<a href="https://b.test/">more</a>' : 'more']),
+        }],
+      },
+    });
+  });
+  await editor(page).press('ControlOrMeta+End');
+  await selectionIs(page, 45, 45);
+  await menuAction(page, 'Paste');
+  expect(await source(page)).toBe('`xcode` See [the docs](https://a.test/) plain[more](https://b.test/)');
 });
 
 test('whole word source/visible-text and regex retain literal replacement and read-only rules', async ({

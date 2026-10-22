@@ -1,7 +1,7 @@
 {
   "name": "gittin",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -24,6 +24,7 @@
     "@tauri-apps/plugin-fs": "2.7.1",
     "dompurify": "3.4.17",
     "entities": "8.1.0",
+    "fflate": "0.8.3",
     "gemoji": "8.1.0",
     "js-yaml": "5.4.3",
     "katex": "0.19.0",

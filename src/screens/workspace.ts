@@ -27,7 +27,7 @@ import {
   detailsDialog, locationDialog, moveDialog, nameDialog, renameDialog,
 } from '../ui/file-actions';
 import { versionHistoryButton, openVersionHistory } from '../ui/version-history';
-import { basename, fragment, relativePath, resolvePath, imageType } from '../sources/paths';
+import { basename, dirname, fragment, join, relativePath, resolvePath, imageType, suffixed } from '../sources/paths';
 import { desktop, place } from '../platform';
 import { FindBar } from '../ui/find-bar';
 import { Menus, editorActions, type Action } from '../ui/menus';
@@ -494,6 +494,18 @@ export class Workspace {
     this.controls.onFolderImage = folder ? () => imageFromFolderDialog(folder, this.path(),
       path => { this.controller.insertElement({ kind: 'image', url: path, text: '' }); }, relativePath)
       : undefined;
+    this.controller.setImageSaver(managed ? async files => {
+      const directory = dirname(this.path()), paths: string[] = [];
+      for (const file of files) {
+        const bytes = new Uint8Array(await file.arrayBuffer()), name = file.name || 'image.png';
+        let path = join(directory, name);
+        for (let n = 2; (await managed.create(path, bytes)).kind === 'exists'; n++)
+          path = join(directory, suffixed(name, String(n)));
+        paths.push(relativePath(this.path(), path));
+      }
+      void grant();
+      return paths;
+    } : null);
     if (folder) {
       const urls = new Map<string, Promise<string | null>>();
       const resolve = (reference: string) => resolvePath(this.path(), reference);

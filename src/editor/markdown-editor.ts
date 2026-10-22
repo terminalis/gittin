@@ -27,19 +27,21 @@ export interface MarkdownEditorOptions {
   plugins: Plugin[];
   /** After each dispatch: the state before it and the transactions it applied. */
   onSettled(before: EditorState, transactions: readonly Transaction[]): void;
-  onNotice(message: string): void;
+  pastedImages(files: File[]): void;
   /** The file's exact text under the selection, which text dragged out of Edit carries. */
   selectedSource(): string;
+  pastedText(html: string, text: string, plain: boolean, at?: number): string;
 }
 
 /** Edit's source view: one ProseMirror editor whose paragraphs are the lines of the source. */
 export default class MarkdownEditor {
   readonly el = document.createElement('div');
   readonly view: EditorView;
+  private plainPaste = false;
 
-  constructor({ plugins, onSettled, onNotice, selectedSource }: MarkdownEditorOptions) {
+  constructor({ plugins, onSettled, pastedImages, selectedSource, pastedText }: MarkdownEditorOptions) {
     this.el.className = 'gittin-editor md-mode';
-    const imageNotice = () => onNotice('Paste an image URL to insert an image.');
+    const images = (data: DataTransfer | null) => [...data?.files ?? []].filter(file => file.type.startsWith('image/'));
     this.view = new EditorView(this.el, {
       state: EditorState.create({
         schema, plugins: [...plugins, keymap({ ...baseKeymap, 'Shift-Enter': baseKeymap.Enter })],
@@ -51,37 +53,44 @@ export default class MarkdownEditor {
       },
       clipboardTextSerializer: () => selectedSource(),
       handleDOMEvents: {
-        // Plain text only, as lines; the source takes the text with its own line endings.
+        keydown: (_view, event) => {
+          this.plainPaste = event.code === 'KeyV' && (event.ctrlKey || event.metaKey) && event.shiftKey;
+          return false;
+        },
+        // As lines; the source takes the text with its own line endings.
         paste: (view, event) => {
           const data = event.clipboardData;
           if (!data) return false;
           event.preventDefault();
-          const text = data.getData('text/plain');
+          const plain = data.getData('text/plain');
+          const text = plain && pastedText(data.getData('text/html'), plain, this.plainPaste);
+          this.plainPaste = false;
           if (text) {
             const slice = new Slice(Fragment.from(lines(text)), 1, 1);
             view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView()
               .setMeta('rawPaste', text).setMeta('uiEvent', 'paste'));
-          } else if ([...data.items].some(item => item.kind === 'file')) imageNotice();
+          } else if (images(data).length) pastedImages(images(data));
           return true;
         },
         // ProseMirror moves text dragged within Edit; text from elsewhere goes in as lines, as Paste
-        // does, and image files are refused.
+        // does, and image files are added where they are dropped.
         drop: (view, event) => {
           if (view.dragging) return false;
           event.preventDefault();
           event.stopPropagation();
-          const data = event.dataTransfer;
-          if ([...data?.files ?? []].some(file => file.type.includes('image'))) {
-            imageNotice();
+          const data = event.dataTransfer, files = images(data), plain = data?.getData('text/plain');
+          const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
+          if (!at || !files.length && !plain) return true;
+          const tr = view.state.tr.setSelection(TextSelection.create(view.state.doc, at.pos));
+          view.focus();
+          if (files.length) {
+            view.dispatch(tr);
+            pastedImages(files);
             return true;
           }
-          const text = data?.getData('text/plain'), at = view.posAtCoords({ left: event.clientX, top: event.clientY });
-          if (text && at) {
-            const tr = view.state.tr.setSelection(TextSelection.create(view.state.doc, at.pos));
-            view.focus();
-            view.dispatch(tr.replaceSelection(new Slice(Fragment.from(lines(text)), 1, 1))
-              .setMeta('rawPaste', text).setMeta('uiEvent', 'drop'));
-          }
+          const text = pastedText(data!.getData('text/html'), plain!, false, at.pos);
+          view.dispatch(tr.replaceSelection(new Slice(Fragment.from(lines(text)), 1, 1))
+            .setMeta('rawPaste', text).setMeta('uiEvent', 'drop'));
           return true;
         },
       },

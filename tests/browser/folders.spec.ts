@@ -1,5 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
+import { unzipSync } from 'fflate';
 import {
+  EDITOR,
   chromiumOnly,
   command,
   disk,
@@ -7,12 +9,14 @@ import {
   editor,
   expectDraftSaved,
   home,
+  homeMenu,
   menu,
   newFile,
   openFromFolder,
   readable,
   useFolder,
   useReadOnlyFolder,
+  withoutPickers,
 } from './kit';
 
 const folderPanel = (page: Page) => page.getByRole('complementary', { name: 'Folder', exact: true });
@@ -688,7 +692,7 @@ test.describe('writable folders', () => {
     await expect(page.locator('#document-title')).toHaveText('a.md');
     await expect(folderPanel(page).getByRole('button', { name: 'a.md', exact: true })).toHaveAttribute('aria-current', 'true');
     await page.goto('/#/home');
-    expect(await recentRows(page)).toEqual([['a.md', 'project › docs']]);
+    await expect.poll(() => recentRows(page)).toEqual([['a.md', 'project › docs']]);
   });
 
   test('a file opened on its own becomes part of its folder once the folder is opened', async ({ page }) => {
@@ -705,7 +709,7 @@ test.describe('writable folders', () => {
     await expectDraftSaved(page);
     await expect(page.locator('#repository-panel')).toContainText('This file was opened on its own');
     await page.goto('/#/home');
-    expect(await recentRows(page)).toEqual([['a.md', 'Opened on its own'], ['b.md', 'Opened on its own']]);
+    await expect.poll(() => recentRows(page)).toEqual([['a.md', 'Opened on its own'], ['b.md', 'Opened on its own']]);
     await openFromFolder(page, 'docs/a.md');
     await expect(editor(page)).toHaveText('mine');
     await expect(page.locator('#disk-change')).toBeHidden();
@@ -713,7 +717,7 @@ test.describe('writable folders', () => {
     await expect(page.getByRole('dialog', { name: 'Version history', exact: true }).locator('li')).toHaveCount(1);
     await page.keyboard.press('Escape');
     await page.goto('/#/home');
-    expect(await recentRows(page)).toEqual([['a.md', 'project › docs'], ['b.md', 'project']]);
+    await expect.poll(() => recentRows(page)).toEqual([['a.md', 'project › docs'], ['b.md', 'project']]);
     await page.locator('#recent').getByRole('button', { name: 'b.md', exact: true }).click();
     await expect(editor(page)).toHaveText('B');
     await expect(folderPanel(page).getByRole('button', { name: 'b.md', exact: true })).toHaveAttribute('aria-current', 'true');
@@ -802,4 +806,49 @@ test('without a folder picker, a folder opens read-only, Save downloads and edit
   await editor(page).pressSequentially(' edited');
   await expect(openRow).toHaveAttribute('data-unsaved', '');
   await expect(treeRow).toHaveAttribute('data-unsaved', '');
+});
+
+test.describe('drafts backup', () => {
+  chromiumOnly();
+
+  test('a drafts backup places each draft as in its folder and numbers a name already taken', async ({ page }) => {
+    await withoutPickers(page, 'save');
+    await useFolder(page, { 'docs/a.md': 'A' });
+    await openFromFolder(page, 'docs/a.md');
+    await expectDraftSaved(page);
+    for (let i = 0; i < 2; i++) {
+      await newFile(page);
+      await expectDraftSaved(page);
+    }
+    await home(page);
+    await homeMenu(page, 'Export drafts');
+    const backup = await download(page, () =>
+      page.getByRole('dialog', { name: 'Export drafts' }).getByRole('button', { name: 'Export backup' }).click());
+    expect(Object.keys(unzipSync(backup.bytes)).sort())
+      .toEqual(['Untitled file (2).md', 'Untitled file.md', 'gittin-drafts.json', 'project/docs/a.md']);
+  });
+});
+
+test.describe('images from the device', () => {
+  chromiumOnly();
+
+  test('go beside the document under their own name, numbered when it is taken', async ({ page }) => {
+    await useFolder(page, { 'docs/a.md': '', 'docs/shot.png': [1] });
+    await openFromFolder(page, 'docs/a.md');
+    await editor(page).click();
+    await page.evaluate((selector) => {
+      const data = new DataTransfer();
+      data.items.add(new File([new Uint8Array([2])], 'shot.png', { type: 'image/png' }));
+      document.querySelector(selector)!
+        .dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }));
+    }, EDITOR);
+    await expect(editor(page)).toHaveText('![shot](<shot (2).png>)');
+    expect(await disk.kind(page, 'docs/shot (2).png')).toBe('file');
+    await expect(folderPanel(page).getByRole('button', { name: 'shot (2).png', exact: true })).toBeVisible();
+    const chooser = page.waitForEvent('filechooser');
+    await menu(page, 'Insert', 'Image', 'From device…');
+    await (await chooser).setFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([3]) });
+    await expect(editor(page)).toHaveText('![shot](<shot (2).png>)![photo](<photo.jpg>)');
+    expect(await disk.kind(page, 'docs/photo.jpg')).toBe('file');
+  });
 });

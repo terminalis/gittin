@@ -187,7 +187,7 @@ test('heading links, symbols, element dialogs and snippets insert through their 
   await expect(
     page.getByRole('button', { name: 'GitHub references…', exact: true }),
   ).toHaveCount(0);
-  await expect(page.getByText('From device', { exact: false })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'From device…', exact: true })).toBeDisabled();
 });
 
 test('captured insertion context rejects disposal, remount and composition without stale restoration', async ({

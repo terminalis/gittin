@@ -45,9 +45,10 @@ export class DevicePreferences {
   /** Calls the listener now and after every change, the system appearance's under "system" too. */
   subscribe(listener: () => void) { const off = this.changed.on(listener); listener(); return off; }
   private system = matchMedia('(prefers-color-scheme: dark)');
+  private printing = matchMedia('print');
   constructor() {
     this.system.addEventListener('change', () => {
-      if (this.value.theme !== 'system') return;
+      if (this.value.theme !== 'system' || this.printing.matches) return;
       this.applyTheme();
       this.changed.emit();
     });

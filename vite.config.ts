@@ -36,6 +36,16 @@ export default defineConfig(({ mode }) => {
               'THIRD_PARTY_NOTICES.txt has no entry for:\n' + missing.map(([, dir]) => dir).join('\n') +
                 '\nAdd them with: node scripts/append-notices.mjs <the folders above>'
             );
+          const rust = '\n' + readFileSync('src-tauri/THIRD_PARTY_NOTICES.txt', 'utf8');
+          const unbuilt = /\nIn Cargo\.lock but not built into the app: (.*)\.\s*$/.exec(rust)?.[1].split(', ') ?? [];
+          const uncredited = new Set(readFileSync('src-tauri/Cargo.lock', 'utf8').split('[[package]]').slice(1)
+            .filter(block => block.includes('\nsource = ')).map(block => /name = "([^"]+)"/.exec(block)![1])
+            .filter(name => !rust.includes('\n' + name + ' — ') && !unbuilt.includes(name)));
+          if (uncredited.size)
+            throw Error(
+              'src-tauri/THIRD_PARTY_NOTICES.txt has no entry for:\n' + [...uncredited].join('\n') +
+                '\nRegenerate it with: node scripts/rust-notices.mjs'
+            );
         },
       },
       {
