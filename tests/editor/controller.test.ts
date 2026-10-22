@@ -60,6 +60,18 @@ it('toolbar state at the caret comes from the parse of the current source', () =
     expect(controller.blockLabel(), source).toBe(command === 'heading' ? 'Heading 1' : 'Paragraph');
   }
 });
+it('marks the list button of the nearest list item only', () => {
+  const cases = [
+    ['- [ ] a', 6, 'taskList'], ['- a\n- [ ] b', 10, 'taskList'], ['- [x] a\n- b', 10, 'bulletList'],
+    ['> - a', 5, 'bulletList'], ['- a\n  1. b', 10, 'orderedList'],
+  ] as const;
+  for (const [source, at, list] of cases) {
+    const { controller } = mount(source);
+    controller.goToSource(at);
+    expect((['bulletList', 'orderedList', 'taskList'] as const).filter(id => controller.commandState(id).selected), source)
+      .toEqual([list]);
+  }
+});
 it('Edit shows Markdown emphasis from the parse of the text it draws, and none in code files', () => {
   const { controller, host, markdown } = mount('**a** *b* ~~c~~ ~d~\n# h\n- [x] t\n- [ ] u');
   const styled = (kind: string) =>

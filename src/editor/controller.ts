@@ -39,7 +39,7 @@ import { safeURL } from './safe-url';
 import { signal } from '../signal';
 /** Toolbar states that hold wherever their node encloses the caret; lists are handled apart. */
 const caretStateTypes = [
-  'taskList', 'strong', 'emph', 'strike', 'heading', 'thematicBreak', 'blockQuote', 'code', 'codeBlock',
+  'strong', 'emph', 'strike', 'heading', 'thematicBreak', 'blockQuote', 'code', 'codeBlock',
 ];
 /** Keeps an event from its default action and from other handlers. */
 function stop(event: Event) { event.preventDefault(); event.stopPropagation(); }
@@ -854,18 +854,16 @@ export class GittinController {
     const root = markdownNodes(this.session.current.source)[0];
     return findNodeAtPosition(root, [$from.index(0) + 1, Math.max(1, $from.parentOffset)]);
   }
-  /** Toolbar states at the caret: of its node and the node's ancestors, and of the nearest list only. */
+  /** Toolbar states at the caret: of its node and the node's ancestors, and of the nearest list item only. */
   private caretStates() {
     const states = new Set<string>();
     let inList = false;
     for (let node = this.caretNode(); node && node.type !== 'document'; node = node.parent) {
-      const data = node.type === 'list' || node.type === 'item' ? (node as ListItemMdNode).listData : null;
-      const list = data && (data.task ? 'taskList' : data.type === 'ordered' ? 'orderedList' : 'bulletList');
-      const type = list || node.type;
-      if (type === 'bulletList' || type === 'orderedList') {
-        if (!inList) states.add(type);
+      if (node.type === 'item') {
+        const data = (node as ListItemMdNode).listData;
+        if (!inList) states.add(data.task ? 'taskList' : data.type === 'ordered' ? 'orderedList' : 'bulletList');
         inList = true;
-      } else if (caretStateTypes.includes(type)) states.add(type);
+      } else if (caretStateTypes.includes(node.type)) states.add(node.type);
     }
     return states;
   }

@@ -229,6 +229,29 @@ describe('heading and list commands on lines with inline syntax', () => {
         expect(apply(source, range(at), command, 'markdown', 1), source + ' ' + command).toBeNull();
     }
   });
+  it('remove the list when every non-blank line is already that kind, keeping indentation', () => {
+    expect(apply('- a', range(3), 'bulletList', 'markdown')).toEqual({ source: 'a', selection: range(1) });
+    expect(apply('1. a\n\n2. b', range(0, 10), 'orderedList', 'markdown')?.source).toBe('a\n\nb');
+    expect(apply('- [x] a\n- [ ] b', range(0, 15), 'taskList', 'markdown')?.source).toBe('a\nb');
+  });
+  it('start the freed lines a paragraph of their own when the line above would take them in', () => {
+    expect(apply('- [x] done\n- plain', range(18), 'bulletList', 'markdown')?.source).toBe('- [x] done\n\nplain');
+    expect(apply('- a\n  - b', range(9), 'bulletList', 'markdown')?.source).toBe('- a\n\n  b');
+    expect(apply('> - a\r\n> - b', range(12), 'bulletList', 'markdown')?.source).toBe('> - a\r\n>\r\n> b');
+    expect(apply('> a\n> b', range(7), 'blockQuote', 'markdown')).toEqual({ source: '> a\n\nb', selection: range(6) });
+    expect(apply('>> a\n>> b', range(9), 'blockQuote', 'markdown')?.source).toBe('>> a\n>\n> b');
+    expect(apply('a\n\n- b', range(6), 'bulletList', 'markdown')?.source).toBe('a\n\nb');
+  });
+  it('set the list when a line is another kind or no list', () => {
+    expect(apply('- a\nb', range(0, 5), 'bulletList', 'markdown')?.source).toBe('- a\n- b');
+    expect(apply('- [ ] a', range(7), 'bulletList', 'markdown')?.source).toBe('- a');
+    expect(apply('1. [ ] a', range(8), 'orderedList', 'markdown')?.source).toBe('1. a');
+  });
+  it('keep quote markers', () => {
+    expect(apply('> a', range(3), 'bulletList', 'markdown')?.source).toBe('> - a');
+    expect(apply('> - a', range(5), 'bulletList', 'markdown')?.source).toBe('> a');
+    expect(apply('> > 1. a', range(8), 'taskList', 'markdown')?.source).toBe('> > - [ ] a');
+  });
   it('apply after a leading --- that no closing line makes front matter', () => {
     expect(apply('---\n\n- a', range(8), 'taskList', 'markdown')?.source).toBe('---\n\n- [ ] a');
   });
