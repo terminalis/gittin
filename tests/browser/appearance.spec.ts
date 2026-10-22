@@ -341,3 +341,19 @@ test('on a phone the title row gives a long title room; favourite and location s
   await expect(fileItem(/^Location$/)).toBeVisible();
   await expect(fileItem(/^Add\/remove favourite$/)).toBeVisible();
 });
+
+test('the system appearance holds while the page is laid out for printing in the light scheme', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await newFile(page);
+  const theme = async () => page.evaluate(async () => {
+    await new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)));
+    return document.documentElement.dataset.theme;
+  });
+  expect(await theme()).toBe('dark');
+  await page.emulateMedia({ media: 'print', colorScheme: 'light' });
+  expect(await theme()).toBe('dark');
+  await page.emulateMedia({ media: 'screen', colorScheme: 'dark' });
+  expect(await theme()).toBe('dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect.poll(theme).toBe('light');
+});
