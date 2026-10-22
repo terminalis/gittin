@@ -67,6 +67,20 @@
   </supports>
 
   <releases>
+    <release version="1.1.0" date="2026-10-22">
+      <description>
+        <p>Lists, paste, images and backups:</p>
+        <ul>
+          <li>A pressed list button removes the list.</li>
+          <li>Pasted links keep their addresses, and a pasted table becomes a Markdown table.</li>
+          <li>Images from this device can be added to files in a folder, from Insert › Image › From device…, by pasting or by dropping.</li>
+          <li>Export drafts saves a .zip that holds each draft as its own file.</li>
+          <li>The side panels and the appearance stay as they were after printing.</li>
+          <li>Dragging text, typing with input methods and files with mixed line endings work as expected.</li>
+          <li>Preview shows more unusual Markdown correctly.</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-10-19">
       <description>
         <p>Gittin is now available as a desktop app.</p>

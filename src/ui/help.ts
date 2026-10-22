@@ -151,6 +151,15 @@ export function gettingStarted() {
     body.append(el('ol', {}, ...steps.map(text => el('li', { textContent: text })))));
 }
 const releases = [
+  'Lists, paste, images and backups — 22 October 2026: a pressed list button removes the list; pasted '
+    + 'links keep their addresses and pasted tables become Markdown tables; add images from this device to '
+    + 'files in a folder with Insert › Image › From device…, by pasting or by dropping; Export drafts saves a '
+    + '.zip with each draft as its own file; the side panels and the appearance stay as they were after '
+    + 'printing; fixes for dragging text, input methods and mixed line endings; Preview shows more unusual '
+    + 'Markdown correctly.',
+  'Desktop apps — 19 October 2026: Gittin for Windows from the Microsoft Store and for Linux as a Flatpak, '
+    + 'saving straight back to your files and offered in Open with; downloads became Export…, and Download '
+    + 'as PDF… became Export as PDF….',
   'Files and folders — 2 October 2026: create folders; rename, move and delete files and delete '
     + 'folders from the Folder panel or the File menu; relative links open at their #section.',
   'Local files and folders — 30 September 2026: open a folder, save back to your files, '
