@@ -68,5 +68,15 @@ jobs:
           build-dir: builddir
           cache-key: flatpak-builder-${{ hashFiles('flatpak/io.github.terminalis.Gittin.yml', 'src-tauri/Cargo.lock', 'package-lock.json') }}
 
+      # flatpak-builder runs appstreamcli compose without its report, which names each screenshot
+      # left out of the catalogue and why.
+      - name: Show the catalogue report
+        continue-on-error: true
+        run: |
+          appstreamcli --version
+          appstreamcli compose --print-report full --no-color --prefix=/ --origin=io.github.terminalis.Gittin \
+            --components=io.github.terminalis.Gittin,io.github.terminalis.Gittin.desktop \
+            --result-root=/tmp/compose builddir/files
+
       - name: Lint the build
         run: flatpak-builder-lint --exceptions --user-exceptions flatpak/lint-exceptions.json repo repo
