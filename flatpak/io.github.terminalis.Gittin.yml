@@ -13,6 +13,10 @@ finish-args:
   - --device=dri
   # Images in documents can come from the web, as in a browser. Files come only through the portals.
   - --share=network
+  # git's settings name the author of commits Gittin makes in repositories; read only. The XDG location
+  # (~/.config/git/config) isn't read: in the sandbox XDG_CONFIG_HOME is the app's own folder, so where
+  # git's settings live only there, saving asks once for a name and email.
+  - --filesystem=~/.gitconfig:ro
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
 modules:
