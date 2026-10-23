@@ -12,6 +12,8 @@ const topics: Record<string, string> = {
     + 'supplies a temporary comparison that can be cleared.',
   'Saving and recovery': 'Save writes back to the file you opened and stops if the file changed on '
     + (desktop ? 'disk. Save as writes a new file. Unsaved changes are kept in this app. '
+      + 'In a git repository, saving also commits, with a message that says what changed, and '
+      + 'Version history lists the file\'s commits. Quitting asks about every unsaved file. '
       : 'disk. Save as writes a new file; in browsers that cannot write files it downloads one. '
         + 'Unsaved changes are kept in this browser, which you or the browser can clear. ')
     + `Version history keeps up to 20 saves per file in ${place}.`,

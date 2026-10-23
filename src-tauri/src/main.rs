@@ -2,8 +2,10 @@
 // file dialogs and file access.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod git;
 mod webview;
 
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::webview::NewWindowResponse;
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -38,6 +40,94 @@ fn set_frame(window: tauri::WebviewWindow, dark: bool, background: String, text:
     webview::colour_frame(&window, dark, &background, &text);
 }
 
+fn refusal(path: &Path) -> String {
+    format!("Gittin can't reach {}.", path.display())
+}
+
+/// `path` as given, when its real path is somewhere the page may reach: inside a folder or file the writer
+/// opened. A path that doesn't exist is refused, as `..` could take it anywhere.
+fn reach(allowed: impl Fn(&Path) -> bool, path: &str) -> Result<PathBuf, String> {
+    let path = PathBuf::from(path);
+    if std::fs::canonicalize(&path).is_ok_and(|real| allowed(&real)) {
+        Ok(path)
+    } else {
+        Err(refusal(&path))
+    }
+}
+
+/// What the file plugin's scope allows.
+fn in_scope(app: &tauri::AppHandle) -> impl Fn(&Path) -> bool {
+    let scope = app.fs_scope();
+    move |path| scope.is_allowed(path)
+}
+
+fn reach_in(app: &tauri::AppHandle, path: &str) -> Result<PathBuf, String> {
+    reach(in_scope(app), path)
+}
+
+/// The repository at `root`, when the page may reach `root` and the repository works on it with all its git
+/// data where the page may reach.
+fn repository_in(app: &tauri::AppHandle, root: &str) -> Result<git2::Repository, String> {
+    let root = reach_in(app, root)?;
+    git::open(&root, in_scope(app)).ok_or_else(|| refusal(&root))
+}
+
+fn text(error: git2::Error) -> String {
+    error.message().to_string()
+}
+
+// The git commands run off the window's thread, so a long history doesn't freeze it.
+#[tauri::command(async)]
+fn git_repositories(app: tauri::AppHandle, folder: String) -> Result<Vec<String>, String> {
+    git::repositories(&reach_in(&app, &folder)?, in_scope(&app)).map_err(|error| error.to_string())
+}
+
+#[tauri::command(async)]
+fn git_init(app: tauri::AppHandle, folder: String) -> Result<(), String> {
+    git::init(&reach_in(&app, &folder)?).map_err(text)
+}
+
+#[tauri::command(async)]
+fn git_commit(
+    app: tauri::AppHandle,
+    root: String,
+    paths: Vec<String>,
+    message: String,
+    author: Option<git::Author>,
+) -> Result<git::Outcome, String> {
+    git::commit(
+        &repository_in(&app, &root)?,
+        &paths,
+        &message,
+        author.as_ref(),
+    )
+    .map_err(text)
+}
+
+#[tauri::command(async)]
+fn git_log(
+    app: tauri::AppHandle,
+    root: String,
+    path: String,
+    skip: usize,
+    take: usize,
+) -> Result<Vec<git::Entry>, String> {
+    git::log(&repository_in(&app, &root)?, &path, skip, take).map_err(text)
+}
+
+/// The file's bytes as they are, for the page to decode as it decodes files on disk.
+#[tauri::command(async)]
+fn git_show(
+    app: tauri::AppHandle,
+    root: String,
+    commit: String,
+    path: String,
+) -> Result<tauri::ipc::Response, String> {
+    git::show(&repository_in(&app, &root)?, &commit, &path)
+        .map(tauri::ipc::Response::new)
+        .map_err(text)
+}
+
 /// Gittin's own pages: the bundled app, or the development server under `tauri dev`.
 fn own(url: &tauri::Url) -> bool {
     url.scheme() == "tauri"
@@ -69,7 +159,15 @@ fn main() {
                 .open_js_links_on_click(false)
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![opened_files, set_frame])
+        .invoke_handler(tauri::generate_handler![
+            opened_files,
+            set_frame,
+            git_repositories,
+            git_init,
+            git_commit,
+            git_log,
+            git_show
+        ])
         .setup(|app| {
             // The files Gittin was started with.
             hand_over(app.handle(), std::env::args());
@@ -103,4 +201,28 @@ fn main() {
         })
         .run(tauri::generate_context!())
         .expect("error while running Gittin");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::reach;
+    use std::path::Path;
+
+    #[test]
+    fn git_commands_reach_only_folders_the_writer_opened() {
+        let folder = std::env::temp_dir().join(format!("gittin-reach-{}", std::process::id()));
+        std::fs::create_dir_all(&folder).unwrap();
+        let real = std::fs::canonicalize(&folder).unwrap();
+        let inside = |path: &Path| path.starts_with(&real);
+        let given = folder.to_str().unwrap();
+        assert_eq!(reach(inside, given).unwrap(), folder);
+        let refused = |path: &str| reach(inside, path).unwrap_err();
+        let around = format!("{given}/../missing/deep");
+        assert_eq!(refused(&around), format!("Gittin can't reach {around}."));
+        let missing = format!("{given}/missing");
+        assert_eq!(refused(&missing), format!("Gittin can't reach {missing}."));
+        let outside = format!("{given}/..");
+        assert_eq!(refused(&outside), format!("Gittin can't reach {outside}."));
+        std::fs::remove_dir_all(&folder).unwrap();
+    }
 }

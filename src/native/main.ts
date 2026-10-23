@@ -1,10 +1,16 @@
-// The desktop app: the shared app in a Tauri window, with the browser's file API provided by Tauri, and
-// the files the system asks Gittin to open. It has no landing page and no offline copy.
+// The desktop app: the shared app in a Tauri window, with the browser's file API provided by Tauri, the
+// files the system asks Gittin to open, and git for repository folders. It has no landing page and no
+// offline copy.
+import './git.css';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { openHandles, start } from '../app';
 import { notice } from '../ui/dom';
 import { DesktopFileHandle, installPickers, revive } from './files';
+import { offerRepository } from './folder';
+import { openHistory } from './history';
+import { askBeforeQuitting } from './quit';
+import { changed, saveAll } from './save';
 
 installPickers();
 /** Opens the files handed to Gittin that are waiting. */
@@ -21,9 +27,11 @@ const colourFrame = () => {
     text: style.getPropertyValue('--ink').trim(),
   }).catch(() => {});
 };
-void start({ revive }).then(async () => {
+const extensions = { save: saveAll, changed, history: openHistory, folder: offerRepository };
+void start({ revive, extensions }).then(async () => {
   colourFrame();
   new MutationObserver(colourFrame).observe(document.documentElement, { attributeFilter: ['data-theme'] });
+  await askBeforeQuitting();
   // Files handed over before the page listens wait in the app, so take them after listening starts.
   await listen('open-files', () => void openFiles().catch(notice));
   await openFiles().catch(notice);

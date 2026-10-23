@@ -9,6 +9,8 @@ import {
   type DraftRecord,
 } from './documents/drafts';
 import { downloadFile, exportFile } from './documents/files';
+import { hasUnsavedChanges } from './documents/save-state';
+import { extend, extensions, type Extensions, type SaveTools } from './extensions';
 import { decodeSource, encodeSource } from './editor/source-projection';
 import { headingAnchors } from './editor/heading-anchors';
 import { fileName, fileTypeForName, otherTs, type FileType } from './documents/file-types';
@@ -231,15 +233,19 @@ function closeDocument(id: string) {
     }
     let discard = false;
     if (doc.session.identity.kind === 'local' || doc.localBaseline?.source !== doc.session.current.source) {
-      const local = doc.session.identity.kind === 'local';
-      const choice = await ask(`Close ${doc.title}?`,
-        local
-          ? `This file is only in ${place}. Discarding deletes it.`
-          : `It has unsaved changes kept in ${place}.`,
-        [['Save', 'save'], ['Discard changes', 'discard']]);
-      if (choice === 'cancel') return;
-      if (choice === 'save' && !(await writeFile(doc, false))) return;
-      discard = choice === 'discard';
+      const result = await extensions.save?.([doc], 'close', saveTools) ?? null;
+      if (result === 'cancelled') return;
+      if (result === null) {
+        const local = doc.session.identity.kind === 'local';
+        const choice = await ask(`Close ${doc.title}?`,
+          local
+            ? `This file is only in ${place}. Discarding deletes it.`
+            : `It has unsaved changes kept in ${place}.`,
+          [['Save', 'save'], ['Discard changes', 'discard']]);
+        if (choice === 'cancel') return;
+        if (choice === 'save' && !(await writeFile(doc, false))) return;
+        discard = choice === 'discard';
+      } else discard = result === 'discarded';
     }
     const active = workspace?.document === doc;
     forget(doc);
@@ -438,6 +444,7 @@ async function moveFile(source: FolderSource, from: string, to: string): Promise
     open.fileStatus = '';
     await open.autosave.updateMetadata({ title: basename(to), fileType: fileTypeForName(to) });
   } else await moveDraft(source.id, from, to).catch(notice);
+  await extensions.changed?.(source, { kind: 'move', from, to }).catch(notice);
   await moveVersions(versionKey(source.id, from), versionKey(source.id, to));
   if (workspace) { await transition(rebuild); refocus(); }
   return null;
@@ -468,6 +475,7 @@ function deleteEntry(source: FolderSource, path: string, kind: 'file' | 'directo
       text += ` Unsaved changes kept in ${place} are deleted too.`;
     if ((await ask(`Delete ${name}?`, text, [['Delete', 'delete']])) !== 'delete') return;
     try { await source.remove(path); } catch (error) { notice(reason(error, source, path)); return; }
+    await extensions.changed?.(source, { kind: 'delete', path }).catch(notice);
     const affected = [...documents.values()].filter(doc => isAt(doc.session.identity, source.id, path));
     const active = !!workspace && affected.includes(workspace.document);
     affected.forEach(forget);
@@ -494,8 +502,18 @@ function startSave(doc: OpenDocument, saveAs: boolean, overwrite = false) {
   fileSave ??= writeFile(doc, saveAs, overwrite).finally(() => { fileSave = undefined; });
 }
 function saveFile(saveAs: boolean) {
+  if (!workspace || navigating) return;
+  const doc = workspace.document;
   // writeFile opens the save picker immediately, within the user gesture.
-  if (workspace && !navigating) startSave(workspace.document, saveAs);
+  if (saveAs || !extensions.save || !hasUnsavedChanges(doc.session.identity, doc.session.current, doc.localBaseline))
+    return startSave(doc, saveAs);
+  saveWithExtension(doc);
+}
+function saveWithExtension(doc: OpenDocument) {
+  fileSave ??= extensions.save!([doc], 'save', saveTools)
+    .then(result => (result === null ? writeFile(doc, false) : result === 'saved'))
+    .catch(error => { report(doc, errorText(error)); return false; })
+    .finally(() => { fileSave = undefined; });
 }
 function report(doc: OpenDocument, text: string) {
   doc.fileStatus = text;
@@ -544,11 +562,22 @@ async function writeFile(doc: OpenDocument, saveAs: boolean, overwrite = false):
       : ` The saved state could not be recorded in ${place}; use the device status actions.`;
     report(doc, `${picker ? 'Saved as' : 'Saved to'} ${basename(target.path)}.${later}${unrecorded}`);
     if (picker && workspace?.document === doc) { await rebuild(); refocus(); }
+    if (picker && target.source instanceof FolderSource)
+      await extensions.changed?.(target.source, { kind: 'add', path: target.path }).catch(notice);
     return true;
   } catch (error) {
     report(doc, errorText(error));
     return false;
   }
+}
+/** For the desktop app's quit prompt: the open documents whose files lack their changes, and how to save
+ * or discard them. Documents only in Gittin have no file, so they stay as drafts. */
+export const unsavedFiles = () => [...documents.values()]
+  .filter(doc => hasUnsavedChanges(doc.session.identity, doc.session.current, doc.localBaseline));
+export const saveTools: SaveTools = { write: doc => writeFile(doc, false), report };
+export async function discardChanges(doc: OpenDocument) {
+  forget(doc);
+  await deleteDraft(doc.session.id);
 }
 function diskChoices(doc: OpenDocument) {
   const read = async () => {
@@ -567,7 +596,10 @@ function diskChoices(doc: OpenDocument) {
     useDisk: () => void take().then(d => adopt(doc, d, true), notice),
     keepMine: () => void take().then(d => adopt(doc, d, false), notice),
     saveAs: () => startSave(doc, true),
-    overwrite: () => startSave(doc, false, true),
+    overwrite: () => {
+      if (!extensions.save) return startSave(doc, false, true);
+      void take().then(d => adopt(doc, d, false)).then(() => saveWithExtension(doc)).catch(notice);
+    },
   };
 }
 function showConflict(doc: OpenDocument) {
@@ -598,9 +630,12 @@ window.addEventListener('pagehide', (event) => {
   void flushAll();
 });
 /** Starts Gittin. Each version hands in what only it has: the website its landing page and Install dialog,
- * the desktop app a way to bring back the file handles it stored. Resolves once the first screen shows. */
-export function start(version: { landing?: () => HTMLElement; install?: () => void; revive?: Revive }) {
+ * the desktop app a way to bring back the file handles it stored and its git. Resolves once the first screen shows. */
+export function start(version: {
+  landing?: () => HTMLElement; install?: () => void; revive?: Revive; extensions?: Extensions;
+}) {
   ({ landing, install } = version);
+  if (version.extensions) extend(version.extensions);
   return (async () => {
     root.inert = true;
     await prefs.load();
@@ -619,8 +654,10 @@ export function start(version: { landing?: () => HTMLElement; install?: () => vo
     if (pending) navigate(pending);
   })();
 }
-/** Before an update reloads Gittin: settles the editor and stores every open draft. False when one can't be stored. */
+/** Before an update reloads Gittin: waits for a save under way, settles the editor and stores every open draft.
+ * False when one can't be stored. */
 export async function saveDrafts() {
+  await fileSave;
   if (!(await settle())) return false;
   if (await flushAll()) return true;
   notice('Some drafts could not be saved. Export them before updating Gittin.');

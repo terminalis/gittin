@@ -54,6 +54,8 @@ export class DesktopDirectoryHandle extends DesktopHandle implements DirectoryHa
   }
   async *values() {
     for (const entry of await disk.readDir(this.path)) {
+      // Git's own folder isn't one of the writer's files: the Folder panel, search and Move to… skip it.
+      if (entry.name === '.git') continue;
       const path = this.child(entry.name);
       // The directory listing calls a link to a folder a link, not a folder; `stat` follows it.
       const directory = entry.isDirectory || (entry.isSymlink && (await kindAt(path)) === 'directory');

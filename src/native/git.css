@@ -1,0 +1,24 @@
+/* The desktop app's git: the Start a repository bar and the save dialog's sections. */
+.repository-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.repository-offer p {
+  flex-basis: 100%;
+  margin: 0;
+}
+.save-group h3 {
+  margin: 12px 0 4px;
+  font-size: 16px;
+}
+.save-group ul {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+.save-group input {
+  width: 100%;
+}

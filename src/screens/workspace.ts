@@ -20,6 +20,7 @@ import type { FileSource } from '../sources/types';
 import { diskChangeBanner, type DiskChoices } from '../ui/disk-change';
 import { hasUnsavedChanges, locationText, saveState } from '../documents/save-state';
 import { versionKey } from '../documents/versions';
+import { extensions } from '../extensions';
 import { isAt, sourceFor, sourceInfoFor } from '../sources/registry';
 import { FolderSource } from '../sources/folder';
 import { renderFolderPanel, imageFromFolderDialog } from '../ui/folder-panel';
@@ -278,7 +279,7 @@ export class Workspace {
     ]);
     const about = 'Gittin has no accounts. Your files stay on your device. '
       + 'Save writes back to the file you opened; Save as writes a new file. '
-      + (desktop ? 'Unsaved changes are kept in this app.'
+      + (desktop ? 'Unsaved changes are kept in this app. In a git repository, Save also commits.'
         : 'Unsaved changes are kept in this browser, which you or the browser can clear. '
           + 'After its first visit, Gittin can start offline on this device.');
     const rows: Row[] = [
@@ -386,10 +387,13 @@ export class Workspace {
   private openHistory() {
     const identity = this.identity;
     if (identity.kind !== 'source') return;
-    openVersionHistory(versionKey(identity.sourceId, identity.path), {
-      compare: (text, label) => this.controller.setComparison(text, label),
-      restore: text => this.controller.replaceSource(text),
-    });
+    const use = {
+      compare: (text: string, label: string) => this.controller.setComparison(text, label),
+      restore: (text: string) => this.controller.replaceSource(text),
+    };
+    void (extensions.history?.(this.document, use) ?? Promise.resolve(false)).then(shown => {
+      if (!shown) openVersionHistory(versionKey(identity.sourceId, identity.path), use);
+    }, notice);
   }
   /** Phones (600px and narrower): the menu row is hidden behind the Menus button until opened. */
   private showPhoneMenus(open: boolean) {
@@ -476,6 +480,7 @@ export class Workspace {
           this.documents.some(d => isAt(d.session.identity, folder!.id, path) && unsaved(d)),
         signal: this.abort.signal,
       });
+      if (managed && !needsAccess) extensions.folder?.(managed, this.part('#repository-panel'));
     };
     const grant = async () => {
       if (folder instanceof FolderSource && (await folder.permission(true)) === 'granted') {
@@ -501,6 +506,7 @@ export class Workspace {
         let path = join(directory, name);
         for (let n = 2; (await managed.create(path, bytes)).kind === 'exists'; n++)
           path = join(directory, suffixed(name, String(n)));
+        void extensions.changed?.(managed, { kind: 'create', path }).catch(notice);
         paths.push(relativePath(this.path(), path));
       }
       void grant();
