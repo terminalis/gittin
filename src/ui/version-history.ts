@@ -10,7 +10,7 @@ export function versionHistoryButton(enabled: boolean, open: () => void) {
   if (!enabled) b.title = 'Save this file to start its version history.';
   return b;
 }
-type Use = { compare(source: string, label: string): void; restore(source: string): void };
+export type Use = { compare(source: string, label: string): void; restore(source: string): void };
 export function openVersionHistory(key: string, use: Use) {
   fileDialog('Version history', (body, close, footer) => {
     const note = el('p', { textContent: desktop ? 'Versions of saves made in Gittin in this app.'
