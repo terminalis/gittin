@@ -136,7 +136,7 @@ export class Workspace {
       void this.controller.redrawDiagrams();
     }));
     // Menus calls this before running any command, so the phone menu row closes once one is chosen.
-    const commands = [...this.catalogue(), ...editorActions(this.controller, this.controls)];
+    const commands = [...this.catalogue(), ...(extensions.commands?.(doc) ?? []), ...editorActions(this.controller, this.controls)];
     const chosen = () => { this.showPhoneMenus(false); this.controller.focusDocument(); };
     this.menus = new Menus(commands, chosen);
     this.menus.element.id = 'workspace-menus';

@@ -8,6 +8,7 @@ import { openHandles, start } from '../app';
 import type { Extensions } from '../extensions';
 import { notice } from '../ui/dom';
 import { accountButton } from './account';
+import { cloneButton, cloneCommand } from './clone';
 import { DesktopFileHandle, installPickers, revive } from './files';
 import { offerRepository } from './folder';
 import { openHistory } from './history';
@@ -31,8 +32,9 @@ const colourFrame = () => {
 };
 const extensions: Extensions = {
   save: saveAll, changed, history: openHistory, folder: offerRepository,
-  home: header => accountButton(header, 'home'),
+  home: (header, actions) => { accountButton(header, 'home'); cloneButton(actions); },
   workspace: (_doc, header) => accountButton(header, 'workspace'),
+  commands: () => [cloneCommand],
 };
 void start({ revive, extensions }).then(async () => {
   colourFrame();

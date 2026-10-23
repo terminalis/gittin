@@ -2,7 +2,7 @@ import { el } from './dom';
 import { icon, type IconName } from './icons';
 
 const actionIcons: Record<string, IconName> = {
-  home: 'home', new: 'file-description', open: 'folder', 'open-folder': 'folder',
+  home: 'home', new: 'file-description', open: 'folder', 'open-folder': 'folder', clone: 'download',
   'make-copy': 'copy', 'email-file': 'mail', 'email-draft': 'mail',
   save: 'device-floppy', 'save-as': 'file-export', 'version-history': 'history',
   rename: 'pencil', move: 'folder-share', 'delete-file': 'trash', location: 'folder-symlink',

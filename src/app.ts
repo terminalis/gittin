@@ -22,7 +22,7 @@ import {
 import { FolderSource } from './sources/folder';
 import { countFiles } from './sources/search';
 import { basename, dirname, suffixed } from './sources/paths';
-import type { FileHandle } from './sources/handle';
+import type { DirectoryHandle, FileHandle } from './sources/handle';
 import type { FileSource } from './sources/types';
 import { canPickSaveLocation, chooseFile, chooseFolder, pickSaveLocation } from './sources/pickers';
 import { conflictDialog } from './ui/disk-change';
@@ -305,12 +305,14 @@ function openFolderCommand() {
         if (files.length) void addReadOnlyFolder(files).then(showFolder, notice);
       };
       folderInput.click();
-    } else if (choice) {
-      const folder = await addFolder(choice);
-      await adoptFiles(folder);
-      showFolder(folder);
-    }
+    } else if (choice) await openFolderHandle(choice);
   }).catch(notice);
+}
+/** Opens a folder as Open folder does once one is picked; the desktop app's Clone opens its clone this way. */
+export async function openFolderHandle(handle: DirectoryHandle) {
+  const folder = await addFolder(handle);
+  await adoptFiles(folder);
+  showFolder(folder);
 }
 /** Files opened on their own that lie inside the folder become part of it: their draft and version history
  * move to the folder's path, so each file is one document. A file the folder already has a draft for stays as it is. */

@@ -1,6 +1,7 @@
 // What a version of Gittin adds to the shared app through start(): the desktop app's git and GitHub. The web app adds none.
 import type { OpenDocument } from './screens/workspace';
 import type { FolderSource } from './sources/folder';
+import type { Action } from './ui/menus';
 import type { Use } from './ui/version-history';
 
 /** A change Gittin made to a folder's files: an image it added, a file it saved for the first time, a rename or
@@ -30,6 +31,8 @@ export interface Extensions {
   home?(header: HTMLElement, actions: HTMLElement): void;
   /** Adds to a document's workspace: `header` holds the header's buttons, `footer` the status footer's items. */
   workspace?(doc: OpenDocument, header: HTMLElement, footer: HTMLElement): void;
+  /** More commands for a document's menus. */
+  commands?(doc: OpenDocument): Action[];
 }
 export let extensions: Extensions = {};
 export const extend = (added: Extensions) => { extensions = added; };
