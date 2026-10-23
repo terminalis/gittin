@@ -4,12 +4,13 @@
 
 use git2::build::{CheckoutBuilder, RepoBuilder};
 use git2::{
-    AttrCheckFlags, Commit, Config, Cred, ErrorCode, FetchOptions, ObjectType, Oid,
-    RemoteCallbacks, RemoteRedirect, Repository, RepositoryInitOptions, RepositoryState, Signature,
-    Sort, TreeWalkMode, TreeWalkResult,
+    AttrCheckFlags, Commit, Config, Cred, ErrorCode, FetchOptions, FetchPrune, ObjectType, Oid,
+    PushOptions, RemoteCallbacks, RemoteRedirect, Repository, RepositoryInitOptions,
+    RepositoryState, Signature, Sort, Status, Tree, TreeWalkMode, TreeWalkResult,
 };
 use serde::{Deserialize, Serialize};
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::path::Path;
 
 /// The name and email Gittin keeps for repositories whose git settings have none.
@@ -219,26 +220,34 @@ pub fn commit(
         &parents,
     )?;
     Ok(Outcome::Committed {
-        hooks: hooks(repo, &config),
+        hooks: hooks(repo, &config, &COMMIT_HOOKS),
         left_out,
     })
 }
 
-/// Whether the repository has hooks git would run around a commit.
-fn hooks(repo: &Repository, config: &Config) -> bool {
+/// Hooks git would run around a commit, and around Sync's merge commit and push. libgit2 runs none of them.
+const COMMIT_HOOKS: [&str; 4] = [
+    "pre-commit",
+    "prepare-commit-msg",
+    "commit-msg",
+    "post-commit",
+];
+const SYNC_HOOKS: [&str; 5] = [
+    "pre-merge-commit",
+    "prepare-commit-msg",
+    "commit-msg",
+    "post-merge",
+    "pre-push",
+];
+
+/// Whether the repository has any of the hooks `names`.
+fn hooks(repo: &Repository, config: &Config, names: &[&str]) -> bool {
     let folder = match config.get_path("core.hooksPath") {
         Ok(path) if path.is_absolute() => path,
         Ok(path) => repo.workdir().unwrap_or(repo.path()).join(path),
         Err(_) => repo.commondir().join("hooks"),
     };
-    [
-        "pre-commit",
-        "prepare-commit-msg",
-        "commit-msg",
-        "post-commit",
-    ]
-    .iter()
-    .any(|name| folder.join(name).is_file())
+    names.iter().any(|name| folder.join(name).is_file())
 }
 
 /// The blob a commit holds at `path`, if any.
@@ -528,9 +537,508 @@ fn filtered(repo: &Repository) -> Result<Vec<String>, git2::Error> {
     Ok(filtered)
 }
 
+/// What Sync needs to know about a repository, as of the last fetch.
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteState {
+    /// Whether the repository has any remote; without one, Sync reads Publish to GitHub.
+    pub remotes: bool,
+    /// The address Sync uses: the branch's upstream remote's, otherwise `origin`'s.
+    pub url: Option<String>,
+    /// Whether that address is on https://github.com.
+    pub github: bool,
+    /// Commits on the branch that its upstream lacks; none without an upstream.
+    pub ahead: usize,
+}
+
+/// Why Sync stopped, changing nothing.
+#[derive(Serialize, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum Stop {
+    /// The repository is on a commit, not a branch.
+    Detached,
+    /// Another tool left a merge, rebase or cherry-pick part-way.
+    Busy,
+    /// A merge is needed, and git is set to sign commits, which libgit2 doesn't do.
+    Signs,
+    /// GitHub's changes include files under a filter libgit2 can't run, such as Git LFS.
+    Filter,
+    /// GitHub's changes include files another tool changed and didn't commit.
+    Changed,
+    /// A merge commit is needed, and git has no name and email for it.
+    Identity,
+}
+
+/// What a fetch found, before anything in the folder changes. `fetched` is the commit fetched, which Sync merges.
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum Fetched {
+    /// GitHub has nothing new; `ahead` commits are to push.
+    UpToDate {
+        fetched: String,
+        ahead: usize,
+    },
+    FastForward {
+        fetched: String,
+    },
+    /// Both moved; `conflicts` are the paths both changed on the same lines.
+    Merge {
+        fetched: String,
+        conflicts: Vec<String>,
+    },
+    /// The branch has no upstream, or GitHub doesn't have it: Sync publishes it to `origin`.
+    Publish,
+    Stopped {
+        reason: Stop,
+        paths: Vec<String>,
+    },
+}
+
+/// The side kept of a conflicting file.
+#[derive(Deserialize, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum Choice {
+    Mine,
+    Theirs,
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum Synced {
+    /// `pushed`: commits went to GitHub. `published`: the branch was new there and is now linked to it. `hooks`:
+    /// the repository has hooks git would have run.
+    Done {
+        pushed: bool,
+        published: bool,
+        hooks: bool,
+    },
+    /// GitHub has commits the last fetch didn't bring; the commits stay in the repository, and the next Sync merges
+    /// GitHub's.
+    Moved,
+    /// GitHub refused the push, with its reason; the commits stay in the repository.
+    Refused {
+        message: String,
+    },
+    Stopped {
+        reason: Stop,
+        paths: Vec<String>,
+    },
+}
+
+/// The checked-out branch's full name, also before its first commit; none when HEAD is a commit.
+fn branch(repo: &Repository) -> Option<String> {
+    let head = repo.find_reference("HEAD").ok()?;
+    head.symbolic_target()
+        .ok()
+        .flatten()
+        .filter(|name| name.starts_with("refs/heads/"))
+        .map(str::to_string)
+}
+
+/// A branch's upstream: its remote, the branch on that remote, and the local ref that tracks it.
+struct Upstream {
+    remote: String,
+    merge: String,
+    tracking: String,
+}
+
+fn upstream(repo: &Repository, branch: &str) -> Option<Upstream> {
+    let text = |buf: git2::Buf| buf.as_str().ok().map(str::to_string);
+    Some(Upstream {
+        remote: text(repo.branch_upstream_remote(branch).ok()?)?,
+        merge: text(repo.branch_upstream_merge(branch).ok()?)?,
+        tracking: text(repo.branch_upstream_name(branch).ok()?)?,
+    })
+}
+
+pub fn remote_state(repo: &Repository) -> Result<RemoteState, git2::Error> {
+    let upstream = branch(repo).and_then(|branch| upstream(repo, &branch));
+    let name = upstream
+        .as_ref()
+        .map_or("origin", |upstream| upstream.remote.as_str());
+    let url = repo
+        .find_remote(name)
+        .ok()
+        .and_then(|remote| remote.url().ok().map(str::to_string));
+    let head = repo.head().ok().and_then(|head| head.target());
+    let tracking = upstream.and_then(|upstream| repo.refname_to_id(&upstream.tracking).ok());
+    let ahead = match (head, tracking) {
+        (Some(head), Some(tracking)) => repo.graph_ahead_behind(head, tracking)?.0,
+        _ => 0,
+    };
+    Ok(RemoteState {
+        remotes: !repo.remotes()?.is_empty(),
+        github: url.as_deref().is_some_and(|url| url.starts_with(GITHUB)),
+        url,
+        ahead,
+    })
+}
+
+/// What bringing `fetched` into the checked-out branch would do, refusing what Sync can't do safely.
+enum Plan<'r> {
+    UpToDate(usize),
+    FastForward(Commit<'r>),
+    Merge {
+        head: Commit<'r>,
+        theirs: Commit<'r>,
+        index: git2::Index,
+    },
+    Stopped(Stop, Vec<String>),
+}
+
+fn plan(repo: &Repository, fetched: Oid) -> Result<Plan<'_>, git2::Error> {
+    if repo.state() != RepositoryState::Clean {
+        return Ok(Plan::Stopped(Stop::Busy, vec![]));
+    }
+    let head = repo.head()?.peel_to_commit()?;
+    let theirs = repo.find_commit(fetched)?;
+    if head.id() == fetched || repo.graph_descendant_of(head.id(), fetched)? {
+        return Ok(Plan::UpToDate(
+            repo.graph_ahead_behind(head.id(), fetched)?.0,
+        ));
+    }
+    let forward = repo.graph_descendant_of(fetched, head.id())?;
+    let base = if forward {
+        head.clone()
+    } else {
+        repo.find_commit(repo.merge_base(head.id(), fetched)?)?
+    };
+    // What GitHub changed is what the folder would change.
+    let incoming = changed_paths(repo, &base, &theirs)?;
+    let mut filtered = Vec::new();
+    for path in &incoming {
+        if filter_of(repo, Path::new(path))?.is_some() {
+            filtered.push(path.clone());
+        }
+    }
+    if !filtered.is_empty() {
+        return Ok(Plan::Stopped(Stop::Filter, filtered));
+    }
+    let changed: Vec<String> = incoming
+        .into_iter()
+        .filter(|path| {
+            repo.status_file(Path::new(path))
+                .is_ok_and(|status| !(status - Status::IGNORED).is_empty())
+        })
+        .collect();
+    if !changed.is_empty() {
+        return Ok(Plan::Stopped(Stop::Changed, changed));
+    }
+    if forward {
+        return Ok(Plan::FastForward(theirs));
+    }
+    if repo.config()?.get_bool("commit.gpgsign").unwrap_or(false) {
+        return Ok(Plan::Stopped(Stop::Signs, vec![]));
+    }
+    let index = repo.merge_commits(&head, &theirs, None)?;
+    Ok(Plan::Merge {
+        head,
+        theirs,
+        index,
+    })
+}
+
+/// The paths that differ between two commits.
+fn changed_paths(
+    repo: &Repository,
+    from: &Commit,
+    to: &Commit,
+) -> Result<Vec<String>, git2::Error> {
+    let diff = repo.diff_tree_to_tree(Some(&from.tree()?), Some(&to.tree()?), None)?;
+    Ok(diff
+        .deltas()
+        .filter_map(|delta| {
+            delta
+                .new_file()
+                .path()
+                .and_then(Path::to_str)
+                .map(str::to_string)
+        })
+        .collect())
+}
+
+fn conflict_path(conflict: &git2::IndexConflict) -> String {
+    let entry = conflict
+        .our
+        .as_ref()
+        .or(conflict.their.as_ref())
+        .or(conflict.ancestor.as_ref())
+        .expect("a conflict has an entry");
+    String::from_utf8_lossy(&entry.path).into_owned()
+}
+
+fn conflicts(index: &git2::Index) -> Result<Vec<String>, git2::Error> {
+    let mut paths = Vec::new();
+    for conflict in index.conflicts()? {
+        paths.push(conflict_path(&conflict?));
+    }
+    Ok(paths)
+}
+
+/// Fetches the branch's upstream and works out, without changing the folder, what Sync would do.
+pub fn fetch(repo: &Repository, login: Option<&Login>) -> Result<Fetched, Failure> {
+    let Some(branch) = branch(repo) else {
+        return Ok(Fetched::Stopped {
+            reason: Stop::Detached,
+            paths: vec![],
+        });
+    };
+    let Some(upstream) = upstream(repo, &branch) else {
+        return match repo.find_remote("origin") {
+            Ok(_) => Ok(Fetched::Publish),
+            Err(_) => Err(message(
+                "This branch has no upstream, and the repository has no origin to publish it to.",
+            )),
+        };
+    };
+    let mut remote = repo.find_remote(&upstream.remote)?;
+    let url = remote.url().unwrap_or_default().to_string();
+    let asked = Cell::new(0);
+    let refspec = format!("+{}:{}", upstream.merge, upstream.tracking);
+    let mut options = fetch_options(callbacks(login, &asked));
+    // A branch GitHub doesn't have leaves no tracking ref behind.
+    options.prune(FetchPrune::On);
+    remote
+        .fetch(&[refspec], Some(&mut options), None)
+        .map_err(|error| failure(error, &url, login, asked.get()))?;
+    let fetched = match repo.refname_to_id(&upstream.tracking) {
+        Ok(fetched) => fetched,
+        // GitHub doesn't have the branch, as in an empty repository or after deleting it there: Sync publishes it.
+        Err(error) if error.code() == ErrorCode::NotFound => return Ok(Fetched::Publish),
+        Err(error) => return Err(error.into()),
+    };
+    let id = fetched.to_string();
+    Ok(match plan(repo, fetched)? {
+        Plan::UpToDate(ahead) => Fetched::UpToDate { fetched: id, ahead },
+        Plan::FastForward(_) => Fetched::FastForward { fetched: id },
+        Plan::Merge { index, .. } => Fetched::Merge {
+            fetched: id,
+            conflicts: conflicts(&index)?,
+        },
+        Plan::Stopped(reason, paths) => Fetched::Stopped { reason, paths },
+    })
+}
+
+/// git's own wording for merging a fetched branch: "Merge branch 'main' of https://github.com/owner/notes".
+fn merge_message(merge: &str, url: &str) -> String {
+    let url = url.trim_end_matches('/');
+    let url = url.strip_suffix(".git").unwrap_or(url);
+    format!(
+        "Merge branch '{}' of {url}",
+        merge.trim_start_matches("refs/heads/")
+    )
+}
+
+/// Takes the picked side of each conflicting path, leaving a merge with no conflicts.
+fn settle(index: &mut git2::Index, choices: &HashMap<String, Choice>) -> Result<(), Failure> {
+    let conflicts = index.conflicts()?.collect::<Result<Vec<_>, _>>()?;
+    for conflict in conflicts {
+        let path = conflict_path(&conflict);
+        let side = match choices.get(&path) {
+            Some(Choice::Mine) => conflict.our,
+            Some(Choice::Theirs) => conflict.their,
+            None => return Err(message(format!("No version of {path} was picked."))),
+        };
+        index.conflict_remove(Path::new(&path))?;
+        // A side that deleted the file leaves it deleted.
+        if let Some(mut entry) = side {
+            // Stage 0: no longer one side of a conflict.
+            entry.flags &= !0x3000;
+            index.add(&entry)?;
+        }
+    }
+    Ok(())
+}
+
+/// Writes `tree` to the folder through a safe checkout, which refuses to overwrite files changed since the last
+/// commit, then moves the branch to `commit`.
+fn advance(repo: &Repository, branch: &str, tree: &Tree, commit: Oid) -> Result<(), git2::Error> {
+    repo.checkout_tree(tree.as_object(), Some(CheckoutBuilder::new().safe()))?;
+    repo.reference(branch, commit, true, "Sync")?;
+    Ok(())
+}
+
+enum Pushed {
+    Done,
+    Moved,
+    Refused(String),
+}
+
+/// Pushes `refspec` to `remote`, following no redirect to another site. GitHub's answer for the branch comes back
+/// through libgit2's push report.
+fn push(
+    repo: &Repository,
+    remote: &str,
+    refspec: &str,
+    login: Option<&Login>,
+) -> Result<Pushed, Failure> {
+    let mut remote = repo.find_remote(remote)?;
+    let url = remote.url().unwrap_or_default().to_string();
+    let (asked, refused) = (Cell::new(0), RefCell::new(None));
+    let mut callbacks = callbacks(login, &asked);
+    callbacks.push_update_reference(|_, status| {
+        if let Some(status) = status {
+            *refused.borrow_mut() = Some(status.to_string());
+        }
+        Ok(())
+    });
+    let mut options = PushOptions::new();
+    options
+        .remote_callbacks(callbacks)
+        .follow_redirects(RemoteRedirect::None);
+    match remote.push(&[refspec], Some(&mut options)) {
+        // The remote has commits this repository lacks.
+        Err(error) if error.code() == ErrorCode::NotFastForward => Ok(Pushed::Moved),
+        Err(error) => Err(failure(error, &url, login, asked.get())),
+        Ok(()) => Ok(refused.take().map_or(Pushed::Done, Pushed::Refused)),
+    }
+}
+
+/// Pushes the branch to `origin` under its own name and links the two, as `git push -u origin <branch>` does.
+fn publish_branch(
+    repo: &Repository,
+    branch: &str,
+    login: Option<&Login>,
+) -> Result<Synced, Failure> {
+    let moved = match push(repo, "origin", &format!("{branch}:{branch}"), login)? {
+        Pushed::Refused(message) => return Ok(Synced::Refused { message }),
+        Pushed::Moved => true,
+        Pushed::Done => false,
+    };
+    // Linked also when GitHub's branch of that name has commits this one lacks, so the next Sync merges them.
+    let name = branch.trim_start_matches("refs/heads/");
+    let mut config = repo.config()?;
+    config.set_str(&format!("branch.{name}.remote"), "origin")?;
+    config.set_str(&format!("branch.{name}.merge"), branch)?;
+    if moved {
+        return Ok(Synced::Moved);
+    }
+    Ok(Synced::Done {
+        pushed: true,
+        published: true,
+        hooks: hooks(repo, &config, &SYNC_HOOKS),
+    })
+}
+
+/// Brings `fetched` (the commit `fetch` returned) into the branch, with the writer's pick for each conflicting path,
+/// writes the result to the folder and pushes; with no `fetched`, publishes the branch to `origin`. The folder
+/// changes only once everything is settled, through a safe checkout, and no merge state is written to `.git`.
+pub fn sync(
+    repo: &Repository,
+    fetched: Option<&str>,
+    choices: &HashMap<String, Choice>,
+    author: Option<&Author>,
+    login: Option<&Login>,
+) -> Result<Synced, Failure> {
+    let Some(branch) = branch(repo) else {
+        return Ok(Synced::Stopped {
+            reason: Stop::Detached,
+            paths: vec![],
+        });
+    };
+    let Some(fetched) = fetched else {
+        return publish_branch(repo, &publishable(repo)?, login);
+    };
+    let fetched = Oid::from_str(fetched)?;
+    let upstream = upstream(repo, &branch)
+        .ok_or_else(|| message("This branch has no upstream to sync with."))?;
+    let advanced = match plan(repo, fetched)? {
+        Plan::Stopped(reason, paths) => return Ok(Synced::Stopped { reason, paths }),
+        Plan::UpToDate(_) => false,
+        Plan::FastForward(theirs) => {
+            advance(repo, &branch, &theirs.tree()?, fetched)?;
+            true
+        }
+        Plan::Merge {
+            head,
+            theirs,
+            mut index,
+        } => {
+            let signature = match (repo.signature(), author) {
+                (Ok(signature), _) => signature,
+                (Err(_), Some(author)) => Signature::now(&author.name, &author.email)?,
+                (Err(_), None) => {
+                    return Ok(Synced::Stopped {
+                        reason: Stop::Identity,
+                        paths: vec![],
+                    })
+                }
+            };
+            settle(&mut index, choices)?;
+            let tree = repo.find_tree(index.write_tree_to(repo)?)?;
+            let url = repo
+                .find_remote(&upstream.remote)?
+                .url()
+                .unwrap_or_default()
+                .to_string();
+            let message = merge_message(&upstream.merge, &url);
+            let merged = repo.commit(
+                None,
+                &signature,
+                &signature,
+                &message,
+                &tree,
+                &[&head, &theirs],
+            )?;
+            advance(repo, &branch, &tree, merged)?;
+            true
+        }
+    };
+    let head = repo.refname_to_id(&branch)?;
+    let mut pushed = false;
+    if repo.graph_ahead_behind(head, fetched)?.0 > 0 {
+        match push(
+            repo,
+            &upstream.remote,
+            &format!("{branch}:{}", upstream.merge),
+            login,
+        )? {
+            Pushed::Moved => return Ok(Synced::Moved),
+            Pushed::Refused(message) => return Ok(Synced::Refused { message }),
+            Pushed::Done => {}
+        }
+        pushed = true;
+    }
+    Ok(Synced::Done {
+        pushed,
+        published: false,
+        hooks: (advanced || pushed) && hooks(repo, &repo.config()?, &SYNC_HOOKS),
+    })
+}
+
+/// The branch Publish to GitHub pushes: the one checked out, once it has a commit.
+pub fn publishable(repo: &Repository) -> Result<String, Failure> {
+    let branch = branch(repo)
+        .ok_or_else(|| message("This repository isn't on a branch, so Gittin can't publish it."))?;
+    repo.refname_to_id(&branch).map_err(|_| {
+        message("There's nothing to publish yet: save a file in this repository first.")
+    })?;
+    Ok(branch)
+}
+
+/// Adds `url` as the repository's `origin` and publishes `branch` there.
+pub fn publish(
+    repo: &Repository,
+    url: &str,
+    branch: &str,
+    login: Option<&Login>,
+) -> Result<Synced, Failure> {
+    repo.remote("origin", url)?;
+    publish_branch(repo, branch, login)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -1202,5 +1710,447 @@ mod tests {
             .unwrap();
         assert!(error.message().contains("redirect"), "{}", error.message());
         assert_eq!(requests.load(Ordering::SeqCst), 1);
+    }
+
+    /// A bare repository standing in for GitHub, holding a.md and b.md on master, and the writer's clone of it.
+    fn github() -> (PathBuf, PathBuf) {
+        let (seed, repo) = repository();
+        write(&seed, "a.md", "# A\none\n");
+        write(&seed, "b.md", "# B\none\n");
+        save(&seed, &["a.md", "b.md"], "First");
+        let origin = folder();
+        Repository::init_bare(&origin).unwrap();
+        repo.remote("origin", &url(&origin))
+            .unwrap()
+            .push(&["refs/heads/master:refs/heads/master"], None)
+            .unwrap();
+        let root = writer(&origin);
+        (origin, root)
+    }
+
+    /// A clone of `origin` whose settings name its author.
+    fn writer(origin: &Path) -> PathBuf {
+        let cloned = clone(&url(origin), &folder(), None, |_| true).unwrap();
+        let root = PathBuf::from(cloned.folder);
+        let mut config = opened(&root).config().unwrap();
+        config.set_str("user.name", "Writer").unwrap();
+        config.set_str("user.email", "writer@example.com").unwrap();
+        root
+    }
+
+    /// A change made on GitHub: another clone commits `text` to `path` and pushes it.
+    fn on_github(origin: &Path, path: &str, text: &str) {
+        let other = writer(origin);
+        write(&other, path, text);
+        save(&other, &[path], "Edit on GitHub");
+        opened(&other)
+            .find_remote("origin")
+            .unwrap()
+            .push(&["refs/heads/master:refs/heads/master"], None)
+            .unwrap();
+    }
+
+    fn fetched_id(fetched: &Fetched) -> String {
+        match fetched {
+            Fetched::UpToDate { fetched, .. }
+            | Fetched::FastForward { fetched }
+            | Fetched::Merge { fetched, .. } => fetched.clone(),
+            other => panic!("nothing fetched: {other:?}"),
+        }
+    }
+
+    fn tip(root: &Path, name: &str) -> Oid {
+        opened(root).refname_to_id(name).unwrap()
+    }
+
+    fn synced(pushed: bool) -> Synced {
+        Synced::Done {
+            pushed,
+            published: false,
+            hooks: false,
+        }
+    }
+
+    fn stopped(reason: Stop, paths: &[&str]) -> Fetched {
+        Fetched::Stopped {
+            reason,
+            paths: paths.iter().map(|path| path.to_string()).collect(),
+        }
+    }
+
+    fn sync_now(root: &Path, fetched: &Fetched, choices: &HashMap<String, Choice>) -> Synced {
+        sync(
+            &opened(root),
+            Some(&fetched_id(fetched)),
+            choices,
+            None,
+            None,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn remote_state_tells_publish_from_sync_and_counts_saves_not_on_github() {
+        let (plain, _repo) = repository();
+        let alone = RemoteState {
+            remotes: false,
+            url: None,
+            github: false,
+            ahead: 0,
+        };
+        assert_eq!(remote_state(&opened(&plain)).unwrap(), alone);
+        let (origin, root) = github();
+        write(&root, "a.md", "# A\ntwo\n");
+        save(&root, &["a.md"], "Edit A");
+        let cloned = RemoteState {
+            remotes: true,
+            url: Some(url(&origin)),
+            github: false,
+            ahead: 1,
+        };
+        assert_eq!(remote_state(&opened(&root)).unwrap(), cloned);
+        opened(&root)
+            .remote_set_url("origin", "https://github.com/owner/notes.git")
+            .unwrap();
+        assert!(remote_state(&opened(&root)).unwrap().github);
+    }
+
+    #[test]
+    fn github_s_commits_fast_forward_into_the_folder() {
+        let (origin, root) = github();
+        on_github(&origin, "b.md", "# B\ntwo\n");
+        let fetched = fetch(&opened(&root), None).unwrap();
+        assert!(
+            matches!(fetched, Fetched::FastForward { .. }),
+            "{fetched:?}"
+        );
+        assert_eq!(sync_now(&root, &fetched, &HashMap::new()), synced(false));
+        assert_eq!(fs::read_to_string(root.join("b.md")).unwrap(), "# B\ntwo\n");
+        assert_eq!(
+            tip(&root, "refs/heads/master"),
+            tip(&origin, "refs/heads/master")
+        );
+    }
+
+    #[test]
+    fn saves_github_lacks_are_pushed_and_hooks_reported() {
+        let (origin, root) = github();
+        write(&root, "a.md", "# A\ntwo\n");
+        save(&root, &["a.md"], "Edit A");
+        fs::create_dir_all(root.join(".git/hooks")).unwrap();
+        fs::write(root.join(".git/hooks/pre-push"), "").unwrap();
+        let fetched = fetch(&opened(&root), None).unwrap();
+        assert!(
+            matches!(fetched, Fetched::UpToDate { ahead: 1, .. }),
+            "{fetched:?}"
+        );
+        let pushed = Synced::Done {
+            pushed: true,
+            published: false,
+            hooks: true,
+        };
+        assert_eq!(sync_now(&root, &fetched, &HashMap::new()), pushed);
+        assert_eq!(
+            tip(&origin, "refs/heads/master"),
+            tip(&root, "refs/heads/master")
+        );
+        assert_eq!(remote_state(&opened(&root)).unwrap().ahead, 0);
+    }
+
+    #[test]
+    fn edits_to_different_files_merge_in_one_commit_with_git_s_message() {
+        let (origin, root) = github();
+        on_github(&origin, "b.md", "# B\ntwo\n");
+        write(&root, "a.md", "# A\ntwo\n");
+        save(&root, &["a.md"], "Edit A");
+        let fetched = fetch(&opened(&root), None).unwrap();
+        assert!(
+            matches!(&fetched, Fetched::Merge { conflicts, .. } if conflicts.is_empty()),
+            "{fetched:?}"
+        );
+        assert_eq!(sync_now(&root, &fetched, &HashMap::new()), synced(true));
+        let repo = opened(&root);
+        let head = repo.head().unwrap().peel_to_commit().unwrap();
+        assert_eq!(head.parent_count(), 2);
+        assert_eq!(
+            head.message().unwrap(),
+            format!("Merge branch 'master' of {}", url(&origin))
+        );
+        assert_eq!(head.author().name().unwrap(), "Writer");
+        assert_eq!(fs::read_to_string(root.join("a.md")).unwrap(), "# A\ntwo\n");
+        assert_eq!(fs::read_to_string(root.join("b.md")).unwrap(), "# B\ntwo\n");
+        assert_eq!(tip(&origin, "refs/heads/master"), head.id());
+        assert!(!root.join(".git/MERGE_HEAD").exists());
+        assert_eq!(
+            merge_message("refs/heads/main", "https://github.com/owner/notes.git/"),
+            "Merge branch 'main' of https://github.com/owner/notes"
+        );
+    }
+
+    #[test]
+    fn each_conflicting_file_keeps_the_side_picked() {
+        for (choice, kept) in [
+            (Choice::Mine, "# A\nmine\n"),
+            (Choice::Theirs, "# A\ngithub\n"),
+        ] {
+            let (origin, root) = github();
+            on_github(&origin, "a.md", "# A\ngithub\n");
+            write(&root, "a.md", "# A\nmine\n");
+            save(&root, &["a.md"], "Edit A");
+            let fetched = fetch(&opened(&root), None).unwrap();
+            assert!(
+                matches!(&fetched, Fetched::Merge { conflicts, .. } if *conflicts == ["a.md"]),
+                "{fetched:?}"
+            );
+            let choices = HashMap::from([("a.md".to_string(), choice)]);
+            assert_eq!(sync_now(&root, &fetched, &choices), synced(true));
+            assert_eq!(fs::read_to_string(root.join("a.md")).unwrap(), kept);
+            // Version history hides the merge commit: the file matches the side kept.
+            let newest = log(&opened(&root), "a.md", 0, 1).unwrap().remove(0);
+            assert!(
+                !newest.message.starts_with("Merge branch"),
+                "{}",
+                newest.message
+            );
+        }
+    }
+
+    #[test]
+    fn a_branch_github_lacks_is_published_and_linked() {
+        let (origin, root) = github();
+        let repo = opened(&root);
+        let head = repo.head().unwrap().peel_to_commit().unwrap();
+        repo.branch("draft", &head, false).unwrap();
+        repo.set_head("refs/heads/draft").unwrap();
+        write(&root, "a.md", "# A\ndraft\n");
+        save(&root, &["a.md"], "Draft A");
+        assert_eq!(fetch(&opened(&root), None).unwrap(), Fetched::Publish);
+        let published = Synced::Done {
+            pushed: true,
+            published: true,
+            hooks: false,
+        };
+        assert_eq!(
+            sync(&opened(&root), None, &HashMap::new(), None, None).unwrap(),
+            published
+        );
+        assert_eq!(
+            tip(&origin, "refs/heads/draft"),
+            tip(&root, "refs/heads/draft")
+        );
+        let config = opened(&root).config().unwrap();
+        assert_eq!(
+            config.get_string("branch.draft.merge").unwrap(),
+            "refs/heads/draft"
+        );
+        assert_eq!(remote_state(&opened(&root)).unwrap().ahead, 0);
+    }
+
+    #[test]
+    fn a_new_repository_is_published_to_an_empty_remote() {
+        let (root, _repo) = repository();
+        assert_eq!(
+            publishable(&opened(&root)),
+            Err(message(
+                "There's nothing to publish yet: save a file in this repository first."
+            ))
+        );
+        write(&root, "a.md", "one\n");
+        save(&root, &["a.md"], "Add a.md");
+        let branch = publishable(&opened(&root)).unwrap();
+        let origin = folder();
+        Repository::init_bare(&origin).unwrap();
+        let published = Synced::Done {
+            pushed: true,
+            published: true,
+            hooks: false,
+        };
+        assert_eq!(
+            publish(&opened(&root), &url(&origin), &branch, None).unwrap(),
+            published
+        );
+        assert_eq!(tip(&origin, &branch), tip(&root, &branch));
+        assert!(remote_state(&opened(&root)).unwrap().remotes);
+    }
+
+    #[test]
+    fn a_clone_of_an_empty_repository_publishes_its_first_save() {
+        let origin = folder();
+        Repository::init_bare(&origin).unwrap();
+        let root = writer(&origin);
+        assert_eq!(fetch(&opened(&root), None).unwrap(), Fetched::Publish);
+        assert_eq!(
+            sync(&opened(&root), None, &HashMap::new(), None, None),
+            Err(message(
+                "There's nothing to publish yet: save a file in this repository first."
+            ))
+        );
+        write(&root, "a.md", "one\n");
+        save(&root, &["a.md"], "Add a.md");
+        assert_eq!(fetch(&opened(&root), None).unwrap(), Fetched::Publish);
+        let published = Synced::Done {
+            pushed: true,
+            published: true,
+            hooks: false,
+        };
+        assert_eq!(
+            sync(&opened(&root), None, &HashMap::new(), None, None).unwrap(),
+            published
+        );
+        let branch = publishable(&opened(&root)).unwrap();
+        assert_eq!(tip(&origin, &branch), tip(&root, &branch));
+    }
+
+    #[test]
+    fn publishing_a_branch_github_already_has_links_it_for_the_next_sync_to_merge() {
+        let (origin, root) = github();
+        let other = writer(&origin);
+        for (checkout, path) in [(&other, "b.md"), (&root, "a.md")] {
+            let repo = opened(checkout);
+            let head = repo.head().unwrap().peel_to_commit().unwrap();
+            repo.branch("draft", &head, false).unwrap();
+            repo.set_head("refs/heads/draft").unwrap();
+            write(checkout, path, "draft\n");
+            save(checkout, &[path], "Draft");
+        }
+        opened(&other)
+            .find_remote("origin")
+            .unwrap()
+            .push(&["refs/heads/draft:refs/heads/draft"], None)
+            .unwrap();
+        assert_eq!(
+            sync(&opened(&root), None, &HashMap::new(), None, None).unwrap(),
+            Synced::Moved
+        );
+        let config = opened(&root).config().unwrap();
+        assert_eq!(
+            config.get_string("branch.draft.merge").unwrap(),
+            "refs/heads/draft"
+        );
+        let fetched = fetch(&opened(&root), None).unwrap();
+        assert!(matches!(fetched, Fetched::Merge { .. }), "{fetched:?}");
+    }
+
+    #[test]
+    fn github_moving_between_fetch_and_push_changes_nothing() {
+        let (origin, root) = github();
+        write(&root, "a.md", "# A\ntwo\n");
+        save(&root, &["a.md"], "Edit A");
+        let fetched = fetch(&opened(&root), None).unwrap();
+        on_github(&origin, "b.md", "# B\ntwo\n");
+        let before = tip(&root, "refs/heads/master");
+        assert_eq!(sync_now(&root, &fetched, &HashMap::new()), Synced::Moved);
+        assert_eq!(tip(&root, "refs/heads/master"), before);
+    }
+
+    #[test]
+    fn a_push_github_refuses_is_reported_with_its_reason() {
+        let (origin, root) = github();
+        write(&root, "a.md", "# A\ntwo\n");
+        save(&root, &["a.md"], "Edit A");
+        let fetched = fetch(&opened(&root), None).unwrap();
+        // A lock on GitHub's branch makes the update fail, as a protected branch's refusal would.
+        fs::write(origin.join("refs/heads/master.lock"), "").unwrap();
+        let synced = sync_now(&root, &fetched, &HashMap::new());
+        assert!(
+            matches!(&synced, Synced::Refused { message } if message.contains("lock")),
+            "{synced:?}"
+        );
+        assert_eq!(remote_state(&opened(&root)).unwrap().ahead, 1);
+    }
+
+    #[test]
+    fn sync_stops_changing_nothing_when_it_cannot_merge_safely() {
+        // Not on a branch.
+        let (_, root) = github();
+        let repo = opened(&root);
+        repo.set_head_detached(repo.head().unwrap().target().unwrap())
+            .unwrap();
+        assert_eq!(fetch(&repo, None).unwrap(), stopped(Stop::Detached, &[]));
+
+        // Another tool left a merge part-way.
+        let (origin, root) = github();
+        on_github(&origin, "b.md", "# B\ntwo\n");
+        let head = tip(&root, "refs/heads/master");
+        fs::write(root.join(".git/MERGE_HEAD"), format!("{head}\n")).unwrap();
+        assert_eq!(
+            fetch(&opened(&root), None).unwrap(),
+            stopped(Stop::Busy, &[])
+        );
+
+        // A file GitHub changed was changed here by another tool and not committed.
+        let (origin, root) = github();
+        on_github(&origin, "b.md", "# B\ntwo\n");
+        write(&root, "b.md", "# B\nmine, uncommitted\n");
+        assert_eq!(
+            fetch(&opened(&root), None).unwrap(),
+            stopped(Stop::Changed, &["b.md"])
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("b.md")).unwrap(),
+            "# B\nmine, uncommitted\n"
+        );
+
+        // A merge in a repository that signs its commits.
+        let (origin, root) = github();
+        on_github(&origin, "b.md", "# B\ntwo\n");
+        write(&root, "a.md", "# A\ntwo\n");
+        save(&root, &["a.md"], "Edit A");
+        opened(&root)
+            .config()
+            .unwrap()
+            .set_bool("commit.gpgsign", true)
+            .unwrap();
+        assert_eq!(
+            fetch(&opened(&root), None).unwrap(),
+            stopped(Stop::Signs, &[])
+        );
+
+        // GitHub changed a file under a filter Gittin can't run.
+        let (origin, root) = github();
+        fs::write(root.join(".git/info/attributes"), "*.bin filter=lfs\n").unwrap();
+        on_github(&origin, "x.bin", "pointer\n");
+        assert_eq!(
+            fetch(&opened(&root), None).unwrap(),
+            stopped(Stop::Filter, &["x.bin"])
+        );
+
+        // A merge commit needs a name and email, and git has none: Gittin asks, then syncs with the answer.
+        let (origin, root) = github();
+        on_github(&origin, "b.md", "# B\ntwo\n");
+        write(&root, "a.md", "# A\ntwo\n");
+        save(&root, &["a.md"], "Edit A");
+        let mut config = opened(&root).config().unwrap();
+        config.remove("user.name").unwrap();
+        config.remove("user.email").unwrap();
+        let fetched = fetch(&opened(&root), None).unwrap();
+        let identity = Synced::Stopped {
+            reason: Stop::Identity,
+            paths: vec![],
+        };
+        assert_eq!(sync_now(&root, &fetched, &HashMap::new()), identity);
+        let author = Author {
+            name: "Asked".into(),
+            email: "asked@example.com".into(),
+        };
+        let answered = sync(
+            &opened(&root),
+            Some(&fetched_id(&fetched)),
+            &HashMap::new(),
+            Some(&author),
+            None,
+        );
+        assert_eq!(answered.unwrap(), synced(true));
+        assert_eq!(
+            opened(&root)
+                .head()
+                .unwrap()
+                .peel_to_commit()
+                .unwrap()
+                .author()
+                .name()
+                .unwrap(),
+            "Asked"
+        );
     }
 }
