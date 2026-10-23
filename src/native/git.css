@@ -1,4 +1,5 @@
-/* The desktop app's git: the Start a repository bar and the save dialog's sections. */
+/* The desktop app's git and GitHub: the Start a repository bar, the save dialog's sections, the account button
+   and the sign-in code. */
 .repository-offer {
   display: flex;
   flex-wrap: wrap;
@@ -21,4 +22,40 @@
 }
 .save-group input {
   width: 100%;
+}
+/* The account button: GitHub's mark signed out, the avatar in a circle signed in. */
+.account {
+  display: flex;
+  align-items: center;
+}
+.account:empty {
+  display: none;
+}
+.home-header > .account {
+  margin-left: 8px;
+}
+.account > button {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 4px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+}
+.home-header .account > button:hover {
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+}
+.account-trigger img {
+  display: block;
+  border-radius: 50%;
+}
+.account-name {
+  margin: 4px 12px 8px;
+  color: var(--muted);
+}
+.sign-in-code {
+  display: block;
+  margin: 12px 0;
+  font: 600 28px/1.2 var(--font-secondary);
+  letter-spacing: 0.08em;
 }

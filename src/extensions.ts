@@ -1,4 +1,4 @@
-// What a version of Gittin adds to the shared app through start(): the desktop app's git. The web app adds none.
+// What a version of Gittin adds to the shared app through start(): the desktop app's git and GitHub. The web app adds none.
 import type { OpenDocument } from './screens/workspace';
 import type { FolderSource } from './sources/folder';
 import type { Use } from './ui/version-history';
@@ -26,6 +26,10 @@ export interface Extensions {
   history?(doc: OpenDocument, use: Use): Promise<boolean>;
   /** Adds to the Folder panel of a folder Gittin can write to, each time the panel is drawn. */
   folder?(source: FolderSource, panel: HTMLElement): void;
+  /** Adds to Home: `header` is its header, `actions` the row of New file, Open file and Open folder. */
+  home?(header: HTMLElement, actions: HTMLElement): void;
+  /** Adds to a document's workspace: `header` holds the header's buttons, `footer` the status footer's items. */
+  workspace?(doc: OpenDocument, header: HTMLElement, footer: HTMLElement): void;
 }
 export let extensions: Extensions = {};
 export const extend = (added: Extensions) => { extensions = added; };

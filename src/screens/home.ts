@@ -9,6 +9,7 @@ import { fileTile } from '../ui/file-tile';
 import { homeMenu } from '../ui/home-menu';
 import { favouriteCard } from '../ui/favourite-card';
 import { desktop, place } from '../platform';
+import { extensions } from '../extensions';
 const stateLabels = { local: `Only in ${place}`, unsaved: 'Unsaved changes', saved: 'Saved' };
 // The welcome band's backdrop: a faint editor window describing Gittin in YAML, coloured with the editor's own
 // syntax classes (comments, strings, true/false and numbers; keys and list items stay plain, as in the editor).
@@ -153,5 +154,6 @@ export function home(
   const trigger = screen.querySelector<HTMLButtonElement>('.home-menu-trigger')!;
   if (actions.install) trigger.before(button('Install', actions.install, 'home-install'));
   screen.append(homeMenu(trigger, prefs, { refresh: actions.home, applyHomeOptions: applyOptions }));
+  extensions.home?.(screen.querySelector<HTMLElement>('.home-header')!, screen.querySelector<HTMLElement>('.document-actions')!);
   return screen;
 }

@@ -141,6 +141,7 @@ export class Workspace {
     this.menus = new Menus(commands, chosen);
     this.menus.element.id = 'workspace-menus';
     this.part('.document-identity').append(this.menus.element);
+    extensions.workspace?.(doc, this.part('.workspace-header-actions'), this.part('.editor-status'));
     this.subscriptions.push(
       // A tap outside the header closes the phone menu row, as menus and drawers already dismiss.
       onDocumentClick([this.part('.workspace-header')], () => this.showPhoneMenus(false)),
