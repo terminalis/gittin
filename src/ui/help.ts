@@ -153,6 +153,10 @@ export function gettingStarted() {
     body.append(el('ol', {}, ...steps.map(text => el('li', { textContent: text })))));
 }
 const releases = [
+  ...desktop ? ['Git in the desktop apps — 23 October 2026: in a folder that is a git repository, saving also '
+    + 'commits, with a message that says what changed; Version history lists a repository file\'s commits; '
+    + 'renaming, moving and deleting a file in a repository commit at once; Start a repository gives any other '
+    + 'folder git history; quitting asks about every unsaved file.'] : [],
   'Lists, paste, images and backups — 22 October 2026: a pressed list button removes the list; pasted '
     + 'links keep their addresses and pasted tables become Markdown tables; add images from this device to '
     + 'files in a folder with Insert › Image › From device…, by pasting or by dropping; Export drafts saves a '
