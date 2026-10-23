@@ -25,11 +25,18 @@ tauri-plugin-single-instance = "2"
 git2 = { version = "0.21", features = ["vendored-libgit2", "https"] }
 # Turns the git commands' results into what the page receives.
 serde = { version = "1", features = ["derive"] }
+# GitHub's sign-in and its API, through the system's TLS: Windows' own, or OpenSSL on Linux as libgit2 uses. No
+# default features, so reqwest's own TLS stack isn't built.
+reqwest = { version = "0.13", default-features = false, features = ["native-tls", "json"] }
+# Waiting between polls while the writer signs in.
+tokio = { version = "1", features = ["time"] }
 
 [target.'cfg(windows)'.dependencies]
-# For the webview settings in webview.rs: the versions Tauri itself uses, so each builds once.
+# For the webview settings in webview.rs: the version Tauri itself uses, so it builds once.
 webview2-com = "0.39"
-windows = { version = "0.62", features = ["Win32_Graphics_Dwm"] }
+# For the webview settings in webview.rs and the GitHub sign-in in Credential Manager: the version Tauri itself uses,
+# so it builds once.
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Security_Credentials"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # File dialogs through the desktop portal: the only way a Flatpak reaches the user's files.
@@ -37,6 +44,9 @@ tauri-plugin-dialog = { version = "2", default-features = false, features = ["xd
 # For the webview settings in webview.rs: the versions Tauri itself uses, so each builds once.
 webkit2gtk = "2.0"
 gtk = "0.18"
+# The GitHub sign-in, in a file encrypted with the key the Secret portal gives the Flatpak. OpenSSL does the
+# encryption, as it is linked already.
+oo7 = { version = "0.6", default-features = false, features = ["tokio", "openssl_crypto"] }
 
 [features]
 default = ["custom-protocol"]

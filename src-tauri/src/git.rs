@@ -1042,15 +1042,22 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::sync::Once;
+    use std::sync::OnceLock;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
-    /// A fresh folder for one test. git's machine-wide and user-wide settings point at an empty folder,
-    /// so this machine's own name, email and defaults don't reach the tests.
+    /// A fresh folder for one test, inside one of its own for each run. git's machine-wide and user-wide settings
+    /// point at an empty folder, so this machine's own name, email and defaults don't reach the tests.
     fn folder() -> PathBuf {
-        static ISOLATE: Once = Once::new();
+        static BASE: OnceLock<PathBuf> = OnceLock::new();
         static COUNT: AtomicUsize = AtomicUsize::new(0);
-        let base = std::env::temp_dir().join(format!("gittin-git-{}", std::process::id()));
-        ISOLATE.call_once(|| {
+        let base = BASE.get_or_init(|| {
+            // Windows reuses process IDs, so the time keeps an earlier run's files apart.
+            let time = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let base =
+                std::env::temp_dir().join(format!("gittin-git-{}-{time}", std::process::id()));
             let empty = base.join("settings");
             fs::create_dir_all(&empty).unwrap();
             for level in [
@@ -1061,6 +1068,7 @@ mod tests {
             ] {
                 unsafe { git2::opts::set_search_path(level, empty.as_path()).unwrap() };
             }
+            base
         });
         let path = base.join(COUNT.fetch_add(1, Ordering::SeqCst).to_string());
         fs::create_dir_all(&path).unwrap();

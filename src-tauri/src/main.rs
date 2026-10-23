@@ -3,10 +3,16 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod git;
+mod github;
 mod webview;
 
+use git::Failure;
+use github::GitHub;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use tauri::ipc::Channel;
 use tauri::webview::NewWindowResponse;
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_fs::FsExt;
@@ -15,6 +21,10 @@ use tauri_plugin_opener::OpenerExt;
 /// Files handed to Gittin that the page hasn't taken yet.
 #[derive(Default)]
 struct Opened(Mutex<Vec<String>>);
+
+/// Set when the writer cancels the clone under way.
+#[derive(Default)]
+struct Cloning(AtomicBool);
 
 /// Files the system asked Gittin to open ("Open with"): the arguments after the program's own path.
 /// The page may read and write each one, as it may a file picked in a dialog, and takes them once it's
@@ -128,6 +138,148 @@ fn git_show(
         .map_err(text)
 }
 
+/// Runs git's network work on a thread of its own, with the sign-in; GitHub refusing the sign-in forgets it.
+async fn with_login<T: Send + 'static>(
+    github: &GitHub,
+    work: impl FnOnce(Option<git::Login>) -> Result<T, Failure> + Send + 'static,
+) -> Result<T, Failure> {
+    let login = github.login().await;
+    let result = tauri::async_runtime::spawn_blocking(move || work(login))
+        .await
+        .map_err(|error| git::message(error.to_string()))?;
+    github.checked(result).await
+}
+
+/// Clones `url` into a new folder inside `folder`, telling the page how far it has got, once per percent.
+#[tauri::command]
+async fn git_clone(
+    app: tauri::AppHandle,
+    github: tauri::State<'_, GitHub>,
+    url: String,
+    folder: String,
+    progress: Channel<git::Step>,
+) -> Result<git::Cloned, Failure> {
+    git::check_address(&url)?;
+    let into = reach_in(&app, &folder).map_err(git::message)?;
+    app.state::<Cloning>().0.store(false, Ordering::SeqCst);
+    with_login(&github, move |login| {
+        let cloning = app.state::<Cloning>();
+        let mut shown = None;
+        git::clone(&url, &into, login.as_ref(), |step| {
+            let percent = match step {
+                git::Step::Receiving { done, total } => (0, done * 100 / total.max(1)),
+                git::Step::Writing { done, total } => (1, done * 100 / total.max(1)),
+            };
+            if shown != Some(percent) {
+                shown = Some(percent);
+                let _ = progress.send(step);
+            }
+            !cloning.0.load(Ordering::SeqCst)
+        })
+    })
+    .await
+}
+
+#[tauri::command]
+fn git_cancel_clone(cloning: tauri::State<Cloning>) {
+    cloning.0.store(true, Ordering::SeqCst);
+}
+
+#[tauri::command(async)]
+fn git_remote(app: tauri::AppHandle, repository: String) -> Result<git::RemoteState, String> {
+    git::remote_state(&repository_in(&app, &repository)?).map_err(text)
+}
+
+#[tauri::command]
+async fn git_fetch(
+    app: tauri::AppHandle,
+    github: tauri::State<'_, GitHub>,
+    repository: String,
+) -> Result<git::Fetched, Failure> {
+    with_login(&github, move |login| {
+        let repo = repository_in(&app, &repository).map_err(git::message)?;
+        git::fetch(&repo, login.as_ref())
+    })
+    .await
+}
+
+#[tauri::command]
+async fn git_sync(
+    app: tauri::AppHandle,
+    github: tauri::State<'_, GitHub>,
+    repository: String,
+    fetched: Option<String>,
+    choices: HashMap<String, git::Choice>,
+    author: Option<git::Author>,
+) -> Result<git::Synced, Failure> {
+    with_login(&github, move |login| {
+        let repo = repository_in(&app, &repository).map_err(git::message)?;
+        git::sync(
+            &repo,
+            fetched.as_deref(),
+            &choices,
+            author.as_ref(),
+            login.as_ref(),
+        )
+    })
+    .await
+}
+
+#[tauri::command]
+async fn github_device_code(
+    github: tauri::State<'_, GitHub>,
+    workflow: bool,
+) -> Result<github::DeviceCode, Failure> {
+    github.device_code(workflow).await
+}
+
+#[tauri::command]
+async fn github_device_wait(github: tauri::State<'_, GitHub>) -> Result<github::Ended, Failure> {
+    github.wait().await
+}
+
+#[tauri::command]
+fn github_cancel_sign_in(github: tauri::State<GitHub>) {
+    github.cancel();
+}
+
+#[tauri::command]
+async fn github_account(github: tauri::State<'_, GitHub>) -> Result<Option<github::Account>, ()> {
+    Ok(github.account().await)
+}
+
+#[tauri::command]
+async fn github_sign_out(github: tauri::State<'_, GitHub>) -> Result<(), ()> {
+    github.sign_out().await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn github_repositories(
+    github: tauri::State<'_, GitHub>,
+    page: u32,
+) -> Result<Vec<github::Repository>, Failure> {
+    github.repositories(page).await
+}
+
+/// Publish to GitHub: creates the repository under the account, adds it as `origin` and pushes the branch.
+#[tauri::command]
+async fn github_publish(
+    app: tauri::AppHandle,
+    github: tauri::State<'_, GitHub>,
+    repository: String,
+    name: String,
+    private: bool,
+) -> Result<git::Synced, Failure> {
+    let branch = git::publishable(&repository_in(&app, &repository).map_err(git::message)?)?;
+    let url = github.create(&name, private).await?;
+    with_login(&github, move |login| {
+        let repo = repository_in(&app, &repository).map_err(git::message)?;
+        git::publish(&repo, &url, &branch, login.as_ref())
+    })
+    .await
+}
+
 /// Gittin's own pages: the bundled app, or the development server under `tauri dev`.
 fn own(url: &tauri::Url) -> bool {
     url.scheme() == "tauri"
@@ -138,6 +290,8 @@ fn own(url: &tauri::Url) -> bool {
 fn main() {
     tauri::Builder::default()
         .manage(Opened::default())
+        .manage(GitHub::default())
+        .manage(Cloning::default())
         // A second launch, such as "Open with" while Gittin runs, hands its files to this window. Opening
         // several files in Explorer starts one launch per file at once.
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -166,7 +320,19 @@ fn main() {
             git_init,
             git_commit,
             git_log,
-            git_show
+            git_show,
+            git_clone,
+            git_cancel_clone,
+            git_remote,
+            git_fetch,
+            git_sync,
+            github_device_code,
+            github_device_wait,
+            github_cancel_sign_in,
+            github_account,
+            github_sign_out,
+            github_repositories,
+            github_publish
         ])
         .setup(|app| {
             // The files Gittin was started with.
