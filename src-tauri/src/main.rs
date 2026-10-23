@@ -2,6 +2,7 @@
 // file dialogs and file access.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod git;
 mod webview;
 
 use std::sync::Mutex;
