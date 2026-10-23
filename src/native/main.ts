@@ -14,6 +14,7 @@ import { offerRepository } from './folder';
 import { openHistory } from './history';
 import { askBeforeQuitting } from './quit';
 import { changed, saveAll } from './save';
+import { syncCommand, syncFooter, syncInFolder } from './sync';
 
 installPickers();
 /** Opens the files handed to Gittin that are waiting. */
@@ -31,10 +32,11 @@ const colourFrame = () => {
   }).catch(() => {});
 };
 const extensions: Extensions = {
-  save: saveAll, changed, history: openHistory, folder: offerRepository,
+  save: saveAll, changed, history: openHistory,
+  folder: (source, panel) => { offerRepository(source, panel); syncInFolder(source, panel); },
   home: (header, actions) => { accountButton(header, 'home'); cloneButton(actions); },
-  workspace: (_doc, header) => accountButton(header, 'workspace'),
-  commands: () => [cloneCommand],
+  workspace: (doc, header, footer) => { accountButton(header, 'workspace'); syncFooter(doc, footer); },
+  commands: doc => [cloneCommand, syncCommand(doc)],
 };
 void start({ revive, extensions }).then(async () => {
   colourFrame();

@@ -15,9 +15,11 @@ export const useDialogs = (stand: typeof ask) => { ask = stand; };
 
 /** Files Gittin created for documents (images added beside them), committed with their repository's next save. */
 const created = new Map<string, Set<string>>();
+/** Told after each commit Gittin makes, so the status footer's count follows. */
+export const committed = new Set<() => unknown>();
 
 const authorKey = 'gittin-git-author';
-function storedAuthor(): Author | null {
+export function storedAuthor(): Author | null {
   try { return JSON.parse(localStorage.getItem(authorKey) ?? 'null'); } catch { return null; }
 }
 function storeAuthor(author: Author) {
@@ -43,15 +45,22 @@ export function outcomeText(place: Place, outcome: Outcome): string {
   return text;
 }
 
+/** Asks once for the name and email to use whenever git has none, and keeps them; null when the writer cancels. */
+export async function fallbackAuthor(repository: string) {
+  const author = await ask.author(repository);
+  if (author) storeAuthor(author);
+  return author;
+}
+
 /** Commits paths, asking once for a name and email when git has none. */
 async function commit(place: Place, paths: string[], message: string): Promise<Outcome> {
   let outcome = await git.commit(place.root, paths, message, storedAuthor());
   if (outcome.kind === 'refused' && outcome.reason === 'identity') {
-    const author = await ask.author(place.name);
+    const author = await fallbackAuthor(place.name);
     if (!author) return outcome;
-    storeAuthor(author);
     outcome = await git.commit(place.root, paths, message, author);
   }
+  if (outcome.kind === 'committed') for (const listener of [...committed]) void listener();
   return outcome;
 }
 
@@ -80,8 +89,8 @@ async function group(docs: OpenDocument[]): Promise<SaveGroup[]> {
 }
 
 /** Saves documents through the save dialog, committing each repository's. Resolves null when saving or
- * closing involves no repository, so Gittin saves as usual; quitting always asks. */
-export async function saveAll(docs: OpenDocument[], reason: 'save' | 'close' | 'quit', tools: SaveTools):
+ * closing involves no repository, so Gittin saves as usual; quitting and syncing always ask. */
+export async function saveAll(docs: OpenDocument[], reason: 'save' | 'close' | 'quit' | 'sync', tools: SaveTools):
   Promise<SaveResult | null> {
   const groups = await group(docs);
   if (reason !== 'quit' && !groups.some(group => group.place)) return null;

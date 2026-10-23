@@ -6,7 +6,7 @@ const sections: Record<string, readonly (readonly string[])[]> = {
   File: [
     ['home', 'New', 'Open', 'make-copy'],
     ['Email'],
-    ['save', 'save-as', 'version-history'],
+    ['save', 'save-as', 'sync', 'version-history'],
     ['rename', 'move', 'delete-file', 'location', 'favourite'],
     ['details', 'print', 'download-pdf', 'close'],
   ],

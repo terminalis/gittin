@@ -314,6 +314,17 @@ export async function openFolderHandle(handle: DirectoryHandle) {
   await adoptFiles(folder);
   showFolder(folder);
 }
+/** Shows the current screen again, reading the open file from disk: after Sync changes a repository's files. */
+export const reshow = () => transition(current.screen === 'editor' ? rebuild : () => show(current)).then(refocus);
+/** Opens a folder's file in Diff against `text`: Sync's comparison of a conflicting file with GitHub's version. */
+export async function compareFile(source: FolderSource, path: string, text: string, label: string) {
+  const doc = await load(source, path);
+  if (typeof doc === 'string') return;
+  await transition(() => show({ screen: 'editor', id: doc.session.id }, true));
+  writeRoute(current);
+  if (workspace?.document !== doc) return;
+  workspace.controller.setComparison(text, label);
+}
 /** Files opened on their own that lie inside the folder become part of it: their draft and version history
  * move to the folder's path, so each file is one document. A file the folder already has a draft for stays as it is. */
 async function adoptFiles(folder: FolderSource) {

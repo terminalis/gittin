@@ -8,10 +8,12 @@ import type { Place } from './repositories';
 /** Documents saved together: one repository's (with their described message), or files outside any. */
 export interface SaveGroup { place: Place | null; docs: { doc: OpenDocument; path: string }[]; message: string }
 export type SaveAnswer = Map<string, string> | 'discard' | 'cancel';
-const titles = { save: 'Save and commit', close: 'Close with unsaved changes?', quit: 'Save before quitting?' };
+const titles = {
+  save: 'Save and commit', close: 'Close with unsaved changes?', quit: 'Save before quitting?', sync: 'Save before syncing?',
+};
 
 /** Resolves with each repository's commit message, by its folder, or the writer's other choice. */
-export function saveDialog(groups: SaveGroup[], reason: 'save' | 'close' | 'quit') {
+export function saveDialog(groups: SaveGroup[], reason: 'save' | 'close' | 'quit' | 'sync') {
   return new Promise<SaveAnswer>(resolve => {
     let chosen: SaveAnswer = 'cancel';
     const messages = new Map<string, HTMLInputElement>();
@@ -34,8 +36,9 @@ export function saveDialog(groups: SaveGroup[], reason: 'save' | 'close' | 'quit
         }
         body.append(section);
       }
-      footer.append(button('Save', save, 'primary'));
-      if (reason !== 'save') footer.append(button("Don't save", () => { chosen = 'discard'; close(); }));
+      footer.append(button(reason === 'sync' ? 'Save and sync' : 'Save', save, 'primary'));
+      if (reason === 'close' || reason === 'quit')
+        footer.append(button("Don't save", () => { chosen = 'discard'; close(); }));
     }, { className: 'save-dialog', closeLabel: 'Cancel', onClose: () => resolve(chosen) });
   });
 }

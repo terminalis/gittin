@@ -4,7 +4,7 @@ import { icon, type IconName } from './icons';
 const actionIcons: Record<string, IconName> = {
   home: 'home', new: 'file-description', open: 'folder', 'open-folder': 'folder', clone: 'download',
   'make-copy': 'copy', 'email-file': 'mail', 'email-draft': 'mail',
-  save: 'device-floppy', 'save-as': 'file-export', 'version-history': 'history',
+  save: 'device-floppy', 'save-as': 'file-export', 'version-history': 'history', sync: 'arrows-up-down',
   rename: 'pencil', move: 'folder-share', 'delete-file': 'trash', location: 'folder-symlink',
   favourite: 'star',
   details: 'info-circle', print: 'printer', 'download-pdf': 'file-type-pdf', close: 'x', undo: 'arrow-back-up', redo: 'arrow-forward-up',

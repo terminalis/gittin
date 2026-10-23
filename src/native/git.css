@@ -77,3 +77,12 @@
   align-items: center;
   gap: 8px;
 }
+/* The status footer's Sync, with the count of saves not yet on GitHub. */
+.sync-status:empty {
+  display: none;
+}
+.sync-status button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}

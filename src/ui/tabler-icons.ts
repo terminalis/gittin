@@ -16,6 +16,7 @@ export const tablerIcons = {
   "arrow-forward-up": "<path d=\"M15 14l4 -4l-4 -4\" /><path d=\"M19 10h-11a4 4 0 1 0 0 8h1\" />",
   "arrow-right": "<path d=\"M5 12l14 0\" /><path d=\"M13 18l6 -6\" /><path d=\"M13 6l6 6\" />",
   "arrow-up": "<path d=\"M12 5l0 14\" /><path d=\"M18 11l-6 -6\" /><path d=\"M6 11l6 -6\" />",
+  "arrows-up-down": "<path d=\"M7 3l0 18\" /><path d=\"M10 6l-3 -3l-3 3\" /><path d=\"M20 18l-3 3l-3 -3\" /><path d=\"M17 21l0 -18\" />",
   "arrows-vertical": "<path d=\"M8 7l4 -4l4 4\" /><path d=\"M8 17l4 4l4 -4\" /><path d=\"M12 3l0 18\" />",
   "aspect-ratio": "<path d=\"M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10\" /><path d=\"M7 12v-3h3\" /><path d=\"M17 12v3h-3\" />",
   "bold": "<path d=\"M7 5h6a3.5 3.5 0 0 1 0 7h-6l0 -7\" /><path d=\"M13 12h1a3.5 3.5 0 0 1 0 7h-7v-7\" />",

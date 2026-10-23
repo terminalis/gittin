@@ -4,6 +4,7 @@ import type { FolderSource } from '../sources/folder';
 import { button, el, iconButton, notice } from '../ui/dom';
 import type { DesktopDirectoryHandle } from './files';
 import { git } from './git';
+import { syncInFolder } from './sync';
 
 const dismissedKey = 'gittin-start-repository-dismissed';
 function dismissed(): string[] {
@@ -15,7 +16,11 @@ export function offerRepository(source: FolderSource, panel: HTMLElement) {
   void git.repositories(folder.path).then(repositories => {
     // The panel may have been drawn again meanwhile.
     if (!header?.isConnected || repositories.includes('')) return;
-    const start = () => void git.init(folder.path).then(() => { bar.remove(); offer.remove(); }, notice);
+    const start = () => void git.init(folder.path).then(() => {
+      bar.remove();
+      offer.remove();
+      syncInFolder(source, panel);
+    }, notice);
     const offer = iconButton('git-branch', 'Start a repository', start);
     header.querySelector('.folder-tools')?.append(offer);
     const bar = el('div', { className: 'repository-offer', role: 'note' },
