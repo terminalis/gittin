@@ -67,6 +67,18 @@
   </supports>
 
   <releases>
+    <release version="1.2.0" date="2026-10-23">
+      <description>
+        <p>Git in the desktop app:</p>
+        <ul>
+          <li>In a folder that is a git repository, saving also commits, with a message that says what changed.</li>
+          <li>Version history lists a repository file's commits.</li>
+          <li>Renaming, moving and deleting a file in a repository commit at once.</li>
+          <li>Start a repository gives any other folder git history.</li>
+          <li>Quitting asks about every unsaved file.</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.1.0" date="2026-10-22">
       <description>
         <p>Lists, paste, images and backups:</p>
