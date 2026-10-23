@@ -279,7 +279,7 @@ export class Workspace {
     ]);
     const about = 'Gittin has no accounts. Your files stay on your device. '
       + 'Save writes back to the file you opened; Save as writes a new file. '
-      + (desktop ? 'Unsaved changes are kept in this app.'
+      + (desktop ? 'Unsaved changes are kept in this app. In a git repository, Save also commits.'
         : 'Unsaved changes are kept in this browser, which you or the browser can clear. '
           + 'After its first visit, Gittin can start offline on this device.');
     const rows: Row[] = [
