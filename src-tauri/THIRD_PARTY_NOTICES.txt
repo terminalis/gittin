@@ -904,6 +904,8 @@ git2 — MIT License
 jobserver — MIT License
 js-sys — MIT License
 libgit2-sys — MIT License
+openssl-probe — MIT License
+openssl-sys — MIT License
 pkg-config — MIT License
 scoped-tls — MIT License
 socket2 — MIT License

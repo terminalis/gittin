@@ -21,8 +21,8 @@ tauri-plugin-fs = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-persisted-scope = "2"
 tauri-plugin-single-instance = "2"
-# Git for repository folders, with libgit2 built in. Its network features stay off, so no OpenSSL.
-git2 = { version = "0.21", features = ["vendored-libgit2"] }
+# Git for repository folders, with libgit2 built in. HTTPS goes through Windows' own WinHTTP, or OpenSSL on Linux.
+git2 = { version = "0.21", features = ["vendored-libgit2", "https"] }
 # Turns the git commands' results into what the page receives.
 serde = { version = "1", features = ["derive"] }
 

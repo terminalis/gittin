@@ -1,11 +1,15 @@
-// Git for folders that are repositories: finding them, starting one, committing what Gittin saves and
-// reading a file's history. Plain functions over paths; main.rs offers them to the page as commands.
+// Git for folders that are repositories: finding them, starting one, committing what Gittin saves, reading a file's
+// history, and cloning, fetching, merging and pushing over HTTPS. Plain functions over paths and repositories;
+// main.rs offers them to the page as commands.
 
+use git2::build::{CheckoutBuilder, RepoBuilder};
 use git2::{
-    AttrCheckFlags, Commit, Config, ErrorCode, Oid, Repository, RepositoryInitOptions,
-    RepositoryState, Signature, Sort,
+    AttrCheckFlags, Commit, Config, Cred, ErrorCode, FetchOptions, ObjectType, Oid,
+    RemoteCallbacks, RemoteRedirect, Repository, RepositoryInitOptions, RepositoryState, Signature,
+    Sort, TreeWalkMode, TreeWalkResult,
 };
 use serde::{Deserialize, Serialize};
+use std::cell::{Cell, RefCell};
 use std::path::Path;
 
 /// The name and email Gittin keeps for repositories whose git settings have none.
@@ -171,8 +175,7 @@ pub fn commit(
         let relative = Path::new(path);
         let full = root.join(relative);
         if full.is_file() {
-            let filter = repo.get_attr(relative, "filter", AttrCheckFlags::FILE_THEN_INDEX)?;
-            if let git2::AttrValue::String(driver) = git2::AttrValue::from_string(filter) {
+            if let Some(driver) = filter_of(repo, relative)? {
                 left_out.push(LeftOut {
                     path: path.clone(),
                     reason: if driver == "lfs" { "lfs" } else { "filter" },
@@ -307,6 +310,224 @@ pub fn show(repo: &Repository, commit: &str, path: &str) -> Result<Vec<u8>, git2
     Ok(blob.content().to_vec())
 }
 
+/// The filter driver git runs on `path` as it commits and checks out, such as `lfs`.
+fn filter_of(repo: &Repository, path: &Path) -> Result<Option<String>, git2::Error> {
+    let value = repo.get_attr(path, "filter", AttrCheckFlags::FILE_THEN_INDEX)?;
+    Ok(match git2::AttrValue::from_string(value) {
+        git2::AttrValue::String(driver) => Some(driver.to_string()),
+        _ => None,
+    })
+}
+
+const GITHUB: &str = "https://github.com/";
+
+/// The GitHub account's login and token, which git sends only to addresses on https://github.com.
+pub struct Login {
+    pub login: String,
+    pub token: String,
+}
+
+/// Why a network operation ended without its result. None of them carries the token.
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum Failure {
+    /// GitHub asked for a sign-in, and there is none.
+    SignIn,
+    /// GitHub refused the sign-in's token.
+    Refused,
+    /// The remote couldn't be reached.
+    Offline,
+    Message {
+        message: String,
+    },
+}
+
+pub fn message(text: impl Into<String>) -> Failure {
+    Failure::Message {
+        message: text.into(),
+    }
+}
+
+/// libgit2's wording when it can't reach a host: its own sockets on Linux, WinHTTP on Windows.
+const UNREACHABLE: [&str; 3] = [
+    "failed to resolve address",
+    "failed to connect",
+    "failed to send request",
+];
+
+impl From<git2::Error> for Failure {
+    fn from(error: git2::Error) -> Self {
+        if UNREACHABLE
+            .iter()
+            .any(|start| error.message().starts_with(start))
+        {
+            Failure::Offline
+        } else {
+            message(error.message())
+        }
+    }
+}
+
+/// The sign-in git may send to `url`: only to an address on https://github.com.
+fn login_for<'a>(url: &str, login: Option<&'a Login>) -> Option<&'a Login> {
+    login.filter(|_| url.starts_with(GITHUB))
+}
+
+/// Answers git's request for credentials with the sign-in, once per operation; `asked` counts the requests, so a
+/// second one means GitHub refused the token.
+fn callbacks<'a>(login: Option<&'a Login>, asked: &'a Cell<u32>) -> RemoteCallbacks<'a> {
+    let mut callbacks = RemoteCallbacks::new();
+    callbacks.credentials(move |url, _, _| {
+        asked.set(asked.get() + 1);
+        match login_for(url, login) {
+            Some(login) if asked.get() == 1 => Cred::userpass_plaintext(&login.login, &login.token),
+            _ => Err(git2::Error::from_str("no sign-in for this address")),
+        }
+    });
+    callbacks
+}
+
+/// Fetch options that follow no redirect to another site.
+fn fetch_options(callbacks: RemoteCallbacks<'_>) -> FetchOptions<'_> {
+    let mut options = FetchOptions::new();
+    options
+        .remote_callbacks(callbacks)
+        .follow_redirects(RemoteRedirect::None);
+    options
+}
+
+/// Why an operation on `url` failed, given how many times git asked for a sign-in.
+fn failure(error: git2::Error, url: &str, login: Option<&Login>, asked: u32) -> Failure {
+    match (asked, login_for(url, login)) {
+        (0, _) | (1, Some(_)) => error.into(),
+        (_, Some(_)) => Failure::Refused,
+        (_, None) if url.starts_with(GITHUB) => Failure::SignIn,
+        (_, None) => message(format!(
+            "{url} asks for a sign-in, and Gittin signs in only to GitHub."
+        )),
+    }
+}
+
+/// How far a clone has got: objects received, then files written.
+#[derive(Serialize, Clone, Copy, Debug, PartialEq)]
+#[serde(tag = "phase", rename_all = "camelCase")]
+pub enum Step {
+    Receiving { done: usize, total: usize },
+    Writing { done: usize, total: usize },
+}
+
+/// A finished clone: its folder, and the files that arrived in their stored form because git converts them with a
+/// filter libgit2 can't run, such as Git LFS.
+#[derive(Serialize, Debug, PartialEq)]
+pub struct Cloned {
+    pub folder: String,
+    pub filtered: Vec<String>,
+}
+
+/// Refuses an address Gittin doesn't clone from: anything but https://, SSH addresses included.
+pub fn check_address(url: &str) -> Result<(), Failure> {
+    if url.starts_with("https://") {
+        Ok(())
+    } else {
+        Err(message("Gittin clones from https:// addresses. On GitHub, copy the HTTPS address from the Code button."))
+    }
+}
+
+/// The folder `git clone` names after a repository at `url`: its last segment, without `.git`.
+fn clone_name(url: &str) -> Option<&str> {
+    let last = url.trim_end_matches('/').rsplit('/').next()?;
+    let name = last.strip_suffix(".git").unwrap_or(last);
+    (!name.is_empty()).then_some(name)
+}
+
+/// Clones the repository at `url` into a new folder inside `into`, named after it, on its default branch, as
+/// `git clone` does. `progress` hears each step and returns false to cancel. A clone that fails or is cancelled
+/// removes the folder it made.
+pub fn clone(
+    url: &str,
+    into: &Path,
+    login: Option<&Login>,
+    progress: impl FnMut(Step) -> bool,
+) -> Result<Cloned, Failure> {
+    let name = clone_name(url).ok_or_else(|| message(format!("{url} names no repository.")))?;
+    let folder = into.join(name);
+    if folder
+        .read_dir()
+        .is_ok_and(|mut entries| entries.next().is_some())
+    {
+        return Err(message(format!(
+            "{name} already exists in {} and isn't empty.",
+            into.display()
+        )));
+    }
+    let created = !folder.exists();
+    let (asked, cancelled, progress) = (Cell::new(0), Cell::new(false), RefCell::new(progress));
+    // libgit2 stops only while receiving; a cancel while writing files takes effect when the clone returns.
+    let report = |step: Step| {
+        if !cancelled.get() && !(progress.borrow_mut())(step) {
+            cancelled.set(true);
+        }
+        !cancelled.get()
+    };
+    let mut remote = callbacks(login, &asked);
+    remote.transfer_progress(|stats| {
+        report(Step::Receiving {
+            done: stats.received_objects(),
+            total: stats.total_objects(),
+        })
+    });
+    let mut checkout = CheckoutBuilder::new();
+    checkout.progress(|_, done, total| {
+        report(Step::Writing { done, total });
+    });
+    let result = match RepoBuilder::new()
+        .fetch_options(fetch_options(remote))
+        .with_checkout(checkout)
+        .clone(url, &folder)
+    {
+        _ if cancelled.get() => Err(message("The clone was cancelled.")),
+        Ok(repo) => filtered(&repo)
+            .map(|filtered| Cloned {
+                folder: folder.to_string_lossy().into_owned(),
+                filtered,
+            })
+            .map_err(Failure::from),
+        Err(error) => Err(failure(error, url, login, asked.get())),
+    };
+    if result.is_err() && created {
+        let _ = std::fs::remove_dir_all(&folder);
+    }
+    result
+}
+
+/// The checked-out files git converts with a filter libgit2 can't run.
+fn filtered(repo: &Repository) -> Result<Vec<String>, git2::Error> {
+    let tree = match repo.head() {
+        Ok(head) => head.peel_to_tree()?,
+        // An empty repository has nothing checked out.
+        Err(error) if error.code() == ErrorCode::UnbornBranch => return Ok(Vec::new()),
+        Err(error) => return Err(error),
+    };
+    let mut files = Vec::new();
+    tree.walk(TreeWalkMode::PreOrder, |dir, entry| {
+        if entry.kind() == Some(ObjectType::Blob) {
+            files.push(format!("{dir}{}", entry.name().unwrap_or_default()));
+        }
+        TreeWalkResult::Ok
+    })?;
+    let mut filtered = Vec::new();
+    for file in files {
+        if filter_of(repo, Path::new(&file))?.is_some() {
+            filtered.push(file);
+        }
+    }
+    Ok(filtered)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -356,6 +577,12 @@ mod tests {
 
     fn opened(root: &Path) -> Repository {
         Repository::open(root).unwrap()
+    }
+
+    /// A folder's file:// address, as a remote's address.
+    fn url(path: &Path) -> String {
+        let path = path.to_string_lossy().replace('\\', "/");
+        format!("file:///{}", path.trim_start_matches('/'))
     }
 
     fn save(root: &Path, paths: &[&str], message: &str) -> Outcome {
@@ -816,5 +1043,164 @@ mod tests {
         save(&root, &["a.md"], "Second");
         let first = log(&opened(&root), "a.md", 1, 1).unwrap().remove(0);
         assert_eq!(show(&opened(&root), &first.id, "a.md").unwrap(), b"v1\n");
+    }
+
+    #[test]
+    fn a_clone_goes_into_a_new_folder_named_after_the_repository() {
+        let (origin, _repo) = repository();
+        write(&origin, "a.md", "one\n");
+        write(&origin, "big.bin", "pointer\n");
+        save(&origin, &["a.md", "big.bin"], "Add files");
+        write(
+            &origin,
+            ".gitattributes",
+            "*.bin filter=lfs diff=lfs merge=lfs -text\n",
+        );
+        save(&origin, &[".gitattributes"], "Store .bin files in LFS");
+        let into = folder();
+        let name = origin.file_name().unwrap();
+        let mut steps = Vec::new();
+        let cloned = clone(&url(&origin), &into, None, |step| {
+            steps.push(step);
+            true
+        })
+        .unwrap();
+        let expected = Cloned {
+            folder: into.join(name).to_string_lossy().into_owned(),
+            filtered: vec!["big.bin".to_string()],
+        };
+        assert_eq!(cloned, expected);
+        assert_eq!(
+            fs::read_to_string(into.join(name).join("a.md")).unwrap(),
+            "one\n"
+        );
+        let repo = opened(&into.join(name));
+        assert_eq!(repo.head().unwrap().shorthand().unwrap(), "master");
+        assert!(steps
+            .iter()
+            .any(|step| matches!(step, Step::Writing { .. })));
+    }
+
+    #[test]
+    fn a_clone_needs_an_empty_place_and_leaves_nothing_when_it_fails_or_is_cancelled() {
+        let (origin, _repo) = repository();
+        write(&origin, "a.md", "one\n");
+        save(&origin, &["a.md"], "Add a.md");
+        let name = origin.file_name().unwrap().to_string_lossy().into_owned();
+        let into = folder();
+        write(&into.join(&name), "kept.md", "mine\n");
+        let refused = message(format!(
+            "{name} already exists in {} and isn't empty.",
+            into.display()
+        ));
+        assert_eq!(clone(&url(&origin), &into, None, |_| true), Err(refused));
+        assert!(into.join(&name).join("kept.md").exists());
+        let into = folder();
+        let missing = folder().join("missing");
+        assert!(clone(&url(&missing), &into, None, |_| true).is_err());
+        assert!(!into.join("missing").exists());
+        let cancelled = clone(&url(&origin), &into, None, |step| {
+            matches!(step, Step::Receiving { .. })
+        });
+        assert_eq!(cancelled, Err(message("The clone was cancelled.")));
+        assert!(!into.join(&name).exists());
+    }
+
+    #[test]
+    fn only_https_addresses_clone() {
+        assert_eq!(check_address("https://github.com/owner/notes.git"), Ok(()));
+        for address in [
+            "git@github.com:owner/notes.git",
+            "ssh://git@github.com/owner/notes.git",
+            "http://github.com/owner/notes.git",
+        ] {
+            assert_eq!(
+                check_address(address),
+                Err(message("Gittin clones from https:// addresses. On GitHub, copy the HTTPS address from the Code button.")),
+                "{address}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_token_goes_only_to_addresses_on_https_github_com() {
+        let login = Login {
+            login: "writer".into(),
+            token: "secret".into(),
+        };
+        assert!(login_for("https://github.com/owner/notes.git", Some(&login)).is_some());
+        for address in [
+            "http://github.com/owner/notes.git",
+            "https://github.com.example.com/owner/notes.git",
+            "https://gitlab.com/owner/notes.git",
+            "https://example.com/https://github.com/",
+            "file:///github.com/owner/notes",
+        ] {
+            assert!(login_for(address, Some(&login)).is_none(), "{address}");
+        }
+    }
+
+    #[test]
+    fn a_sign_in_github_asks_for_or_refuses_is_reported_as_such() {
+        let login = Login {
+            login: "writer".into(),
+            token: "secret".into(),
+        };
+        let asked = || git2::Error::from_str("authentication required");
+        let github = "https://github.com/owner/private.git";
+        assert_eq!(failure(asked(), github, None, 1), Failure::SignIn);
+        assert_eq!(failure(asked(), github, Some(&login), 2), Failure::Refused);
+        assert_eq!(
+            failure(asked(), github, Some(&login), 1),
+            message("authentication required")
+        );
+        assert_eq!(
+            failure(asked(), "https://example.com/notes.git", None, 1),
+            message("https://example.com/notes.git asks for a sign-in, and Gittin signs in only to GitHub.")
+        );
+        let unreachable = git2::Error::from_str(
+            "failed to resolve address for github.com: Name or service not known",
+        );
+        assert_eq!(failure(unreachable, github, None, 0), Failure::Offline);
+    }
+
+    #[test]
+    fn git_follows_no_redirect_to_another_site() {
+        use std::io::{Read, Write};
+        use std::sync::Arc;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let requests = Arc::new(AtomicUsize::new(0));
+        let counted = requests.clone();
+        // A server that sends every request to another host, as a hostile redirect would.
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let mut stream = stream.unwrap();
+                counted.fetch_add(1, Ordering::SeqCst);
+                let (mut request, mut buffer) = (Vec::new(), [0; 1024]);
+                while !request.ends_with(b"\r\n\r\n") {
+                    let read = stream.read(&mut buffer).unwrap();
+                    if read == 0 {
+                        break;
+                    }
+                    request.extend_from_slice(&buffer[..read]);
+                }
+                let answer = format!(
+                    "HTTP/1.1 302 Found\r\nLocation: https://localhost:{port}/elsewhere.git/info/refs?service=git-upload-pack\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                );
+                let _ = stream.write_all(answer.as_bytes());
+            }
+        });
+        let asked = Cell::new(0);
+        let error = RepoBuilder::new()
+            .fetch_options(fetch_options(callbacks(None, &asked)))
+            .clone(
+                &format!("http://127.0.0.1:{port}/notes.git"),
+                &folder().join("notes"),
+            )
+            .err()
+            .unwrap();
+        assert!(error.message().contains("redirect"), "{}", error.message());
+        assert_eq!(requests.load(Ordering::SeqCst), 1);
     }
 }
