@@ -22,8 +22,13 @@
       <li>Unsaved changes are kept until you save; Diff shows what changed, and version history keeps your recent saves</li>
     </ul>
     <p>
+      In a folder that is a git repository, saving also records your files in the repository's own history,
+      with a message that says what changed, and Version history lists each file's commits. Start a repository
+      to give any other folder git history. Git is built in, so there's nothing else to install.
+    </p>
+    <p>
       There are no accounts, and your files stay on your computer. Gittin reaches only the files and folders
-      you choose.
+      you choose, and reads git's own settings for the name and email it records with your saves.
     </p>
   </description>
 
