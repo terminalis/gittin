@@ -68,7 +68,11 @@ pub struct Entry {
 }
 
 /// The repositories at `folder` and directly inside it, as paths relative to it ("" for the folder itself).
-pub fn repositories(folder: &Path) -> std::io::Result<Vec<String>> {
+/// Repositories outside what `allowed` reaches, or that libgit2 can't open, are left out.
+pub fn repositories(
+    folder: &Path,
+    allowed: impl Fn(&Path) -> bool,
+) -> std::io::Result<Vec<String>> {
     let mut found = Vec::new();
     if folder.join(".git").exists() {
         found.push(String::new());
@@ -79,8 +83,22 @@ pub fn repositories(folder: &Path) -> std::io::Result<Vec<String>> {
             found.push(entry.file_name().to_string_lossy().into_owned());
         }
     }
+    found.retain(|name| open(&folder.join(name), &allowed).is_some());
     found.sort();
     Ok(found)
+}
+
+/// The repository at `root`, when it works on `root` itself (not a folder its settings point elsewhere) and
+/// keeps its git data, shared data included, where `allowed` says Gittin may reach. Gittin works on the
+/// repository this returns, so changing its settings afterwards can't move its working folder or git data.
+pub fn open(root: &Path, allowed: impl Fn(&Path) -> bool) -> Option<Repository> {
+    let real = |path: &Path| std::fs::canonicalize(path).ok();
+    let repo = Repository::open(root).ok()?;
+    let (workdir, root) = (repo.workdir().and_then(real)?, real(root)?);
+    let reachable = [repo.path(), repo.commondir()]
+        .into_iter()
+        .all(|path| real(path).is_some_and(|path| allowed(&path)));
+    (workdir == root && reachable).then_some(repo)
 }
 
 /// The first branch of a new repository: git's `init.defaultBranch` when set, otherwise `main`, as
@@ -105,12 +123,14 @@ pub fn init(folder: &Path) -> Result<(), git2::Error> {
 /// stays staged and out of the commit. Files stored in Git LFS or under another git filter, and
 /// untracked ones git ignores, are left out.
 pub fn commit(
-    root: &Path,
+    repo: &Repository,
     paths: &[String],
     message: &str,
     author: Option<&Author>,
 ) -> Result<Outcome, git2::Error> {
-    let repo = Repository::open(root)?;
+    let root = repo
+        .workdir()
+        .ok_or_else(|| git2::Error::from_str("the repository has no working folder"))?;
     let config = repo.config()?;
     if config.get_bool("commit.gpgsign").unwrap_or(false) {
         return Ok(Outcome::Refused {
@@ -178,7 +198,7 @@ pub fn commit(
         }
     }
     index.write()?;
-    let tree = repo.find_tree(only.write_tree_to(&repo)?)?;
+    let tree = repo.find_tree(only.write_tree_to(repo)?)?;
     let unchanged = match &parent {
         Some(parent) => parent.tree_id() == tree.id(),
         None => tree.is_empty(),
@@ -196,7 +216,7 @@ pub fn commit(
         &parents,
     )?;
     Ok(Outcome::Committed {
-        hooks: hooks(&repo, &config),
+        hooks: hooks(repo, &config),
         left_out,
     })
 }
@@ -229,8 +249,12 @@ fn blob_at(commit: &Commit, path: &Path) -> Option<Oid> {
 }
 
 /// The commits that changed `path`, newest first, after skipping `skip` of them; at most `take`.
-pub fn log(root: &Path, path: &str, skip: usize, take: usize) -> Result<Vec<Entry>, git2::Error> {
-    let repo = Repository::open(root)?;
+pub fn log(
+    repo: &Repository,
+    path: &str,
+    skip: usize,
+    take: usize,
+) -> Result<Vec<Entry>, git2::Error> {
     match repo.head() {
         Err(error) if error.code() == ErrorCode::UnbornBranch => return Ok(Vec::new()),
         Err(error) => return Err(error),
@@ -276,8 +300,7 @@ pub fn log(root: &Path, path: &str, skip: usize, take: usize) -> Result<Vec<Entr
 }
 
 /// A file's contents as of a commit.
-pub fn show(root: &Path, commit: &str, path: &str) -> Result<Vec<u8>, git2::Error> {
-    let repo = Repository::open(root)?;
+pub fn show(repo: &Repository, commit: &str, path: &str) -> Result<Vec<u8>, git2::Error> {
     let commit = repo.find_commit(Oid::from_str(commit)?)?;
     let entry = commit.tree()?.get_path(Path::new(path))?;
     let blob = repo.find_blob(entry.id())?;
@@ -331,9 +354,13 @@ mod tests {
         fs::write(full, text).unwrap();
     }
 
+    fn opened(root: &Path) -> Repository {
+        Repository::open(root).unwrap()
+    }
+
     fn save(root: &Path, paths: &[&str], message: &str) -> Outcome {
         let paths: Vec<String> = paths.iter().map(|path| path.to_string()).collect();
-        commit(root, &paths, message, None).unwrap()
+        commit(&opened(root), &paths, message, None).unwrap()
     }
 
     fn committed(hooks: bool) -> Outcome {
@@ -344,14 +371,14 @@ mod tests {
     }
 
     fn head(root: &Path) -> (String, String) {
-        let repo = Repository::open(root).unwrap();
+        let repo = opened(root);
         let commit = repo.head().unwrap().peel_to_commit().unwrap();
         let author = commit.author().name().unwrap().to_string();
         (commit.message().unwrap().to_string(), author)
     }
 
     fn tree_paths(root: &Path) -> Vec<String> {
-        let repo = Repository::open(root).unwrap();
+        let repo = opened(root);
         let tree = repo.head().unwrap().peel_to_tree().unwrap();
         let mut paths = Vec::new();
         tree.walk(git2::TreeWalkMode::PreOrder, |dir, entry| {
@@ -367,13 +394,92 @@ mod tests {
     #[test]
     fn repositories_are_the_folder_and_folders_directly_inside_it() {
         let root = folder();
-        fs::create_dir_all(root.join(".git")).unwrap();
-        fs::create_dir_all(root.join("notes/.git")).unwrap();
-        fs::create_dir_all(root.join("plain/deep/.git")).unwrap();
+        Repository::init(&root).unwrap();
+        Repository::init(root.join("notes")).unwrap();
+        Repository::init(root.join("plain/deep")).unwrap();
         assert_eq!(
-            repositories(&root).unwrap(),
+            repositories(&root, inside(&root)).unwrap(),
             vec!["".to_string(), "notes".to_string()]
         );
+    }
+
+    #[test]
+    fn repositories_leave_out_a_folder_whose_git_data_is_outside() {
+        let base = folder();
+        Repository::init(base.join("notes")).unwrap();
+        let (outside, _repo) = repository();
+        point_at(&base.join("linked"), &outside);
+        assert_eq!(
+            repositories(&base, inside(&base)).unwrap(),
+            vec!["notes".to_string()]
+        );
+    }
+
+    /// Makes `folder` a checkout of the repository at `target`, with a `.git` file as git does.
+    fn point_at(folder: &Path, target: &Path) {
+        fs::create_dir_all(folder).unwrap();
+        let git_dir = target.join(".git").to_string_lossy().replace('\\', "/");
+        fs::write(folder.join(".git"), format!("gitdir: {git_dir}\n")).unwrap();
+    }
+
+    /// Allows what is inside `base`.
+    fn inside(base: &Path) -> impl Fn(&Path) -> bool {
+        let base = fs::canonicalize(base).unwrap();
+        move |path| path.starts_with(&base)
+    }
+
+    #[test]
+    fn a_repository_with_its_git_data_inside_opens() {
+        let base = folder();
+        let root = base.join("notes");
+        fs::create_dir_all(&root).unwrap();
+        init(&root).unwrap();
+        assert!(open(&root, inside(&base)).is_some());
+        assert!(open(&root, inside(&folder())).is_none());
+    }
+
+    #[test]
+    fn a_repository_set_to_work_on_another_folder_does_not_open() {
+        let base = folder();
+        let root = base.join("notes");
+        fs::create_dir_all(&root).unwrap();
+        let repo = Repository::init(&root).unwrap();
+        let elsewhere = folder();
+        let mut config = repo.config().unwrap();
+        config
+            .set_str("core.worktree", elsewhere.to_str().unwrap())
+            .unwrap();
+        assert!(Repository::open(&root).unwrap().workdir().is_some());
+        assert!(open(&root, inside(&base)).is_none());
+    }
+
+    #[test]
+    fn a_git_file_pointing_outside_does_not_open() {
+        let base = folder();
+        let root = base.join("notes");
+        fs::create_dir_all(&root).unwrap();
+        let (outside, _repo) = repository();
+        let target = outside.join(".git").to_string_lossy().replace('\\', "/");
+        fs::write(root.join(".git"), format!("gitdir: {target}\n")).unwrap();
+        assert!(Repository::open(&root).is_ok());
+        assert!(open(&root, inside(&base)).is_none());
+    }
+
+    #[test]
+    fn a_linked_worktree_opens_when_its_main_repository_is_inside() {
+        let base = folder();
+        let main = base.join("main");
+        fs::create_dir_all(&main).unwrap();
+        let repo = Repository::init(&main).unwrap();
+        let mut config = repo.config().unwrap();
+        config.set_str("user.name", "Writer").unwrap();
+        config.set_str("user.email", "writer@example.com").unwrap();
+        write(&main, "a.md", "one\n");
+        save(&main, &["a.md"], "Add a.md");
+        let linked = base.join("linked");
+        repo.worktree("linked", &linked, None).unwrap();
+        assert!(open(&linked, inside(&base)).is_some());
+        assert!(open(&linked, inside(&main.join(".git/worktrees"))).is_none());
     }
 
     #[test]
@@ -465,7 +571,7 @@ mod tests {
         write(&root, "a.md", "one\n");
         let paths = vec!["a.md".to_string()];
         assert_eq!(
-            commit(&root, &paths, "Add a.md", None).unwrap(),
+            commit(&opened(&root), &paths, "Add a.md", None).unwrap(),
             Outcome::Refused {
                 reason: Reason::Identity
             }
@@ -475,7 +581,7 @@ mod tests {
             email: "fallback@example.com".into(),
         };
         assert_eq!(
-            commit(&root, &paths, "Add a.md", Some(&fallback)).unwrap(),
+            commit(&opened(&root), &paths, "Add a.md", Some(&fallback)).unwrap(),
             committed(false)
         );
         assert_eq!(head(&root).1, "Fallback");
@@ -484,7 +590,7 @@ mod tests {
         config.set_str("user.email", "writer@example.com").unwrap();
         write(&root, "a.md", "two\n");
         assert_eq!(
-            commit(&root, &paths, "Edit a.md", Some(&fallback)).unwrap(),
+            commit(&opened(&root), &paths, "Edit a.md", Some(&fallback)).unwrap(),
             committed(false)
         );
         assert_eq!(head(&root).1, "Writer");
@@ -628,7 +734,7 @@ mod tests {
     #[test]
     fn a_file_s_log_lists_the_commits_that_changed_it_newest_first() {
         let (root, _repo) = repository();
-        assert_eq!(log(&root, "a.md", 0, 10).unwrap(), vec![]);
+        assert_eq!(log(&opened(&root), "a.md", 0, 10).unwrap(), vec![]);
         for (path, text, message) in [
             ("a.md", "1\n", "First"),
             ("b.md", "1\n", "Other"),
@@ -642,12 +748,18 @@ mod tests {
             entries.into_iter().map(|entry| entry.message).collect()
         };
         assert_eq!(
-            messages(log(&root, "a.md", 0, 2).unwrap()),
+            messages(log(&opened(&root), "a.md", 0, 2).unwrap()),
             vec!["Third", "Second"]
         );
-        assert_eq!(messages(log(&root, "a.md", 2, 2).unwrap()), vec!["First"]);
-        assert_eq!(log(&root, "a.md", 0, 1).unwrap()[0].author, "Writer");
-        assert_eq!(log(&root, "missing.md", 0, 10).unwrap(), vec![]);
+        assert_eq!(
+            messages(log(&opened(&root), "a.md", 2, 2).unwrap()),
+            vec!["First"]
+        );
+        assert_eq!(
+            log(&opened(&root), "a.md", 0, 1).unwrap()[0].author,
+            "Writer"
+        );
+        assert_eq!(log(&opened(&root), "missing.md", 0, 10).unwrap(), vec![]);
     }
 
     #[test]
@@ -687,7 +799,7 @@ mod tests {
             &[&main, &feature],
         )
         .unwrap();
-        let messages: Vec<String> = log(&root, "a.md", 0, 10)
+        let messages: Vec<String> = log(&opened(&root), "a.md", 0, 10)
             .unwrap()
             .into_iter()
             .map(|entry| entry.message)
@@ -702,7 +814,7 @@ mod tests {
         save(&root, &["a.md"], "First");
         write(&root, "a.md", "v2\n");
         save(&root, &["a.md"], "Second");
-        let first = log(&root, "a.md", 1, 1).unwrap().remove(0);
-        assert_eq!(show(&root, &first.id, "a.md").unwrap(), b"v1\n");
+        let first = log(&opened(&root), "a.md", 1, 1).unwrap().remove(0);
+        assert_eq!(show(&opened(&root), &first.id, "a.md").unwrap(), b"v1\n");
     }
 }
