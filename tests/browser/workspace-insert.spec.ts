@@ -110,19 +110,34 @@ test('URL validation, stale dialog guards, cancellation, and read-only modes pre
   }
 });
 
-test('the table grid and its validation insert a table that Preview draws readably', async ({ page }) => {
+test('the table grid inserts the size clicked; arrow keys move in it and the fields size larger tables', async ({ page }) => {
   await mount(page, '');
   await menuAction(page, 'Insert table');
-  const d = dialog(page, 'Insert table');
-  await d.getByLabel('Rows (including header)').fill('1');
-  await d.getByRole('button', { name: 'Insert', exact: true }).click();
-  expect(await source(page)).toBe('');
-  await d.getByRole('button', { name: '3 rows, 3 columns' }).click();
+  let d = dialog(page, 'Insert table');
+  await expect(d.getByRole('group', { name: 'Table size' }).getByRole('button')).toHaveCount(80);
+  await d.getByRole('button', { name: '3 rows, 3 columns' }).hover();
   await expect(d.locator('output')).toHaveText('3 rows × 3 columns');
-  await d.getByRole('button', { name: 'Insert', exact: true }).click();
+  await d.getByRole('button', { name: '3 rows, 3 columns' }).click();
+  await expect(d).toHaveCount(0);
   expect(await source(page)).toBe(
     '| Header | Header | Header |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |',
   );
+  await undo(page);
+  await menuAction(page, 'Insert table');
+  d = dialog(page, 'Insert table');
+  await expect(d.getByRole('button', { name: '3 rows, 2 columns' })).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowDown');
+  await expect(d.getByRole('button', { name: '4 rows, 3 columns' })).toBeFocused();
+  await expect(d.locator('output')).toHaveText('4 rows × 3 columns');
+  await d.getByLabel('Rows (including header)').fill('1');
+  await d.getByRole('button', { name: 'Insert', exact: true }).click();
+  expect(await source(page)).toBe('');
+  await d.getByLabel('Rows (including header)').fill('12');
+  await d.getByLabel('Columns', { exact: true }).fill('1');
+  await expect(d.locator('output')).toHaveText('12 rows × 1 columns');
+  await d.getByRole('button', { name: 'Insert', exact: true }).click();
+  expect((await source(page)).split('\n')).toHaveLength(13);
   await setMode(page, 'preview');
   const cell = readable(page).locator('th').first();
   await expect(cell).toHaveCSS('border-top-width', '1px');

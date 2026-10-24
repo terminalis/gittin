@@ -494,7 +494,7 @@ a:has(> .app-icon) {
 }
 .table-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1.6rem);
+  grid-template-columns: repeat(10, 1.6rem);
   gap: .2rem;
   margin: .7rem 0;
 }
@@ -513,6 +513,11 @@ a:has(> .app-icon) {
 }
 .table-grid button:hover {
   background: var(--hover);
+}
+.table-size {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 .symbol-choices {
   display: flex;
