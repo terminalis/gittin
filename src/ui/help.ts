@@ -207,34 +207,62 @@ export function gettingStarted() {
       [el('dt', { textContent: label }), el('dd', { textContent: text })]))),
   { className: 'start-dialog', info: true });
 }
-const releases = [
-  ...desktop ? ['Git in the desktop apps — 23 October 2026: in a folder that is a git repository, saving also '
-    + 'commits, with a message that says what changed; Version history lists a repository file\'s commits; '
-    + 'renaming, moving and deleting a file in a repository commit at once; Start a repository gives any other '
-    + 'folder git history; quitting asks about every unsaved file.'] : [],
-  'Lists, paste, images and backups — 22 October 2026: a pressed list button removes the list; pasted '
-    + 'links keep their addresses and pasted tables become Markdown tables; add images from this device to '
-    + 'files in a folder with Insert › Image › From device…, by pasting or by dropping; Export drafts saves a '
-    + '.zip with each draft as its own file; the side panels and the appearance stay as they were after '
-    + 'printing; fixes for dragging text, input methods and mixed line endings; Preview shows more unusual '
-    + 'Markdown correctly.',
-  'Desktop apps — 19 October 2026: Gittin for Windows from the Microsoft Store and for Linux as a Flatpak, '
-    + 'saving straight back to your files and offered in Open with; downloads became Export…, and Download '
-    + 'as PDF… became Export as PDF….',
-  'Files and folders — 2 October 2026: create folders; rename, move and delete files and delete '
-    + 'folders from the Folder panel or the File menu; relative links open at their #section.',
-  'Local files and folders — 30 September 2026: open a folder, save back to your files, '
-    + 'and browse version history of your saves.',
-  'Preview and drafts — 29 September 2026: maths, Mermaid diagrams, emoji shortcodes and front matter '
-    + 'in Preview; Export as PDF…; line and column in the status bar; typewriter centring in Focus '
-    + 'mode; back up and restore drafts; install Gittin and start it offline.',
-  'Local workspace — 27 September 2026: file recovery and metadata; shared source formatting and '
-    + 'Undo; read-only Preview/Diff; source insertion and contextual tables/images; device toolbar and '
-    + 'prose preferences; statistics, temporary comparison, attributions, linked resources, '
-    + 'email previews and Help.',
+/** Every release, newest first: its name, its date and its changes. */
+const releases: [name: string, date: string, changes: string[]][] = [
+  ...desktop ? [['Git in the desktop apps', '23 October 2026', [
+    'In a folder that is a git repository, saving also commits, with a message that says what changed.',
+    "Version history lists a repository file's commits.",
+    'Renaming, moving and deleting a file in a repository commit at once.',
+    'Start a repository gives any other folder git history.',
+    'Quitting asks about every unsaved file.',
+  ]] as [string, string, string[]]] : [],
+  ['Lists, paste, images and backups', '22 October 2026', [
+    'A pressed list button removes the list.',
+    'Pasted links keep their addresses, and pasted tables become Markdown tables.',
+    'Add images from this device to files in a folder with Insert › Image › From device…, by pasting or by dropping.',
+    'Export drafts saves a .zip with each draft as its own file.',
+    'The side panels and the appearance stay as they were after printing.',
+    'Fixes for dragging text, input methods and mixed line endings.',
+    'Preview shows more unusual Markdown correctly.',
+  ]],
+  ['Desktop apps', '19 October 2026', [
+    'Gittin for Windows from the Microsoft Store and for Linux as a Flatpak, saving straight back to your files and '
+      + 'offered in Open with.',
+    'Downloads became Export…, and Download as PDF… became Export as PDF….',
+  ]],
+  ['Files and folders', '2 October 2026', [
+    'Create folders.',
+    'Rename, move and delete files, and delete folders, from the Folder panel or the File menu.',
+    'Relative links open at their #section.',
+  ]],
+  ['Local files and folders', '30 September 2026', [
+    'Open a folder.',
+    'Save back to your files.',
+    'Browse the version history of your saves.',
+  ]],
+  ['Preview and drafts', '29 September 2026', [
+    'Maths, Mermaid diagrams, emoji shortcodes and front matter in Preview.',
+    'Export as PDF….',
+    'Line and column in the status bar.',
+    'Typewriter centring in Focus mode.',
+    'Back up and restore drafts.',
+    'Install Gittin and start it offline.',
+  ]],
+  ['Local workspace', '27 September 2026', [
+    'File recovery and metadata.',
+    'Shared source formatting and Undo.',
+    'Read-only Preview and Diff.',
+    'Source insertion and contextual tables and images.',
+    'Device toolbar and prose preferences.',
+    'Statistics, temporary comparison, attributions, linked resources, email previews and Help.',
+  ]],
 ];
 export function whatsNew() {
-  fileDialog("What's new", body => body.append(el('p', { textContent: releases.join(' ') })), { info: true });
+  fileDialog("What's new", body => body.append(...releases.map(([name, date, changes], index) =>
+    el('details', { className: 'release', open: index === 0 },
+      el('summary', {}, el('strong', { textContent: name }), el('small', { textContent: date })),
+      el('ul', {}, ...changes.map(change => el('li', { textContent: change })))))),
+  { className: 'releases-dialog', info: true });
 }
 function shortcutLabel(keys: string) {
   const mac = /Mac|iPhone|iPad/.test(navigator.platform);

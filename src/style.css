@@ -753,6 +753,30 @@ a:has(> .app-icon) {
 .start-files dd {
   margin: 0;
 }
+/* What's new: a folding section per release, its name and date as the heading. */
+.release {
+  border-top: 1px solid var(--line);
+}
+.release:first-child {
+  border-top: 0;
+}
+.release summary {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 0;
+  cursor: pointer;
+}
+.release summary small {
+  color: var(--muted);
+}
+.release ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+.release li + li {
+  margin-top: 4px;
+}
 @media (max-width: 600px) {
   .help-topics {
     grid-template-columns: minmax(0, 1fr);

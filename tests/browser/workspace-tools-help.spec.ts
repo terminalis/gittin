@@ -320,6 +320,12 @@ test('Help opens as a dialog, guides separate, shortcuts assigned/platform-speci
   await expect(dialog(page, 'Getting Started').locator('.start-steps li')).toHaveCount(5);
   await close(page, 'Getting Started');
   await command(page, "What's new");
+  const news = dialog(page, "What's new").locator('details');
+  await expect(news.first()).toHaveAttribute('open', '');
+  await expect(news.first().locator('summary')).toHaveText('Lists, paste, images and backups22 October 2026');
+  await expect(news.first().locator('li').first()).toHaveText('A pressed list button removes the list.');
+  await expect(news.nth(1)).not.toHaveAttribute('open', '');
+  await expect(news.nth(1).locator('li').first()).toBeHidden();
   await expect(dialog(page, "What's new")).toContainText('27 September 2026');
   await close(page, "What's new");
   await command(page, 'Keyboard shortcuts');
