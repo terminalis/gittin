@@ -303,7 +303,9 @@ test('buttons and dialogs share the app shape; Close is never the filled action'
   );
 });
 
-test('confirmation dialogs fill the confirming choice only', async ({ page }) => {
+test('confirmation dialogs follow Windows: the confirming choice first and filled, a destructive one red, Cancel last', async ({
+  page,
+}) => {
   await newFile(page);
   await editor(page).fill('only here');
   await expectDraftSaved(page);
@@ -311,9 +313,25 @@ test('confirmation dialogs fill the confirming choice only', async ({ page }) =>
   const closing = page.getByRole('dialog', { name: 'Close Untitled file?', exact: true });
   const choice = (dialog: Locator, name: string) =>
     dialog.getByRole('button', { name, exact: true });
+  const look = (button: Locator) =>
+    button.evaluate((b) => {
+      const style = getComputedStyle(b);
+      return { text: style.color, edge: style.borderTopColor, fill: style.backgroundColor };
+    });
+  await expect(closing.locator('.dialog-actions > button')).toHaveText(['Save', 'Discard changes', 'Cancel']);
   await expect(choice(closing, 'Save')).toHaveClass(/primary/);
-  await expect(choice(closing, 'Discard changes')).not.toHaveClass(/primary/);
-  await expect(choice(closing, 'Cancel')).not.toHaveClass(/primary/);
+  await expect(choice(closing, 'Discard changes')).toHaveClass(/danger/);
+  await page.mouse.move(0, 0);
+  // Red is Gittin's accent; every other choice is the app's plain outlined button.
+  expect(await look(choice(closing, 'Discard changes'))).toMatchObject({
+    text: 'rgb(196, 62, 44)',
+    edge: 'rgb(196, 62, 44)',
+  });
+  expect(await look(choice(closing, 'Cancel'))).toEqual({
+    text: 'rgb(41, 38, 35)',
+    edge: 'rgb(222, 219, 213)',
+    fill: 'rgb(255, 255, 255)',
+  });
   await expect(page.locator('#app')).toHaveAttribute('inert', '');
   await choice(closing, 'Cancel').click();
   // Close file runs as a transition that ignores hash changes until it ends and un-inerts the app.
@@ -321,8 +339,9 @@ test('confirmation dialogs fill the confirming choice only', async ({ page }) =>
   await home(page);
   await page.getByRole('button', { name: 'Remove Untitled file', exact: true }).click();
   const removing = page.getByRole('dialog', { name: 'Remove Untitled file?', exact: true });
+  await expect(removing.locator('.dialog-actions > button')).toHaveText(['Remove', 'Cancel']);
   await expect(choice(removing, 'Remove')).toHaveClass(/primary/);
-  await expect(choice(removing, 'Cancel')).not.toHaveClass(/primary/);
+  await expect(choice(removing, 'Remove')).toHaveClass(/danger/);
 });
 
 test('on a phone the title row gives a long title room; favourite and location stay in the File menu', async ({

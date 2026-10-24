@@ -1,4 +1,4 @@
-import { button, dialogShell, el, field, fileDialog } from './dom';
+import { button, closeButton, dialogShell, el, field, fileDialog } from './dom';
 import { keyCaps, shortcuts } from './shortcuts';
 import { desktop, place } from '../platform';
 const topics: Record<string, string> = {
@@ -70,7 +70,7 @@ function cheatSheetTable() {
 export function workspaceHelpDialog(host: HTMLElement, signal: AbortSignal) {
   const existing = host.querySelector<HTMLDialogElement>('.help-dialog');
   if (existing) { existing.querySelector<HTMLElement>('h2')?.focus(); return existing; }
-  const { dialog, heading, body, footer } = dialogShell('Gittin Help', 'help-dialog');
+  const { dialog, heading, titleRow, body } = dialogShell('Gittin Help', 'help-dialog');
   const lifecycle = new AbortController();
   const close = (restoreFocus = true) => {
     lifecycle.abort();
@@ -104,7 +104,7 @@ export function workspaceHelpDialog(host: HTMLElement, signal: AbortSignal) {
   }
   show('Editing');
   body.append(nav, content);
-  footer.append(button('Close Help', () => close()));
+  titleRow.append(closeButton(() => close()));
   heading.classList.add('dialog-drag-handle');
   heading.tabIndex = 0;
   heading.title = 'Drag to move. Use arrow keys when focused.';
@@ -167,7 +167,7 @@ const steps = [
 ];
 export function gettingStarted() {
   fileDialog('Getting Started', body =>
-    body.append(el('ol', {}, ...steps.map(text => el('li', { textContent: text })))));
+    body.append(el('ol', {}, ...steps.map(text => el('li', { textContent: text })))), { info: true });
 }
 const releases = [
   ...desktop ? ['Git in the desktop apps — 23 October 2026: in a folder that is a git repository, saving also '
@@ -196,7 +196,7 @@ const releases = [
     + 'email previews and Help.',
 ];
 export function whatsNew() {
-  fileDialog("What's new", body => body.append(el('p', { textContent: releases.join(' ') })));
+  fileDialog("What's new", body => body.append(el('p', { textContent: releases.join(' ') })), { info: true });
 }
 function shortcutLabel(keys: string) {
   const mac = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -216,7 +216,7 @@ export function keyboardShortcuts() {
     input.oninput = render;
     body.append(field('Search assigned shortcuts', input), results);
     render();
-  });
+  }, { info: true });
 }
 
 export function helpDialog() {
@@ -225,5 +225,5 @@ export function helpDialog() {
     body.append(el('p', { textContent: intro }), ...Object.entries(topics).map(([title, text]) =>
         el('details', {}, el('summary', { textContent: title }), el('p', { textContent: text }))));
     body.classList.add('home-help-topics');
-  });
+  }, { info: true });
 }

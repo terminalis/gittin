@@ -136,14 +136,16 @@ export function notice(error: unknown) {
   host.replaceChildren(el('span', { textContent: errorText(error) }), close);
 }
 
-/** Shared workspace dialog structure; callers retain their own actions and lifecycle. */
+/** Shared workspace dialog structure: a title row (the heading, then any ✕), the body and the footer; callers retain
+ * their own actions and lifecycle. */
 export function dialogShell(title: string, className: string, form?: HTMLFormElement) {
   const dialog = el('dialog', { className: 'workspace-dialog ' + className, ariaLabel: title });
   const heading = el('h2', { textContent: title });
+  const titleRow = el('div', { className: 'dialog-title' }, heading);
   const body = el('div', { className: 'dialog-body' });
   const footer = el('footer', { className: 'dialog-actions' });
   if (form) { form.classList.add('dialog-form'); dialog.append(form); }
-  (form ?? dialog).append(heading, body, footer);
+  (form ?? dialog).append(titleRow, body, footer);
   // Chromium's search box clears its text on the first Escape instead of cancelling the dialog.
   dialog.addEventListener('keydown', event => {
     if (event.key !== 'Escape' || !(event.target instanceof HTMLInputElement)) return;
@@ -151,33 +153,38 @@ export function dialogShell(title: string, className: string, form?: HTMLFormEle
     event.preventDefault();
     dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
   });
-  return { dialog, heading, body, footer };
+  return { dialog, heading, titleRow, body, footer };
 }
+
+/** The ✕ at the end of the title row of a dialog that only shows information. */
+export const closeButton = (close: () => void) => iconButton('x', 'Close', close, 'dialog-close');
 
 export function showDialog(dialog: HTMLDialogElement) {
   dialog.showModal();
-  // Scrollable bodies can receive native autofocus before their form controls.
-  const controls = dialog.querySelectorAll<HTMLElement>(
-    'input, select, textarea, button, a[href], [tabindex]');
-  const first = [...controls].find(control =>
-    !control.matches(':disabled, [tabindex="-1"]') && control.getClientRects().length > 0);
-  first?.focus({ preventScroll: true });
+  // Scrollable bodies can receive native autofocus before their form controls. The ✕ takes focus only when no other
+  // control can.
+  const controls = [...dialog.querySelectorAll<HTMLElement>('input, select, textarea, button, a[href], [tabindex]')]
+    .filter(control => !control.matches(':disabled, [tabindex="-1"]') && control.getClientRects().length > 0);
+  (controls.find(control => !control.matches('.dialog-close')) ?? controls[0])?.focus({ preventScroll: true });
 }
 
 interface FileDialogOptions {
   /** Added to `file-dialog`. */
   className?: string;
-  /** The footer's first button, which closes the dialog. */
+  /** The footer's last button, which closes the dialog. */
   closeLabel?: string;
+  /** A dialog that only shows information: ✕ in its title row closes it, and it has no footer button. */
+  info?: boolean;
   onClose?(): void;
 }
 
 type Build = (body: HTMLElement, close: () => void, footer: HTMLElement) => void;
-/** Focus-restoring dialog for file metadata, utilities and help. */
+/** Focus-restoring dialog for file metadata, utilities and help. Its own actions come first in the footer, then the
+ * button that closes it, as in Windows. */
 export function fileDialog(title: string, build: Build, options: FileDialogOptions = {}) {
-  const { className = '', closeLabel = 'Close', onClose } = options;
+  const { className = '', closeLabel = 'Close', info = false, onClose } = options;
   const previous = document.activeElement as HTMLElement | null;
-  const { dialog, body, footer } = dialogShell(title, ('file-dialog ' + className).trim());
+  const { dialog, titleRow, body, footer } = dialogShell(title, ('file-dialog ' + className).trim());
   const close = () => {
     dialog.close();
     dialog.remove();
@@ -187,25 +194,27 @@ export function fileDialog(title: string, build: Build, options: FileDialogOptio
     (previous?.isConnected ? previous : successor)?.focus();
     onClose?.();
   };
-  footer.append(button(closeLabel, close));
+  if (info) titleRow.append(closeButton(close));
   build(body, close, footer);
+  if (!info) footer.append(button(closeLabel, close));
   dialog.addEventListener('cancel', e => { e.preventDefault(); close(); });
   document.body.append(dialog);
   showDialog(dialog);
   return dialog;
 }
 
+/** A choice: its label, the value it resolves with, and 'danger' when it destroys work. */
+type Choice<T> = [label: string, value: T, danger?: 'danger'];
 /** Resolve with the chosen button's value; Escape or Cancel resolves with 'cancel'. */
-type Choice<T> = [label: string, value: T];
 export function ask<T extends string>(title: string, text: string, options: Choice<T>[]) {
   return new Promise<T | 'cancel'>(resolve => {
     let chosen: T | 'cancel' = 'cancel';
     fileDialog(title, (body, close, footer) => {
       body.append(el('p', { textContent: text }));
-      // The first choice confirms the question and is filled; later choices and Cancel stay plain.
-      options.forEach(([label, value], index) => {
+      // The first choice confirms the question and is filled; a destructive one is red; Cancel comes last.
+      options.forEach(([label, value, danger], index) => {
         const choose = () => { chosen = value; close(); };
-        footer.append(button(label, choose, index === 0 ? 'primary' : ''));
+        footer.append(button(label, choose, [index === 0 ? 'primary' : '', danger ?? ''].join(' ').trim()));
       });
     }, { closeLabel: 'Cancel', onClose: () => resolve(chosen) });
   });

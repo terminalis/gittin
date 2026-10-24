@@ -27,7 +27,7 @@ export const mailtoLaunchLimit = 1800;
 const paragraph = (text: string) => el('p', { textContent: text });
 const preview = (text: string) => el('pre', { className: 'utility-preview', textContent: text });
 export function openStatistics(source: string, preferences: DevicePreferences) {
-  fileDialog('File statistics', (body, close, footer) => {
+  fileDialog('File statistics', body => {
     const table = el('table', { ariaLabel: 'Current file statistics' });
     table.setAttribute('aria-describedby', 'statistics-help');
     const help = el('p', { id: 'statistics-help', className: 'statistics-help',
@@ -45,10 +45,9 @@ export function openStatistics(source: string, preferences: DevicePreferences) {
     }
     const display = checkbox('Display stats while typing',
       preferences.value.showStatsWhileTyping ?? false, 'statistics-option');
+    display.onchange = () => void preferences.save({ showStatsWhileTyping: display.checked });
     body.append(table, help, display.parentElement!);
-    const save = () => { void preferences.save({ showStatsWhileTyping: display.checked }); close(); };
-    footer.append(button('OK', save, 'primary'));
-  }, { className: 'statistics-dialog', closeLabel: 'Cancel' });
+  }, { className: 'statistics-dialog', info: true });
 }
 export function openComparison(controller: GittinController) {
   fileDialog('Compare files', (body, close) => {
@@ -182,7 +181,7 @@ export function openResources(controller: GittinController, source: string, fold
       }
     }
     body.append(resources.length ? list : paragraph('No supported links or images in this file.'));
-  });
+  }, { info: true });
 }
 const formats: AttributionFormat[] = ['markdown', 'comment', 'spdx', 'cff'];
 export function openAttributions(controller: GittinController,

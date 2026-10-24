@@ -36,6 +36,6 @@ export async function openHistory(doc: OpenDocument, use: Use): Promise<boolean>
       if (entries.length === page) list.after(older);
     };
     void more().catch(notice);
-  });
+  }, { info: true });
   return true;
 }

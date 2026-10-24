@@ -242,7 +242,7 @@ function closeDocument(id: string) {
           local
             ? `This file is only in ${place}. Discarding deletes it.`
             : `It has unsaved changes kept in ${place}.`,
-          [['Save', 'save'], ['Discard changes', 'discard']]);
+          [['Save', 'save'], ['Discard changes', 'discard', 'danger']]);
         if (choice === 'cancel') return;
         if (choice === 'save' && !(await writeFile(doc, false))) return;
         discard = choice === 'discard';
@@ -259,7 +259,7 @@ async function removeRecent(id: string) {
   if (!row) return;
   if (row.unsaved) {
     const choice = await ask(`Remove ${row.title}?`,
-      `This deletes the unsaved changes kept in ${place}. This can't be undone.`, [['Remove', 'remove']]);
+      `This deletes the unsaved changes kept in ${place}. This can't be undone.`, [['Remove', 'remove', 'danger']]);
     if (choice !== 'remove') return;
   }
   const open = documents.get(id);
@@ -487,7 +487,7 @@ function deleteEntry(source: FolderSource, path: string, kind: 'file' | 'directo
     // The transition has just stored the open file's draft, so stored drafts say what is unsaved.
     if ((await listRecent()).some(row => row.unsaved && isAt(row.identity, source.id, path)))
       text += ` Unsaved changes kept in ${place} are deleted too.`;
-    if ((await ask(`Delete ${name}?`, text, [['Delete', 'delete']])) !== 'delete') return;
+    if ((await ask(`Delete ${name}?`, text, [['Delete', 'delete', 'danger']])) !== 'delete') return;
     try { await source.remove(path); } catch (error) { notice(reason(error, source, path)); return; }
     await extensions.changed?.(source, { kind: 'delete', path }).catch(notice);
     const affected = [...documents.values()].filter(doc => isAt(doc.session.identity, source.id, path));

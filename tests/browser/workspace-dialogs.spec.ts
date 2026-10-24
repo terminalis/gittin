@@ -8,7 +8,7 @@ test('dialog actions stay reachable and cancellation preserves source at 1280px 
     await page.setViewportSize({ width, height: 640 });
     for (const [label, title, dismiss] of [
       ['Rename…', 'Rename file', 'Close'],
-      ['File statistics…', 'File statistics', 'Cancel'],
+      ['File statistics…', 'File statistics', 'Close'],
       ['Preferences…', 'Preferences', 'Close'],
       ['Compare files…', 'Compare files', 'Close'],
       ['Attributions…', 'Attributions', 'Close'],
@@ -25,8 +25,13 @@ test('dialog actions stay reachable and cancellation preserves source at 1280px 
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
       expect(bounds!.y).toBeGreaterThanOrEqual(0);
       expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(640);
-      for (const control of await dialog.locator('.dialog-actions button').all())
+      for (const control of await dialog.locator('.dialog-actions button, .dialog-close').all())
         await expect(control).toBeInViewport();
+      // Dialogs that only show information close with ✕ and have no footer.
+      if (['File statistics', 'Keyboard shortcuts'].includes(title)) {
+        await expect(dialog.locator('.dialog-title .dialog-close')).toBeVisible();
+        await expect(dialog.locator('.dialog-actions')).toBeHidden();
+      }
       if (title === 'Attributions') {
         await expect(dialog.getByLabel('Output format')).toBeFocused();
         const lastField = dialog.getByLabel('Modifications (optional)');

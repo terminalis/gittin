@@ -160,8 +160,8 @@ export class InsertDialogs {
     const label = kind === 'imageSize' || kind === 'alignColumn' ? 'Apply'
       : link?.linkUrl ? 'Update link' : 'Insert';
     body.append(error);
-    footer.append(button('Cancel', cancel),
-      el('button', { type: 'submit', className: 'primary', textContent: label }));
+    footer.append(el('button', { type: 'submit', className: 'primary', textContent: label }),
+      button('Cancel', cancel));
     form.onsubmit = event => {
       event.preventDefault();
       if (!form.reportValidity()) return;

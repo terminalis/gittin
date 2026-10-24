@@ -81,7 +81,7 @@ test('statistics and temporary Compare preserve exact source and saved baseline'
   expect(await bytes(page)).toEqual(Buffer.from(original));
 });
 
-test('live statistics save with OK, update while typing, persist and discard cancelled changes', async ({
+test('live statistics apply as the box is ticked, update while typing and persist', async ({
   page,
 }) => {
   await createFile(page);
@@ -90,26 +90,13 @@ test('live statistics save with OK, update while typing, persist and discard can
   await expect(stats).toHaveText('3 characters');
   await command(page, 'File statistics…');
   let d = dialog(page, 'File statistics');
-  await expect(
-    d.getByRole('checkbox', { name: 'Display stats while typing', exact: true }),
-  ).not.toBeChecked();
-  await d.getByRole('checkbox').check();
-  await d.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await expect(stats).toHaveText('3 characters');
-  await command(page, 'File statistics…');
-  d = dialog(page, 'File statistics');
-  await expect(d.getByRole('checkbox')).not.toBeChecked();
-  await d.getByRole('checkbox').check();
+  const box = d.getByRole('checkbox', { name: 'Display stats while typing', exact: true });
+  await expect(box).not.toBeChecked();
+  await expect(d.locator('.dialog-actions button')).toHaveCount(0);
+  await box.check();
+  await expect(stats).toHaveText('1 word · 3 characters · 1 line · 3 bytes');
   await page.keyboard.press('Escape');
   await expect(d).toHaveCount(0);
-  await expect(stats).toHaveText('3 characters');
-  await command(page, 'File statistics…');
-  d = dialog(page, 'File statistics');
-  await expect(d.getByRole('checkbox')).not.toBeChecked();
-  await d.getByRole('checkbox').check();
-  await d.getByRole('button', { name: 'OK', exact: true }).click();
-  await expect(stats).toBeVisible();
-  await expect(stats).toHaveText('1 word · 3 characters · 1 line · 3 bytes');
   await editor(page).press('ControlOrMeta+End');
   await editor(page).pressSequentially(' two');
   await expect(stats).toHaveText('2 words · 7 characters · 1 line · 7 bytes');
@@ -117,7 +104,6 @@ test('live statistics save with OK, update while typing, persist and discard can
   await expect.poll(async () => (await savedDraft(page))?.current.source).toBe('one two');
   await expect.poll(async () => (await savedPreferences(page)).showStatsWhileTyping).toBe(true);
   await page.reload();
-  await expect(stats).toBeVisible();
   await expect(stats).toHaveText('2 words · 7 characters · 1 line · 7 bytes');
   await page.setViewportSize({ width: 390, height: 844 });
   await command(page, 'File statistics…');
@@ -127,13 +113,7 @@ test('live statistics save with OK, update while typing, persist and discard can
   expect(bounds!.x).toBeGreaterThanOrEqual(0);
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
   await d.getByRole('checkbox').uncheck();
-  await d.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await expect(stats).toBeVisible();
-  await command(page, 'File statistics…');
-  d = dialog(page, 'File statistics');
-  await expect(d.getByRole('checkbox')).toBeChecked();
-  await d.getByRole('checkbox').uncheck();
-  await d.getByRole('button', { name: 'OK', exact: true }).click();
+  await close(page, 'File statistics');
   await expect(stats).toHaveText('7 characters');
   await expect(page.locator('#file-type')).toHaveText('Markdown');
   await expect.poll(async () => (await savedPreferences(page)).showStatsWhileTyping).toBe(false);
@@ -390,7 +370,7 @@ test('Help opens as a dialog, guides separate, shortcuts assigned/platform-speci
   await feedback.close();
   await page.setViewportSize({ width: 390, height: 844 });
   await command(page, 'Gittin Help');
-  await expect(page.getByRole('button', { name: 'Close Help' })).toBeInViewport();
+  await expect(dialog(page, 'Gittin Help').getByRole('button', { name: 'Close', exact: true })).toBeInViewport();
   expect(await noSidewaysScroll(page)).toBe(true);
 });
 
@@ -437,7 +417,7 @@ test('Help can move by pointer and keyboard without resizing the editor or leavi
   expect(small.y).toBeGreaterThanOrEqual(0);
   expect(small.x + small.width).toBeLessThanOrEqual(390);
   expect(small.y + small.height).toBeLessThanOrEqual(640);
-  await expect(help.getByRole('button', { name: 'Close Help' })).toBeInViewport();
+  await expect(help.getByRole('button', { name: 'Close', exact: true })).toBeInViewport();
   await heading.press('Escape');
   await expect(help).toHaveCount(0);
   // At 390px the menu row is folded behind the Menus button, so focus returns there.
@@ -524,7 +504,7 @@ test('closing Help after hiding the menus moves focus to the menu toggle', async
   await expect(dialog(page, 'Gittin Help')).toBeVisible();
   await page.keyboard.press('Control+Shift+f');
   await expect(page.locator('.workspace-header')).toBeHidden();
-  await dialog(page, 'Gittin Help').getByRole('button', { name: 'Close Help' }).click();
+  await dialog(page, 'Gittin Help').getByRole('button', { name: 'Close', exact: true }).click();
   await expect(dialog(page, 'Gittin Help')).toHaveCount(0);
   await expect(page.locator('.toolbar-menu-toggle')).toBeFocused();
 });

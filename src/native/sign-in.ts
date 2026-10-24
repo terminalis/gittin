@@ -67,7 +67,7 @@ export function signIn({ workflow = false, reason = '' }: SignInOptions = {}) {
             if (end.remembered) return close();
             stop(`Signed in as ${account.login}. This computer can't keep the sign-in, so Gittin will ask for it `
               + 'again the next time it starts.', false);
-            footer.querySelector('button')!.textContent = 'Close';
+            footer.lastElementChild!.textContent = 'Close';
           } else if (end.kind === 'expired') stop('This code expired before it was used.', true);
           else if (end.kind === 'declined') stop('The sign-in was declined on GitHub.', true);
         } catch (error) {

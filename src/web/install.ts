@@ -46,5 +46,5 @@ export function install() {
       list.prepend(thisBrowser);
     }
     body.append(list);
-  }, { className: 'install-dialog' });
+  }, { className: 'install-dialog', info: true });
 }

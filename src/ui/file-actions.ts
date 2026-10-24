@@ -49,14 +49,14 @@ export function nameDialog(title: string, label: string, action: string, value: 
 const where = (identity: Identity) => locationText(identity, sourceInfoFor(identity));
 /** Where the open file is: in a folder, opened on its own, or only in this browser. */
 export function locationDialog(identity: Identity) {
-  fileDialog('File location', body => body.append(el('p', { textContent: where(identity) })));
+  fileDialog('File location', body => body.append(el('p', { textContent: where(identity) })), { info: true });
 }
 /** The open file's type, size and location, then `status`: how its draft and saves stand. */
 export function detailsDialog(type: FileType, source: string, identity: Identity, status: string) {
   const kind = fileDescriptor(type)?.label ?? 'Unknown UTF-8 file (readable source)';
   const bytes = new TextEncoder().encode(source).length;
   const text = `${kind} · ${bytes} bytes · ${where(identity)}. ${status}`;
-  fileDialog('File details', body => body.append(el('p', { textContent: text })));
+  fileDialog('File details', body => body.append(el('p', { textContent: text })), { info: true });
 }
 /** Rename a file where it is. Links to and from it are not rewritten. */
 export function renameDialog(path: string, move: Move) {

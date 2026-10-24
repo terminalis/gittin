@@ -558,7 +558,7 @@ test.describe('writable folders', () => {
     await expect(editor(page)).toHaveText('third');
   });
 
-  test('version history rows keep their actions together; Clear is separate and confirmed, and Close is secondary', async ({
+  test('version history rows keep their actions together; Clear is red and confirmed, and ✕ closes it', async ({
     page,
   }) => {
     const dialog = await openHistory(page, 'second');
@@ -573,10 +573,8 @@ test.describe('writable folders', () => {
     const compare = (await rowButton('Compare').boundingBox())!;
     const restore = (await rowButton('Restore').boundingBox())!;
     expect(Math.abs(compare.y - restore.y)).toBeLessThan(2);
-    await expect(dialog.locator('.dialog-actions > button')).toHaveText([
-      'Clear history for this file',
-      'Close',
-    ]);
+    await expect(dialog.locator('.dialog-actions > button')).toHaveText(['Clear history for this file']);
+    await expect(dialog.locator('.dialog-title .dialog-close')).toBeFocused();
     await expect(close).not.toHaveClass(/primary/);
     const clear = dialog.getByRole('button', { name: 'Clear history for this file', exact: true });
     await expect(clear).toHaveClass(/danger/);

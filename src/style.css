@@ -337,12 +337,38 @@ a:has(> .app-icon) {
   min-height: 0;
   margin: 0;
 }
-.workspace-dialog h2 {
+/* The title row: the heading, then the ✕ of a dialog that only shows information. */
+.dialog-title {
+  display: flex;
   flex: none;
+  align-items: flex-start;
+  gap: 12px;
   margin: 0 0 20px;
+}
+.workspace-dialog h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
   font-size: 24px;
   font-weight: 400;
   line-height: 32px;
+}
+.workspace-dialog .dialog-close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  min-height: 32px;
+  margin: 0 -8px 0 0;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+.workspace-dialog .dialog-close:hover:where(:not(:disabled)) {
+  border-color: transparent;
+  background: var(--hover);
+  color: var(--ink);
 }
 .dialog-body {
   min-height: 0;
@@ -437,13 +463,14 @@ a:has(> .app-icon) {
   max-width: 100%;
   padding: 8px 24px;
 }
-.dialog-actions > button:not(.primary) {
-  border-color: transparent;
-  background: transparent;
-  color: var(--accent);
+/* A dialog that only shows information has no footer. */
+.dialog-actions:empty {
+  display: none;
 }
-.dialog-actions > button:not(.primary):hover:not(:disabled) {
-  background: var(--warm);
+/* Destructive choices are red: outlined, or filled when they are the dialog's main action. Others are plain buttons. */
+.dialog-actions > button.danger:not(.primary) {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .workspace-dialog [role=alert] {
   margin: 12px 0 0;
@@ -692,7 +719,7 @@ a:has(> .app-icon) {
   max-height: 60vh;
   overflow: auto;
 }
-/* Version history: one row per version, actions on the same line; Clear sits apart from Close. */
+/* Version history: one row per version, actions on the same line. */
 .version-list {
   list-style: none;
   margin: 12px 0 0;
@@ -734,12 +761,12 @@ a:has(> .app-icon) {
 .resource-note {
   color: var(--muted);
 }
-.workspace-dialog .dialog-actions > button.danger {
+/* A footer button set apart at the left, such as Version history's Clear, its icon before its name. */
+.workspace-dialog .dialog-actions > button.apart {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   margin-right: auto;
-  border-color: var(--accent);
 }
 @media (max-width: 600px) {
   .workspace-dialog {

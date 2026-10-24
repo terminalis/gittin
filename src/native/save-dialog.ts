@@ -59,7 +59,7 @@ export function saveDialog(groups: SaveGroup[], reason: 'save' | 'close' | 'quit
       }
       footer.append(button(reason === 'sync' ? 'Save and sync' : 'Save', save, 'primary'));
       if (reason === 'close' || reason === 'quit')
-        footer.append(button("Don't save", () => { chosen = 'discard'; close(); }));
+        footer.append(button("Don't save", () => { chosen = 'discard'; close(); }, 'danger'));
     }, { className: 'save-dialog', closeLabel: 'Cancel', onClose: () => resolve(chosen) });
   });
 }
