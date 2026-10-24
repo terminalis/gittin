@@ -124,3 +124,15 @@
   margin: 0 0 10px;
   color: var(--muted);
 }
+/* Home's four buttons, with Clone repository, in two rows of two; on narrow windows New file and Clone repository
+   take a row each, Open file and Open folder sharing the one between. The id outweighs the shared stylesheet's rules,
+   which load after this file. */
+#home .home-welcome .document-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 760px) {
+  #home .home-welcome .document-actions > :last-child {
+    grid-column: 1 / -1;
+  }
+}
