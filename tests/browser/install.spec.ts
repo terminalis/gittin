@@ -50,7 +50,7 @@ test('the dialog links to the Microsoft Store and the Flatpak, with the command 
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   }
-  await expect(dialog(page).locator('.version-label')).toHaveText(['WindowsThe desktop app', 'LinuxThe desktop app']);
+  await expect(dialog(page).locator('.version-label')).toHaveText(['WindowsDesktop app', 'LinuxDesktop app']);
   await expect(dialog(page).getByText('Or in a terminal:', { exact: true })).toBeVisible();
   await expect(dialog(page).locator('code')).toHaveText(`flatpak install --user ${flatpakref}`);
   // The command wraps inside its box, with no sideways scroll, and Copy sits in the box's top corner.
