@@ -85,6 +85,7 @@ export default defineConfig(({ mode }) => {
       },
     ],
     publicDir: desktop ? false : 'public',
+    server: { watch: { ignored: ['**/src-tauri/**'] } },
     // Pre-bundle Mermaid so its first dynamic import doesn't trigger a dev-server re-optimise and page reload.
     optimizeDeps: { include: ['mermaid'] },
     resolve: {
