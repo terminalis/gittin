@@ -175,7 +175,7 @@ test('Help, searchable shortcuts and navigation cleanup', async ({ page }) => {
   await homeMenu(page, 'Help');
   const help = page.getByRole('dialog', { name: 'Gittin Help', exact: true });
   await help.getByText('Saving and recovery', { exact: true }).click();
-  await expect(help.getByText('Unsaved changes are kept in this browser', { exact: false })).toBeVisible();
+  await expect(help.getByText('Kept in this browser, which you or the browser can clear.', { exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await homeMenu(page, 'Shortcuts');
   const shortcuts = page.getByRole('dialog', { name: 'Keyboard shortcuts', exact: true });

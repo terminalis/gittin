@@ -681,14 +681,46 @@ a:has(> .app-icon) {
   height: fit-content;
   z-index: 100;
 }
-.help-dialog nav {
+/* Help: topics on the left, the chosen topic's points on the right; on a phone the topics sit above. */
+.help-dialog {
+  --dialog-width: 760px;
+}
+.help-topics {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+.help-topics nav {
+  position: sticky;
+  top: 0;
   display: grid;
   gap: 4px;
-  margin-bottom: 20px;
 }
-.help-dialog nav button {
+.help-topics nav button {
+  border-color: transparent;
   border-radius: 4px;
+  background: transparent;
   text-align: left;
+}
+.help-topic h3 {
+  margin: 16px 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.help-topic h3:first-child {
+  margin-top: 0;
+}
+.help-topic p {
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .help-topics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .help-topics nav {
+    position: static;
+  }
 }
 .dialog-drag-handle {
   cursor: grab;
@@ -1001,17 +1033,6 @@ label.home-option {
 .home-drawer-footer a:hover {
   color: var(--ink);
   text-decoration: underline;
-}
-.home-help-topics details {
-  padding: 12px 0;
-  border-top: 1px solid var(--line);
-}
-.home-help-topics summary {
-  cursor: pointer;
-  font-weight: 600;
-}
-.home-help-topics details p {
-  margin: 12px 0 0;
 }
 @keyframes home-drawer-enter {
   from {

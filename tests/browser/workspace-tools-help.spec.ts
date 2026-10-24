@@ -6,6 +6,7 @@ import {
   expectDraftSaved,
   findField,
   holdModule,
+  home,
   mountWorkspace,
   newFile,
   noSidewaysScroll,
@@ -436,6 +437,30 @@ test('Help has a Markdown cheat sheet', async ({ page }) => {
   await expect(help.getByRole('row', { name: /Maths/ })).toContainText('$E = mc^2$');
   await help.getByRole('button', { name: 'Editing', exact: true }).click();
   await expect(help.getByRole('table')).toHaveCount(0);
+});
+
+test('Help lists its topics on the left and the chosen topic as headed points, on Home too', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await createFile(page);
+  await command(page, 'Gittin Help');
+  let help = dialog(page, 'Gittin Help');
+  const nav = (await help.getByRole('navigation', { name: 'Help topics' }).boundingBox())!;
+  const topic = (await help.locator('.help-topic').boundingBox())!;
+  expect(nav.x + nav.width).toBeLessThanOrEqual(topic.x);
+  await expect(help.locator('.help-topic h3')).toHaveText([
+    'Edit is the source',
+    'Find and replace',
+    'Hidden toolbar items',
+  ]);
+  await help.getByRole('button', { name: 'Close', exact: true }).click();
+  await home(page);
+  await page.getByRole('button', { name: 'Main menu', exact: true }).click();
+  await page.locator('#home-menu').getByRole('button', { name: 'Help', exact: true }).click();
+  help = dialog(page, 'Gittin Help');
+  await expect(help.getByRole('navigation', { name: 'Help topics' })).toBeVisible();
+  await help.getByRole('button', { name: 'Saving and recovery', exact: true }).click();
+  await expect(help.locator('.help-topic h3').first()).toHaveText('Save');
+  await expect(help.locator('details')).toHaveCount(0);
 });
 
 test('About drafts and files can be dismissed and reopened without changing the document', async ({

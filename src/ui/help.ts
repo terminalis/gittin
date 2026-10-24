@@ -1,38 +1,56 @@
 import { button, closeButton, dialogShell, el, field, fileDialog } from './dom';
 import { keyCaps, shortcuts } from './shortcuts';
 import { desktop, place } from '../platform';
-const topics: Record<string, string> = {
-  'Editing': 'Edit changes exact source with shared Undo. Preview and Diff are read-only. '
-    + 'Find searches this file; replacement is available in Edit. '
-    + 'Use menus or assigned shortcuts when a toolbar item is hidden.',
-  'Preview and Diff': 'Preview and Diff are read-only. Preview sanitizes supported Markdown/HTML and '
-    + 'renders maths, Mermaid diagrams, emoji shortcodes and front matter as common Markdown renderers '
-    + 'do; other unsupported syntax stays visible as source. Code and HTML files are readable source '
-    + 'and never execute. Diff compares the exact opened or explicitly saved baseline; Compare files '
-    + 'supplies a temporary comparison that can be cleared.',
-  'Saving and recovery': 'Save writes back to the file you opened and stops if the file changed on '
-    + (desktop ? 'disk. Save as writes a new file. Unsaved changes are kept in this app. '
-      + 'In a git repository, saving also commits, with a message that says what changed '
-      + '(Preferences › Git sets how it starts), and '
-      + 'Version history lists the file\'s commits. Quitting asks about every unsaved file. '
-      : 'disk. Save as writes a new file; in browsers that cannot write files it downloads one. '
-        + 'Unsaved changes are kept in this browser, which you or the browser can clear. ')
-    + `Version history keeps up to 20 saves per file in ${place}.`,
+/** A point of a Help topic: its heading, then a sentence or two. */
+type Point = [heading: string, text: string];
+const topics: Record<string, Point[]> = {
+  'Editing': [
+    ['Edit is the source', "Edit changes the file's exact text, and Undo and Redo cover every change."],
+    ['Find and replace', 'Find searches this file in any view. Replace works in Edit.'],
+    ['Hidden toolbar items', 'Every toolbar command is in the menus too, many with a keyboard shortcut.'],
+  ],
+  'Preview and Diff': [
+    ['Both are read-only', 'Preview and Diff never change the file; Edit does.'],
+    ['Preview', 'Shows Markdown and HTML as a page, with maths, Mermaid diagrams, emoji shortcodes and front matter, '
+      + "as common Markdown renderers do. Syntax it doesn't support stays as text. Code and HTML never run."],
+    ['Diff', 'Shows what changed since the file was opened or last saved.'],
+    ['Compare files', 'Tools › Compare files… shows another file in Diff instead, until you clear it.'],
+  ],
+  'Saving and recovery': [
+    ['Save', 'Writes back to the file you opened, and stops if the file changed on disk.'],
+    ['Save as', 'Writes a new file.' + (desktop ? '' : " In browsers that can't write files, it downloads one.")],
+    ['Unsaved changes', desktop ? 'Kept in this app until you save. Quitting asks about every unsaved file.'
+      : 'Kept in this browser, which you or the browser can clear.'],
+    ...(desktop ? [['In a git repository',
+      'Save also commits, with a message that says what changed; Preferences › Git sets how it starts.'] as Point] : []),
+    ['Version history', desktop
+      ? "Lists a repository file's commits, and keeps up to 20 saves of any other file in this app."
+      : `Keeps up to 20 saves per file in ${place}.`],
+  ],
   ...(desktop ? {
-    'GitHub': 'Sign in with the GitHub button at the right of Home\'s header or the workspace\'s: Gittin shows a code '
-      + 'and copies it; choose Open GitHub and paste it there. Only ever enter a code Gittin showed you, never one '
-      + 'someone else gives you: anyone can start a sign-in that GitHub shows as Gittin\'s. Clone repository, on Home '
-      + 'and in File › Open, copies a repository into a new folder in the folder you choose. Sync, in the Folder panel '
-      + 'and in File, saves first, lists the files GitHub has changed, then brings GitHub\'s changes in and sends '
-      + 'yours; where both changed the same lines of a file, you keep one version, and the other stays in Version '
-      + 'history. The status footer says whether the open file is on GitHub, and the Folder panel how many edited '
-      + 'files aren\'t yet. A repository with no remote offers Publish to GitHub instead. In a repository on GitHub, '
-      + 'changes to workflow files are saved but left out of commits unless you choose Allow workflow changes…, which '
-      + 'the save dialog and a refused Sync offer. Disconnect GitHub, in the account menu, forgets the sign-in on this '
-      + 'computer; to revoke it, go to Settings › Applications on GitHub.',
+    'GitHub': [
+      ['Signing in', "Choose GitHub's mark at the right of the header, on Home or in a file. Gittin shows a code: "
+        + 'choose Copy & Open GitHub, then paste the code there.'],
+      ['Only your own codes', 'Enter only a code Gittin showed you, never one someone gives you: anyone can start a '
+        + "sign-in that GitHub shows as Gittin's."],
+      ['Clone', 'Clone repository, on Home and in File › Open, copies a repository into a new folder in the folder '
+        + 'you choose.'],
+      ['Sync', 'In the Folder panel and the File menu. Sync saves first, lists the files GitHub has changed, then '
+        + "brings GitHub's changes in and sends yours."],
+      ['Both changed the same lines', 'You keep one version; the other stays in Version history.'],
+      ['On GitHub or not yet', 'The status footer says whether the open file is on GitHub; the Folder panel counts '
+        + "the edited files that aren't yet."],
+      ['Publish', 'A repository with no remote offers Publish to GitHub instead of Sync.'],
+      ['Workflow files', 'Changes to them are saved but left out of commits unless you choose Allow workflow '
+        + 'changes…, which the save dialog and a refused Sync offer.'],
+      ['Disconnect', 'Disconnect GitHub, in the account menu, forgets the sign-in on this computer. To revoke it, go '
+        + 'to Settings › Applications on GitHub.'],
+    ] as Point[],
   } : {}),
-  'Markdown syntax': 'Common Markdown with tables, task lists, alerts and footnotes. Insert provides '
-    + 'source templates, symbols, heading links, footnotes, alerts and more.',
+  'Markdown syntax': [
+    ['What Gittin reads', 'Common Markdown, with tables, task lists, alerts and footnotes.'],
+    ['Insert', 'The Insert menu adds templates, symbols, heading links, footnotes, alerts and more.'],
+  ],
 };
 const cheatSheet: [string, string][] = [
   ['Heading', '# Heading 1\n## Heading 2'],
@@ -67,6 +85,28 @@ function cheatSheetTable() {
   }
   return table;
 }
+/** Help's topics on the left and the chosen one's points on the right; `chosen` runs after a topic is picked. */
+function helpTopics(body: HTMLElement, chosen = () => {}) {
+  const nav = el('nav', { ariaLabel: 'Help topics' }), content = el('div', { className: 'help-topic' });
+  const show = (title: string) => {
+    content.replaceChildren(...topics[title].flatMap(([heading, text]) =>
+      [el('h3', { textContent: heading }), el('p', { textContent: text })]));
+    if (title === 'Markdown syntax') content.append(cheatSheetTable());
+    for (const item of nav.querySelectorAll('button')) item.ariaPressed = String(item.textContent === title);
+  };
+  nav.append(...Object.keys(topics).map(title => button(title, () => { show(title); chosen(); })));
+  body.classList.add('help-topics');
+  body.append(nav, content);
+  show('Editing');
+  return {
+    /** Keeps the tallest topic's height, within the window, so switching topic moves nothing. Run once shown. */
+    fit() {
+      content.style.minHeight =
+        `${Math.max(...Object.keys(topics).map(title => { show(title); return content.scrollHeight; }))}px`;
+      show('Editing');
+    },
+  };
+}
 export function workspaceHelpDialog(host: HTMLElement, signal: AbortSignal) {
   const existing = host.querySelector<HTMLDialogElement>('.help-dialog');
   if (existing) { existing.querySelector<HTMLElement>('h2')?.focus(); return existing; }
@@ -88,22 +128,7 @@ export function workspaceHelpDialog(host: HTMLElement, signal: AbortSignal) {
         workspace?.querySelector<HTMLElement>('#menus-toggle')?.focus();
     }
   };
-  const nav = el('nav', { ariaLabel: 'Help topics' }), content = el('div');
-  const show = (title: string) => {
-    content.replaceChildren(el('p', { textContent: topics[title] }));
-    if (title === 'Markdown syntax') content.append(cheatSheetTable());
-  };
-  for (const title of Object.keys(topics)) {
-    const topic = button(title, () => {
-      show(title);
-      for (const item of nav.querySelectorAll('button')) item.ariaPressed = String(item === topic);
-      keepInView();
-    });
-    topic.ariaPressed = String(title === 'Editing');
-    nav.append(topic);
-  }
-  show('Editing');
-  body.append(nav, content);
+  const help = helpTopics(body, () => keepInView());
   titleRow.append(closeButton(() => close()));
   heading.classList.add('dialog-drag-handle');
   heading.tabIndex = 0;
@@ -150,9 +175,7 @@ export function workspaceHelpDialog(host: HTMLElement, signal: AbortSignal) {
   window.addEventListener('resize', keepInView, { signal: lifecycle.signal });
   host.append(dialog);
   dialog.show();
-  // Help keeps its tallest topic's height, within the window, so switching topic moves nothing.
-  content.style.minHeight = `${Math.max(...Object.keys(topics).map(title => { show(title); return content.scrollHeight; }))}px`;
-  show('Editing');
+  help.fit();
   heading.focus({ preventScroll: true });
   return dialog;
 }
@@ -219,11 +242,9 @@ export function keyboardShortcuts() {
   }, { info: true });
 }
 
+/** Home's Help: the workspace's topics and points in a dialog of its own. */
 export function helpDialog() {
-  return fileDialog('Gittin Help', body => {
-    const intro = 'Create a new file or open a file from your device to start writing.';
-    body.append(el('p', { textContent: intro }), ...Object.entries(topics).map(([title, text]) =>
-        el('details', {}, el('summary', { textContent: title }), el('p', { textContent: text }))));
-    body.classList.add('home-help-topics');
-  }, { info: true });
+  let help!: ReturnType<typeof helpTopics>;
+  fileDialog('Gittin Help', body => { help = helpTopics(body); }, { className: 'help-dialog', info: true });
+  help.fit();
 }
