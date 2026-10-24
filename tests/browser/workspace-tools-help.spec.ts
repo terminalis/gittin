@@ -546,3 +546,17 @@ test('holding Ctrl+F or Ctrl+Shift+P does not repeat them', async ({ page }) => 
   expect(await held('P', true)).toBe(false);
   await expect(palette(page).getByRole('searchbox')).toHaveValue('Bold');
 });
+
+test('Gittin Help keeps one height across its topics', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await createFile(page);
+  await command(page, 'Gittin Help');
+  const help = dialog(page, 'Gittin Help');
+  const first = (await help.boundingBox())!;
+  for (const topic of ['Markdown syntax', 'Preview and Diff', 'Editing']) {
+    await help.getByRole('button', { name: topic, exact: true }).click();
+    const box = (await help.boundingBox())!;
+    expect(box.height).toBeCloseTo(first.height, 0);
+    expect(box.y).toBeCloseTo(first.y, 0);
+  }
+});

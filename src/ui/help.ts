@@ -12,20 +12,23 @@ const topics: Record<string, string> = {
     + 'supplies a temporary comparison that can be cleared.',
   'Saving and recovery': 'Save writes back to the file you opened and stops if the file changed on '
     + (desktop ? 'disk. Save as writes a new file. Unsaved changes are kept in this app. '
-      + 'In a git repository, saving also commits, with a message that says what changed, and '
+      + 'In a git repository, saving also commits, with a message that says what changed '
+      + '(Preferences › Git sets how it starts), and '
       + 'Version history lists the file\'s commits. Quitting asks about every unsaved file. '
       : 'disk. Save as writes a new file; in browsers that cannot write files it downloads one. '
         + 'Unsaved changes are kept in this browser, which you or the browser can clear. ')
     + `Version history keeps up to 20 saves per file in ${place}.`,
   ...(desktop ? {
-    'GitHub': 'Sign in with the GitHub button on Home: Gittin shows a code and copies it; choose Open GitHub and '
-      + 'paste it there. Only ever enter a code Gittin showed you, never one someone else gives you: anyone can '
-      + 'start a sign-in that GitHub shows as Gittin\'s. Clone repository, on Home and in File › Open, copies a '
-      + 'repository into a new folder. Sync, in the Folder panel, File › Sync and the status footer, saves first, '
-      + 'then brings in GitHub\'s commits and sends yours; where both changed the same lines of a file, you keep one '
-      + 'version, and the other stays in Version history. A repository with no remote offers Publish to GitHub '
-      + 'instead. In a repository on GitHub, changes to workflow files are saved but left out of commits unless you '
-      + 'choose Allow workflow changes…. Disconnect GitHub, in the account menu, forgets the sign-in on this '
+    'GitHub': 'Sign in with the GitHub button at the right of Home\'s header or the workspace\'s: Gittin shows a code '
+      + 'and copies it; choose Open GitHub and paste it there. Only ever enter a code Gittin showed you, never one '
+      + 'someone else gives you: anyone can start a sign-in that GitHub shows as Gittin\'s. Clone repository, on Home '
+      + 'and in File › Open, copies a repository into a new folder in the folder you choose. Sync, in the Folder panel '
+      + 'and in File, saves first, lists the files GitHub has changed, then brings GitHub\'s changes in and sends '
+      + 'yours; where both changed the same lines of a file, you keep one version, and the other stays in Version '
+      + 'history. The status footer says whether the open file is on GitHub, and the Folder panel how many edited '
+      + 'files aren\'t yet. A repository with no remote offers Publish to GitHub instead. In a repository on GitHub, '
+      + 'changes to workflow files are saved but left out of commits unless you choose Allow workflow changes…, which '
+      + 'the save dialog and a refused Sync offer. Disconnect GitHub, in the account menu, forgets the sign-in on this '
       + 'computer; to revoke it, go to Settings › Applications on GitHub.',
   } : {}),
   'Markdown syntax': 'Common Markdown with tables, task lists, alerts and footnotes. Insert provides '
@@ -147,6 +150,9 @@ export function workspaceHelpDialog(host: HTMLElement, signal: AbortSignal) {
   window.addEventListener('resize', keepInView, { signal: lifecycle.signal });
   host.append(dialog);
   dialog.show();
+  // Help keeps its tallest topic's height, within the window, so switching topic moves nothing.
+  content.style.minHeight = `${Math.max(...Object.keys(topics).map(title => { show(title); return content.scrollHeight; }))}px`;
+  show('Editing');
   heading.focus({ preventScroll: true });
   return dialog;
 }
