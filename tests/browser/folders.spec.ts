@@ -767,7 +767,7 @@ test.describe('writable folders', () => {
   test('Open file on a file inside a folder Gittin has opened it as part of that folder', async ({ page }) => {
     await useFolder(page, { 'docs/a.md': 'A' });
     await page.getByRole('button', { name: 'Open folder', exact: true }).click();
-    const chooser = page.getByRole('dialog', { name: 'project', exact: true });
+    const chooser = page.getByRole('dialog', { name: 'Open a file in project', exact: true });
     await expect(chooser).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(chooser).toHaveCount(0);
@@ -810,7 +810,7 @@ test.describe('writable folders', () => {
   test('one Escape closes the folder chooser with text in its search box', async ({ page }) => {
     await useFolder(page, { 'readme.md': '# Readme' });
     await page.getByRole('button', { name: 'Open folder', exact: true }).click();
-    const chooser = page.getByRole('dialog', { name: 'project', exact: true });
+    const chooser = page.getByRole('dialog', { name: 'Open a file in project', exact: true });
     await chooser.getByRole('searchbox', { name: 'Find a file in this folder' }).fill('read');
     await page.keyboard.press('Escape');
     await expect(chooser).toHaveCount(0);

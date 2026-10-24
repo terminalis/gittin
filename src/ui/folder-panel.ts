@@ -154,7 +154,7 @@ const ancestors = (path: string) =>
 /** Choose a file from a just-opened folder. */
 export function openFolderDialog(source: FileSource, open: (path: string) => Promise<string | null>) {
   const controller = new AbortController();
-  fileDialog(source.label, (body, close) => {
+  fileDialog(`Open a file in ${source.label}`, (body, close) => {
     body.classList.add('folder-chooser');
     renderFolderPanel(body, {
       source, label: source.label, current: null, unavailable: null,

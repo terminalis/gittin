@@ -200,7 +200,7 @@ export async function useFolder(page: Page, files: Record<string, string | numbe
 
 export async function openFromFolder(page: Page, path: string) {
   await page.getByRole('button', { name: 'Open folder', exact: true }).click();
-  const chooser = page.getByRole('dialog', { name: 'project', exact: true });
+  const chooser = page.getByRole('dialog', { name: 'Open a file in project', exact: true });
   for (const part of path.split('/').slice(0, -1))
     await chooser.locator('summary', { hasText: part }).click();
   await chooser.getByRole('button', { name: path.split('/').pop()!, exact: true }).click();
@@ -256,7 +256,7 @@ export async function useReadOnlyFolder(
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Open folder', exact: true }).click();
   await (await chooser).setFiles(root);
-  return page.getByRole('dialog', { name, exact: true });
+  return page.getByRole('dialog', { name: `Open a file in ${name}`, exact: true });
 }
 
 /** Stores a remembered folder; Home lists it without reading its stand-in locator. */
