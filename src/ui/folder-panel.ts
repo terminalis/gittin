@@ -28,9 +28,9 @@ export interface FolderPanelOptions {
   signal: AbortSignal;
 }
 export function renderFolderPanel(panel: HTMLElement, o: FolderPanelOptions) {
-  const label = o.label ?? 'Folder';
-  const heading = el('h2', { textContent: label, title: label });
-  const header = el('div', { className: 'folder-header' }, heading);
+  // "Current Folder" heads the panel as "Open Files" heads the Files panel; the folder's name and its buttons follow.
+  const header = el('div', { className: 'folder-header' }, el('h2', { textContent: 'Current Folder' }));
+  if (o.label) header.append(el('p', { className: 'folder-name', textContent: o.label, title: o.label }));
   panel.replaceChildren(header);
   const source = o.source;
   if (!source) {

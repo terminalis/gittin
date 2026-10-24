@@ -2255,22 +2255,20 @@ label.home-option {
   flex: 1 1 240px;
 }
 .folder-header {
-  display: flex;
-  align-items: center;
-  gap: 2px;
   margin: 0 0 10px;
 }
-.workspace-body > aside .folder-header h2 {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
+.folder-name {
+  margin: 0 0 4px;
   overflow: hidden;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The buttons' icons line up with the name above them. */
 .folder-tools {
   display: flex;
   gap: 2px;
+  margin-left: -5px;
 }
 .folder-tools button {
   border: 0;

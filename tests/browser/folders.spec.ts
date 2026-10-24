@@ -659,6 +659,17 @@ test.describe('writable folders', () => {
     expect(await disk.read(page, 'b.md')).toBe('B');
   });
 
+  test("the Folder panel reads Current Folder, then the folder's name, then its buttons", async ({ page }) => {
+    await useFolder(page, { 'a.md': 'A' });
+    await openFromFolder(page, 'a.md');
+    const panel = folderPanel(page);
+    await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Current Folder');
+    await expect(panel.locator('.folder-name')).toHaveText('project');
+    const name = (await panel.locator('.folder-name').boundingBox())!;
+    const tools = (await panel.locator('.folder-tools').boundingBox())!;
+    expect(tools.y).toBeGreaterThanOrEqual(name.y + name.height);
+  });
+
   test('Save as… in the File changed on disk dialog writes a new file and leaves the changed one', async ({ page }) => {
     await useFolder(page, { 'a.md': 'one' });
     await page.addInitScript(() => {
