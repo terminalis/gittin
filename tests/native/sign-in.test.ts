@@ -7,17 +7,23 @@ import { buttonNamed, octocat, openDialog, useDom, useGitHubStand } from './stan
 beforeEach(useDom);
 const code = () => document.querySelector('.sign-in-code')?.textContent;
 
-test("the sign-in dialog shows GitHub's code, copies it, and closes once signed in", async () => {
+test("the sign-in dialog shows GitHub's code; Copy & Open GitHub copies it and opens GitHub; it closes once signed in", async () => {
   let finish!: (end: SignInEnd) => void;
   const stand = useGitHubStand({ deviceWait: vi.fn(() => new Promise<SignInEnd>(resolve => { finish = resolve; })) });
+  const opened = vi.spyOn(window, 'open').mockReturnValue(null);
   const signing = signIn();
   await vi.waitFor(() => expect(code()).toBe('WDJB-MJHT'));
   expect(stand.deviceCode).toHaveBeenCalledWith(false);
+  expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
+  expect(openDialog()!.textContent).toContain('Choose Copy & Open GitHub, paste the code there and authorise Gittin.');
+  buttonNamed('Copy & Open GitHub', openDialog()!)!.click();
+  await vi.waitFor(() =>
+    expect(opened).toHaveBeenCalledWith('https://github.com/login/device', '_blank', 'noopener,noreferrer'));
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith('WDJB-MJHT');
-  expect(buttonNamed('Open GitHub', openDialog()!)).toBeTruthy();
   finish({ kind: 'signedIn', account: octocat, remembered: true });
   expect(await signing).toEqual(octocat);
   expect(openDialog()).toBeNull();
+  opened.mockRestore();
 });
 
 test('an expired code offers a new one, and a declined sign-in says so', async () => {

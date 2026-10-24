@@ -38,7 +38,7 @@ export function signIn({ workflow = false, reason = '' }: SignInOptions = {}) {
       const why = el('p', { textContent: reason, hidden: !reason });
       const code = el('output', { className: 'sign-in-code' });
       const status = el('p', { role: 'status' });
-      const open = button('Open GitHub', () => {}, 'primary');
+      const open = button('Copy & Open GitHub', () => {}, 'primary');
       const again = button('Get a new code', () => void ask());
       body.append(why, code, status);
       footer.append(open, again);
@@ -54,10 +54,13 @@ export function signIn({ workflow = false, reason = '' }: SignInOptions = {}) {
           const device = await github.deviceCode(workflow);
           if (closed) return void github.cancelSignIn();
           code.textContent = device.userCode;
-          void navigator.clipboard?.writeText(device.userCode).catch(() => {});
-          status.textContent = 'Gittin copied this code. Choose Open GitHub, paste the code there and authorise '
-            + `Gittin. The code lasts ${Math.round(device.expiresIn / 60)} minutes.`;
-          open.onclick = () => window.open(device.verificationUri, '_blank', 'noopener,noreferrer');
+          status.textContent = 'Choose Copy & Open GitHub, paste the code there and authorise Gittin. '
+            + `The code lasts ${Math.round(device.expiresIn / 60)} minutes.`;
+          // The copy finishes before GitHub opens, which takes the focus a copy needs. Without the clipboard, the
+          // code stays shown to type.
+          open.onclick = () => void (navigator.clipboard?.writeText(device.userCode) ?? Promise.resolve())
+            .catch(() => {})
+            .then(() => window.open(device.verificationUri, '_blank', 'noopener,noreferrer'));
           open.hidden = false;
           const end = await github.deviceWait();
           if (closed) { if (end.kind === 'signedIn') accountChanged(end.account); return; }
