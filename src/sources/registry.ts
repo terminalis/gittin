@@ -7,8 +7,9 @@ import { isWithin } from './paths';
 import { ReadOnlyFolderSource } from './readonly-folder';
 import { SingleFileSource } from './single-file';
 import type { FileSource, SourceKind } from './types';
-/** A source as remembered across reloads. `locator` is the browser handle that reopens it. */
-interface SourceRecord { id: string; kind: SourceKind; label: string; locator: DirectoryHandle | FileHandle | null; lastOpened: number }
+/** A source as remembered across reloads. `locator` is the browser handle that reopens it; `hidden` takes a folder off
+ * Home's list until it is opened again. */
+interface SourceRecord { id: string; kind: SourceKind; label: string; locator: DirectoryHandle | FileHandle | null; lastOpened: number; hidden?: boolean }
 const records = new Map<string, SourceRecord>();
 const open = new Map<string, FileSource>();
 /** Turns a handle IndexedDB stored back into one that works. The browser's own handles need nothing. */
@@ -20,6 +21,17 @@ export async function loadSources(revive: Revive = locator => locator) {
 export const openSource = (id: string) => open.get(id);
 export const recentFolders = () =>
   [...records.values()].filter(row => row.kind === 'folder' && row.locator).sort((a, b) => b.lastOpened - a.lastOpened);
+/** The folders Home lists: the three opened most recently, less any taken off it since they were last opened. */
+export const homeFolders = () => recentFolders().filter(row => !row.hidden).slice(0, 3);
+/** Takes a folder off Home's list. Gittin still remembers it, so its files stay in Recently worked on. */
+export async function hideFolder(id: string) {
+  const row = records.get(id);
+  if (!row) return;
+  const hidden = { ...row, hidden: true };
+  records.set(id, hidden);
+  // Best effort, as remember: kept for this session if IndexedDB can't store it.
+  try { await change(['sources'], tx => tx.objectStore('sources').put(hidden)); } catch {}
+}
 /** The files opened on their own, with the handle that reopens each. */
 export const rememberedFiles = () =>
   [...records.values()].filter(row => row.kind === 'file' && row.locator)

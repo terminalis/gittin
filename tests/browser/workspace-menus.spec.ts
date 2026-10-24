@@ -54,7 +54,7 @@ test('File keeps file moves with Rename, PDF after Print, and Version history…
     ['Home', 'New', 'Open', 'Make a copy'],
     ['Email'],
     ['Save', 'Save as…', 'Version history…'],
-    ['Rename…', 'Move to…', 'Delete file…', 'Location', 'Add/remove favourite'],
+    ['Rename…', 'Move to…', 'Delete file…', 'Add/remove favourite'],
     ['Details', 'Print', 'Export as PDF…', 'Close file'],
   ]);
   // A file only in this browser has no saves to list.

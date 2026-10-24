@@ -17,15 +17,15 @@ export function openVersionHistory(key: string, use: Use) {
       : 'Versions of saves made in Gittin on this browser. Clearing browser data removes them.' });
     const list = el('ul', { className: 'version-list' });
     body.append(note, list);
-    // Clear sits at the left of the footer, apart from Close, and asks first: it cannot be undone.
+    // Clear sits apart at the left of the footer, in red, and asks first: it cannot be undone.
     const confirm = () => ask('Clear version history?',
-      "The file itself is not changed. This can't be undone.", [['Clear', 'clear']]);
+      "The file itself is not changed. This can't be undone.", [['Clear', 'clear', 'danger']]);
     const clear = button('Clear history for this file', () => void confirm()
       .then(choice => choice === 'clear' ? clearVersions(key).then(close) : undefined)
-      .catch(notice), 'danger');
+      .catch(notice), 'danger apart');
     clear.disabled = true;
     clear.prepend(icon('trash'));
-    footer.prepend(clear);
+    footer.append(clear);
     void listVersions(key).then(versions => {
       clear.disabled = !versions.length;
       if (!versions.length) list.textContent = 'No versions yet.';
@@ -41,5 +41,5 @@ export function openVersionHistory(key: string, use: Use) {
           el('span', { className: 'version-actions' }, compare, button('Restore', load(use.restore)))));
       }
     }, notice);
-  });
+  }, { info: true });
 }

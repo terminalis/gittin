@@ -1,19 +1,23 @@
-import { button, el, fileDialog } from './dom';
+import { button, choiceRow, el, fileDialog } from './dom';
 import { place } from '../platform';
 export interface DiskChoices {
   compare?(): void; useDisk(): void; keepMine?(): void; saveAs?(): void; overwrite?(): void;
 }
 const message = (name: string) =>
   `${name} changed on disk since you opened it. Your unsaved changes are safe in ${place}.`;
+/** The ways to settle a file that changed on disk, as rows saying what each does; Overwrite is red. */
 export function conflictDialog(name: string, choices: DiskChoices) {
-  return fileDialog('File changed on disk', (body, close, footer) => {
-    body.append(el('p', { textContent: message(name) }));
-    const choose = (label: string, run?: () => void) =>
-      run && footer.append(button(label, () => { close(); run(); }));
-    choose('Compare', choices.compare);
-    choose('Use disk version', choices.useDisk);
-    choose('Save as…', choices.saveAs);
-    choose('Overwrite', choices.overwrite);
+  return fileDialog('File changed on disk', (body, close) => {
+    const run = (action: () => void) => () => { close(); action(); };
+    const lead = el('div', { className: 'disk-change-message' }, el('p', { textContent: message(name) }));
+    if (choices.compare) lead.append(button('Compare', run(choices.compare)));
+    const rows: [label: string, effect: string, action: (() => void) | undefined, className: string][] = [
+      ['Use disk version', 'Replaces your text; Undo brings it back.', choices.useDisk, ''],
+      ['Save as…', 'Your text goes to a new file.', choices.saveAs, ''],
+      ['Overwrite', 'Your text replaces the version on disk.', choices.overwrite, 'danger'],
+    ];
+    body.append(lead, ...rows.flatMap(([label, effect, action, className]) =>
+      action ? [choiceRow(label, effect, run(action), className)] : []));
   }, { closeLabel: 'Cancel' });
 }
 export function diskChangeBanner(name: string, choices: DiskChoices, done: () => void) {

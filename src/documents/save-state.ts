@@ -20,7 +20,7 @@ export function locationText(identity: Identity, source: SourceInfo | undefined)
   if (!source) return `Only in ${place}`;
   if (!source.open) return source.kind === 'folder' ? `Folder unavailable: ${source.label} › ${identity.path}` : `Only in ${place} (from ${source.label})`;
   // Browsers never reveal a single file's folder, and its name is already shown beside this.
-  return source.kind === 'file' ? 'Opened on its own' : `In ${source.label} › ${identity.path}`;
+  return source.kind === 'file' ? 'Opened on its own' : `${source.label} › ${identity.path}`;
 }
 /** Home's line under a recent file's name: its folder and subfolders, since the name is already shown. Browser-only files have none. */
 export function recentFolder(identity: Identity, source: SourceInfo | undefined): string {

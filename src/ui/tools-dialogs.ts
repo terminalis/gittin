@@ -8,8 +8,9 @@ import { safeURL } from '../editor/safe-url';
 import { syntaxSpans } from '../editor/source-language';
 import { headingAnchors } from '../editor/heading-anchors';
 import { fragment } from '../sources/paths';
+import { icon } from './icons';
 import {
-  button, checkbox, dropDown, el, errorText, fileDialog, listRow, notice, textField,
+  button, checkbox, choiceRow, copyText, dropDown, el, errorText, fileDialog, listRow, notice, textField,
 } from './dom';
 export function fileStatistics(source: string) {
   return {
@@ -27,7 +28,7 @@ export const mailtoLaunchLimit = 1800;
 const paragraph = (text: string) => el('p', { textContent: text });
 const preview = (text: string) => el('pre', { className: 'utility-preview', textContent: text });
 export function openStatistics(source: string, preferences: DevicePreferences) {
-  fileDialog('File statistics', (body, close, footer) => {
+  fileDialog('File statistics', body => {
     const table = el('table', { ariaLabel: 'Current file statistics' });
     table.setAttribute('aria-describedby', 'statistics-help');
     const help = el('p', { id: 'statistics-help', className: 'statistics-help',
@@ -45,49 +46,31 @@ export function openStatistics(source: string, preferences: DevicePreferences) {
     }
     const display = checkbox('Display stats while typing',
       preferences.value.showStatsWhileTyping ?? false, 'statistics-option');
+    display.onchange = () => void preferences.save({ showStatsWhileTyping: display.checked });
     body.append(table, help, display.parentElement!);
-    const save = () => { void preferences.save({ showStatsWhileTyping: display.checked }); close(); };
-    footer.append(button('OK', save, 'primary'));
-  }, { className: 'statistics-dialog', closeLabel: 'Cancel' });
+  }, { className: 'statistics-dialog', info: true });
 }
+/** Tools › Compare files…: the system's file picker, then Diff shows the chosen file against this one. */
 export function openComparison(controller: GittinController) {
-  fileDialog('Compare files', (body, close) => {
-    const input = el('input', { type: 'file', ariaLabel: 'Comparison file' });
-    input.onchange = () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      void file.arrayBuffer().then(buffer => {
-        if (!input.isConnected) return;
-        controller.setComparison(decodeSource(new Uint8Array(buffer)), file.name);
-        close();
-      }).catch(notice);
-    };
-    body.append(paragraph('Choose a UTF-8 file for temporary read-only Diff. '
-      + 'Your saved baseline and current source stay intact.'), input);
-  });
+  const input = el('input', { type: 'file' });
+  input.onchange = () => {
+    const file = input.files?.[0];
+    if (file) void file.arrayBuffer()
+      .then(buffer => controller.setComparison(decodeSource(new Uint8Array(buffer)), file.name)).catch(notice);
+  };
+  input.click();
 }
 /** Email `source` under the subject `title`: the saved file's text, or with `draft`, the current text. */
 export function openEmail(title: string, source: string, draft: boolean) {
-  const url = emailURL(title, source);
+  const url = emailURL(title, source), long = url.length > mailtoLaunchLimit;
   fileDialog(draft ? 'Email this draft' : 'Email this file', (body, _close, footer) => {
-    body.append(
-      paragraph(draft ? 'Current source snapshot.' : 'Last opened or explicitly saved source snapshot.'),
-      paragraph('Review the complete text below. Open email draft requests your configured device mail '
-        + 'app; you choose whether to send. Client and OS length limits vary.'),
-      paragraph('Subject: ' + title),
-      preview(source));
-    const open = button('Open email draft', () => { window.location.href = url; }, 'primary');
-    open.disabled = url.length > mailtoLaunchLimit;
-    if (open.disabled)
-      body.append(paragraph('This text exceeds this app’s conservative 1800-character mailto handoff '
-        + 'limit. Copy the complete text into your email app. Nothing has been truncated.'));
-    const manual = 'Select and copy the preview text using your device shortcut.';
-    const copy = button('Copy preview text', () => {
-      void navigator.clipboard?.writeText(source).then(() => notice('Preview text copied.'))
-        .catch(() => notice('Clipboard access was declined. ' + manual));
-      if (!navigator.clipboard) notice(manual);
-    });
-    footer.append(copy, open);
+    body.append(el('p', {}, el('strong', { textContent: 'Subject: ' }), title), preview(source));
+    if (long) body.append(el('p', { className: 'dialog-hint',
+      textContent: 'Too long for a mail link. Copy the text into your mail app instead; nothing was cut.' }));
+    const open = button('Open in mail app', () => { window.location.href = url; }, 'primary');
+    open.disabled = long;
+    footer.append(open, button('Copy text', () =>
+      copyText(source, 'Text copied.', 'Select the text above and copy it with your device shortcut.')));
   });
 }
 /** How Linked resources opens relative targets; given only for a file opened from a folder. */
@@ -97,22 +80,25 @@ export type FolderLinks = {
   image(url: string): Promise<string | null>;
 };
 const newTab = (href: string) => el('a', {
-  className: 'action', href, target: '_blank', rel: 'noopener noreferrer', textContent: 'Open target',
+  className: 'action', href, target: '_blank', rel: 'noopener noreferrer', textContent: 'Open',
 });
 // A page of its own that shows one image. src is a blob: or data: URL Gittin made, with no quote;
 // no file name goes in.
 const imagePage = (src: string) =>
   URL.createObjectURL(new Blob([`<!doctype html><img src="${src}" alt="">`], { type: 'text/html' }));
-// One row per resource, laid out like Version history: what and where on the left, the actions on
-// the right, and any reason a target cannot open under its address.
-function resourceRow(kind: string, url: string) {
+/** The line of `source` that holds offset `from`, counting from 1. */
+const lineOf = (source: string, from: number) => source.slice(0, from).split(/\r\n|\r|\n/).length;
+// One row per resource: a link or image icon, the target and its line, then Go to line and Open, or the reason a
+// target can't open in place of Open.
+function resourceRow(kind: string, url: string, line: number) {
+  const image = kind === 'image';
+  const mark = el('span', { className: 'resource-kind', role: 'img', ariaLabel: image ? 'Image' : 'Link' },
+    icon(image ? 'photo' : 'link'));
   const label = el('span', { className: 'version-label' },
-    el('strong', { textContent: kind === 'image' ? 'Image' : 'Link' }),
-    el('small', { className: 'resource-url', textContent: url }));
+    el('span', { className: 'resource-url', textContent: url }), el('small', { textContent: 'Line ' + line }));
   const actions = el('span', { className: 'version-actions' });
-  const note = (text: string) =>
-    label.append(el('small', { className: 'resource-note', textContent: text }));
-  return { item: listRow(label, actions), actions, note };
+  const note = (text: string) => actions.append(el('small', { className: 'resource-note', textContent: text }));
+  return { item: listRow(mark, label, actions), actions, note };
 }
 type Resource = { kind: string; url: string; from: number };
 /** The links and images in Markdown or HTML source, in source order. */
@@ -132,10 +118,7 @@ function linkedResources(source: string, type: FileType) {
 }
 export function openResources(controller: GittinController, source: string, folder?: FolderLinks) {
   fileDialog('Linked resources', (body, close) => {
-    body.append(paragraph('Current Markdown and HTML links and images only. '
-      + 'No background fetching or code import scan. '
-      + (folder ? 'Relative targets open from this file’s folder.'
-        : 'Relative targets can be opened only for a file opened from a folder.')));
+    body.append(paragraph('The links and images in this file, in order.'));
     const type = controller.getFileType();
     if (!['markdown', 'html'].includes(type)) {
       body.append(paragraph('This file type has no supported document link or image syntax.'));
@@ -144,14 +127,14 @@ export function openResources(controller: GittinController, source: string, fold
     const resources = linkedResources(source, type);
     const list = el('ul', { className: 'version-list resource-list' });
     for (const { kind, url, from } of resources) {
-      const { item, actions, note } = resourceRow(kind, url);
+      const { item, actions, note } = resourceRow(kind, url, lineOf(source, from));
       list.append(item);
-      actions.append(button('Jump to reference', () => { close(); controller.goToSource(from); }));
+      actions.append(button('Go to line', () => { close(); controller.goToSource(from); }));
       const safe = safeURL(url, kind === 'image');
       const heading = type === 'markdown' && url.startsWith('#')
         ? headingAnchors(source).find(h => '#' + h.id === url || '#' + encodeURIComponent(h.id) === url)
         : undefined;
-      if (heading) actions.append(button('Open target', () => {
+      if (heading) actions.append(button('Open', () => {
         close();
         controller.setMode('preview');
         controller.goToSource(heading.from);
@@ -169,7 +152,7 @@ export function openResources(controller: GittinController, source: string, fold
           ? actions.append(newTab(imagePage(found)))
           : note(`Could not read ${path} from this folder.`));
         else {
-          const open = button('Open target', async () => {
+          const open = button('Open', async () => {
             open.disabled = true;
             const failure = await folder.open(path, fragment(url));
             if (failure === null) return close();
@@ -182,73 +165,109 @@ export function openResources(controller: GittinController, source: string, fold
       }
     }
     body.append(resources.length ? list : paragraph('No supported links or images in this file.'));
-  });
+  }, { info: true });
 }
-const formats: AttributionFormat[] = ['markdown', 'comment', 'spdx', 'cff'];
+/** What Attributions makes: its format, its name, what it is, and its button. */
+const kinds: { format: AttributionFormat; name: string; what: string; action: string }[] = [
+  { format: 'markdown', name: 'Credit line',
+    what: 'A line naming the work, who made it, where it comes from and its licence.', action: 'Insert' },
+  { format: 'comment', name: 'Code comment', what: "The same credit as a comment in this file's language.",
+    action: 'Insert' },
+  { format: 'spdx', name: 'Licence header', what: 'SPDX copyright and licence lines, as a comment.',
+    action: 'Insert' },
+  { format: 'cff', name: 'Citation file', what: 'A CITATION.cff file, opened as a new file.',
+    action: 'Create CITATION.cff' },
+];
+const blank: Attribution = { project: '', author: '', authorKind: 'entity', given: '', family: '', url: '',
+  licence: '', copyright: '', modifications: '' };
+/** Tools › Attributions…: first what to make, then only that kind's fields, its preview and its button. */
 export function openAttributions(controller: GittinController,
   create: (source: string, title: string) => void) {
   if (!controller.isEditable()) return;
   const context = controller.captureSourceContext();
+  // What was typed, by field, kept when Back leads to another kind.
+  const typed = new Map<string, string>();
   fileDialog('Attributions', (body, close, footer) => {
-    body.append(paragraph('Formats supplied information only. Review before applying. This does not '
-      + 'select a licence, replace existing notices, install licence texts or validate compliance.'));
-    const format = dropDown(body, 'Output format',
-      ['Markdown credit', 'Source comment', 'SPDX/REUSE header', 'CITATION.cff']);
-    const project = textField(body, 'Project or work title');
-    const author = textField(body, 'Author / project or organisation name');
-    const kind = dropDown(body, 'CFF author kind', ['Person', 'Project or organisation']);
-    const given = textField(body, 'CFF given names (optional)');
-    const family = textField(body, 'CFF family names');
-    const url = textField(body, 'Source URL (optional)');
-    const licence = textField(body, 'Licence information / SPDX expression');
-    const copyright = textField(body, 'Copyright text and years (SPDX)');
-    const modifications = textField(body, 'Modifications (optional)');
-    const output = preview(''), error = el('p', { role: 'alert' });
-    let generated = '';
-    const stale = 'Source, mode or selection changed. Reopen Attributions.';
-    const changed = () => { error.textContent = stale; };
-    const apply = button('Insert at cursor', () => {
-      refresh();
-      if (!generated) return;
-      if (format.value === 'CITATION.cff') {
-        if (!context.valid()) return changed();
-        close();
-        create(generated, 'CITATION.cff');
-        return;
-      }
-      const inserted = context.apply((source, selection) => {
-        const text = generated.replace(/\n/g, newlineStyle(source)), at = selection.head;
-        const end = at + text.length;
-        return { source: source.slice(0, at) + text + source.slice(at),
-          selection: { anchor: end, head: end } };
-      });
-      if (inserted) close();
-      else changed();
-    }, 'primary');
-    const refresh = () => {
-      generated = '';
-      error.textContent = '';
-      const cff = format.value === 'CITATION.cff';
-      apply.textContent = cff ? 'Create local CITATION.cff' : 'Insert at cursor';
-      try {
-        const data: Attribution = { project: project.value, author: author.value,
-          authorKind: kind.value === 'Person' ? 'person' : 'entity', given: given.value,
-          family: family.value, url: url.value, licence: licence.value, copyright: copyright.value,
-          modifications: modifications.value };
-        generated = attributionText(data, formats[format.selectedIndex], context.type);
-        output.textContent = generated;
-        apply.disabled = false;
-      } catch (e) {
-        output.textContent = '';
-        error.textContent = errorText(e);
-        apply.disabled = true;
-      }
+    const choose = () => {
+      footer.querySelectorAll('.attribution-step').forEach(step => step.remove());
+      body.replaceChildren(paragraph('Gittin formats only what you enter. Check it before you use it.'),
+        ...kinds.map(kind => choiceRow(kind.name, kind.what, () => form(kind))));
+      body.querySelector('button')?.focus();
     };
-    footer.append(apply);
-    body.append(paragraph('CFF uses supplied person name fields or an entity name; freeform licence '
-      + 'information remains a YAML comment. The new YAML file opens in Edit and does not modify '
-      + 'other files.'), output, error);
-    body.querySelectorAll('input,select').forEach(input => input.addEventListener('input', refresh));
-    refresh();
+    const form = (kind: typeof kinds[number]) => {
+      const fields = el('div');
+      const entry = (label: string, placeholder = '') => {
+        const input = textField(fields, label, { type: 'text', placeholder, value: typed.get(label) ?? '' });
+        input.addEventListener('input', () => typed.set(label, input.value));
+        return input;
+      };
+      let data: () => Attribution;
+      if (kind.format === 'spdx') {
+        const copyright = entry('Copyright', '2026 Ada Lovelace');
+        const licence = entry('Licence (SPDX identifier)', 'MIT');
+        data = () => ({ ...blank, copyright: copyright.value, licence: licence.value });
+      } else if (kind.format === 'cff') {
+        const project = entry('Title of the work');
+        const who = dropDown(fields, 'The author is', ['A person', 'An organisation or project']);
+        const family = entry('Family name'), given = entry('Given names (optional)'), name = entry('Name');
+        const url = entry('Source address (optional)');
+        const licence = entry('Licence (optional, kept as a comment)'), changes = entry('Your changes (optional)');
+        const person = () => who.selectedIndex === 0;
+        const showWho = () => {
+          family.parentElement!.hidden = given.parentElement!.hidden = !person();
+          name.parentElement!.hidden = person();
+        };
+        who.addEventListener('input', showWho);
+        showWho();
+        data = () => ({ project: project.value, author: name.value, authorKind: person() ? 'person' : 'entity',
+          given: given.value, family: family.value, url: url.value, licence: licence.value, copyright: '',
+          modifications: changes.value });
+      } else {
+        const project = entry('Title of the work'), author = entry('Author (optional)');
+        const url = entry('Source address (optional)'), licence = entry('Licence (optional)');
+        const changes = entry('Your changes (optional)');
+        data = () => ({ ...blank, project: project.value, author: author.value, url: url.value,
+          licence: licence.value, modifications: changes.value });
+      }
+      const output = preview(''), error = el('p', { role: 'alert' });
+      let generated = '';
+      const changed = () => { error.textContent = 'Source, mode or selection changed. Reopen Attributions.'; };
+      const apply = button(kind.action, () => {
+        refresh();
+        if (!generated) return;
+        if (kind.format === 'cff') {
+          if (!context.valid()) return changed();
+          close();
+          create(generated, 'CITATION.cff');
+          return;
+        }
+        const inserted = context.apply((source, selection) => {
+          const text = generated.replace(/\n/g, newlineStyle(source)), at = selection.head;
+          const end = at + text.length;
+          return { source: source.slice(0, at) + text + source.slice(at), selection: { anchor: end, head: end } };
+        });
+        if (inserted) close();
+        else changed();
+      }, 'primary attribution-step');
+      const refresh = () => {
+        generated = '';
+        error.textContent = '';
+        try {
+          generated = attributionText(data(), kind.format, context.type);
+          output.textContent = generated;
+          apply.disabled = false;
+        } catch (e) {
+          output.textContent = '';
+          error.textContent = errorText(e);
+          apply.disabled = true;
+        }
+      };
+      footer.prepend(apply, button('Back', choose, 'attribution-step'));
+      body.replaceChildren(el('h3', { textContent: kind.name }), fields, output, error);
+      fields.querySelectorAll('input, select').forEach(input => input.addEventListener('input', refresh));
+      refresh();
+      fields.querySelector<HTMLElement>('input, select')?.focus();
+    };
+    choose();
   });
 }

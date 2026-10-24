@@ -22,3 +22,22 @@ export function placeOfDocument(doc: OpenDocument) {
   const identity = doc.session.identity;
   return identity.kind === 'source' ? placeOf(sourceFor(identity), identity.path) : Promise.resolve(null);
 }
+
+/** A repository Sync works on: the opened folder that holds it, its folder on disk, the name Gittin shows for it, and
+ * the prefix of its files' paths in the opened folder ('' when it is the opened folder itself). */
+export interface Repo { source: FolderSource; root: string; name: string; prefix: string }
+
+export function repoOfFolder(source: FolderSource): Repo {
+  const folder = source.root as DesktopDirectoryHandle;
+  return { source, root: folder.path, name: folder.name, prefix: '' };
+}
+
+/** The repository holding a document's file, if any. */
+export async function repoOfDocument(doc: OpenDocument): Promise<Repo | null> {
+  const identity = doc.session.identity;
+  const source = identity.kind === 'source' ? sourceFor(identity) : undefined;
+  const place = await placeOfDocument(doc);
+  if (!place || !(source instanceof FolderSource)) return null;
+  const top = (source.root as DesktopDirectoryHandle).path;
+  return { source, root: place.root, name: place.name, prefix: place.root === top ? '' : `${place.name}/` };
+}

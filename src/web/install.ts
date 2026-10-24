@@ -1,4 +1,4 @@
-import { button, el, fileDialog, iconButton, legalRel, listRow, notice } from '../ui/dom';
+import { button, copyText, el, fileDialog, iconButton, legalRel, listRow } from '../ui/dom';
 
 const flatpakref = 'https://terminalis.github.io/packages/flatpak/gittin.flatpakref';
 const command = `flatpak install --user ${flatpakref}`;
@@ -23,17 +23,15 @@ const newTab = (text: string, href: string) =>
 /** Every way to install Gittin: this browser when it offers to, and the desktop apps. */
 export function install() {
   fileDialog('Install Gittin', body => {
-    const linux = row('Linux', 'The desktop app', newTab('Download Flatpak', flatpakref));
-    const copy = iconButton('copy', 'Copy command', () => {
-      void navigator.clipboard?.writeText(command).then(() => notice('Command copied.'))
-        .catch(() => notice('Clipboard access was declined. ' + manual));
-      if (!navigator.clipboard) notice(manual);
-    });
-    // The command keeps to one line, which scrolls sideways.
+    const linux = row('Linux', 'Desktop app', newTab('Download Flatpak', flatpakref));
+    const copy = iconButton('copy', 'Copy command', () => copyText(command, 'Command copied.', manual));
+    // The command wraps inside its box, after a slash of the address rather than inside a name, the copy button in
+    // the box's top corner.
+    const parts = command.split(/(?<=[^/]\/)(?=[^/])/).flatMap((part, i) => i ? [el('wbr'), part] : [part]);
     linux.append(el('div', { className: 'install-terminal' }, el('small', { textContent: 'Or in a terminal:' }),
-      el('div', { className: 'install-command' }, el('code', { textContent: command, tabIndex: 0 }), copy)));
+      el('div', { className: 'install-command' }, el('code', { tabIndex: 0 }, ...parts), copy)));
     const list = el('ul', { className: 'version-list' },
-      row('Windows', 'The desktop app', newTab('Open Microsoft Store', 'https://apps.microsoft.com/detail/9NDJ4HR0FF1H')),
+      row('Windows', 'Desktop app', newTab('Open Microsoft Store', 'https://apps.microsoft.com/detail/9NDJ4HR0FF1H')),
       linux);
     // The installed window is the web version already.
     if (offer && !matchMedia('(display-mode: standalone)').matches) {
@@ -46,5 +44,5 @@ export function install() {
       list.prepend(thisBrowser);
     }
     body.append(list);
-  }, { className: 'install-dialog' });
+  }, { className: 'install-dialog', info: true });
 }

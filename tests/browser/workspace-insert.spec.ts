@@ -4,6 +4,7 @@ import {
   editor,
   menuAction,
   mountEditor,
+  openMenu,
   readable,
   select,
   setMode,
@@ -109,19 +110,34 @@ test('URL validation, stale dialog guards, cancellation, and read-only modes pre
   }
 });
 
-test('the table grid and its validation insert a table that Preview draws readably', async ({ page }) => {
+test('the table grid inserts the size clicked; arrow keys move in it and the fields size larger tables', async ({ page }) => {
   await mount(page, '');
   await menuAction(page, 'Insert table');
-  const d = dialog(page, 'Insert table');
-  await d.getByLabel('Rows (including header)').fill('1');
-  await d.getByRole('button', { name: 'Insert', exact: true }).click();
-  expect(await source(page)).toBe('');
-  await d.getByRole('button', { name: '3 rows, 3 columns' }).click();
+  let d = dialog(page, 'Insert table');
+  await expect(d.getByRole('group', { name: 'Table size' }).getByRole('button')).toHaveCount(80);
+  await d.getByRole('button', { name: '3 rows, 3 columns' }).hover();
   await expect(d.locator('output')).toHaveText('3 rows × 3 columns');
-  await d.getByRole('button', { name: 'Insert', exact: true }).click();
+  await d.getByRole('button', { name: '3 rows, 3 columns' }).click();
+  await expect(d).toHaveCount(0);
   expect(await source(page)).toBe(
     '| Header | Header | Header |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |',
   );
+  await undo(page);
+  await menuAction(page, 'Insert table');
+  d = dialog(page, 'Insert table');
+  await expect(d.getByRole('button', { name: '3 rows, 2 columns' })).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowDown');
+  await expect(d.getByRole('button', { name: '4 rows, 3 columns' })).toBeFocused();
+  await expect(d.locator('output')).toHaveText('4 rows × 3 columns');
+  await d.getByLabel('Rows (including header)').fill('1');
+  await d.getByRole('button', { name: 'Insert', exact: true }).click();
+  expect(await source(page)).toBe('');
+  await d.getByLabel('Rows (including header)').fill('12');
+  await d.getByLabel('Columns', { exact: true }).fill('1');
+  await expect(d.locator('output')).toHaveText('12 rows × 1 columns');
+  await d.getByRole('button', { name: 'Insert', exact: true }).click();
+  expect((await source(page)).split('\n')).toHaveLength(13);
   await setMode(page, 'preview');
   const cell = readable(page).locator('th').first();
   await expect(cell).toHaveCSS('border-top-width', '1px');
@@ -146,7 +162,7 @@ test('the image Size dialog sets a width and keeps natural proportions', async (
   expect(await source(page)).toBe(original);
 });
 
-test('heading links, symbols, element dialogs and snippets insert through their dialogs', async ({ page }) => {
+test('heading links and symbols insert through their dialogs; elements and snippets insert at once', async ({ page }) => {
   const original = '# Héllo\r\n## Héllo\nlabel';
   await mount(page, original);
   await select(page, original.length - 5, original.length);
@@ -165,21 +181,22 @@ test('heading links, symbols, element dialogs and snippets insert through their 
   await d.getByRole('button', { name: 'rocket emoji' }).click();
   await d.getByRole('button', { name: 'Insert', exact: true }).click();
   expect(await source(page)).toContain('🚀');
-  for (const [label, title, hint] of [
-    ['Math…', 'Math', 'Preview typesets it.'],
-    ['Diagram…', 'Diagram', 'Preview draws it as a diagram.'],
+  for (const [label, tip, inserted] of [
+    ['Math', 'Inserts maths source; Preview typesets it.', '$$\r\nx^2\r\n$$'],
+    ['Diagram', 'Inserts a Mermaid diagram; Preview draws it.', '```mermaid\r\ngraph TD\r\n  A --> B\r\n```'],
   ] as const) {
-    await menuAction(page, label);
-    d = page.getByRole('dialog', { name: title, exact: true });
-    await expect(d).toContainText(hint);
-    await page.keyboard.press('Escape');
-    await expect(d).toHaveCount(0);
+    await openMenu(page, 'Insert', 'Elements');
+    const item = page.locator('.menus').getByRole('button', { name: label, exact: true });
+    await expect(item).toHaveAttribute('title', tip);
+    await item.click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(await source(page)).toContain(inserted);
+    await undo(page);
+    expect(await source(page)).not.toContain(inserted);
   }
   await mount(page, '', 'typescript');
   await menuAction(page, 'Function (typescript)');
-  await dialog(page, 'Insert snippet')
-    .getByRole('button', { name: 'Insert', exact: true })
-    .click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(await source(page)).toContain('function example(): void');
   await page.locator('.menus > details > summary').filter({ hasText: /^Insert$/ }).click();
   await page.locator('.submenu > summary').filter({ hasText: /^Image$/ }).click();

@@ -132,7 +132,7 @@ test('task list states are static and details Find only searches currently visib
   await expect(findResult(page)).toHaveText('No matches');
   await readable(page).locator('summary').focus();
   await page.keyboard.press('Enter');
-  await expect(findResult(page)).toHaveText('1 of 1 matches');
+  await expect(findResult(page)).toHaveText('1 of 1');
   await readable(page).locator('summary').click();
   await expect(findResult(page)).toHaveText('No matches');
   expect((await readable(page).textContent())?.match(/\\\(x\\\)/g)).toHaveLength(1);

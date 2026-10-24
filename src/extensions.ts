@@ -1,6 +1,8 @@
-// What a version of Gittin adds to the shared app through start(): the desktop app's git. The web app adds none.
+// What a version of Gittin adds to the shared app through start(): the desktop app's git and GitHub. The web app adds none.
+import type { Identity } from './documents/types';
 import type { OpenDocument } from './screens/workspace';
 import type { FolderSource } from './sources/folder';
+import type { Action } from './ui/menus';
 import type { Use } from './ui/version-history';
 
 /** A change Gittin made to a folder's files: an image it added, a file it saved for the first time, a rename or
@@ -26,6 +28,17 @@ export interface Extensions {
   history?(doc: OpenDocument, use: Use): Promise<boolean>;
   /** Adds to the Folder panel of a folder Gittin can write to, each time the panel is drawn. */
   folder?(source: FolderSource, panel: HTMLElement): void;
+  /** Adds to Home: `header` is its header, `actions` the row of New file, Open file and Open folder. */
+  home?(header: HTMLElement, actions: HTMLElement): void;
+  /** Adds to a document's workspace: `header` holds the header's buttons, `footer` the status footer's middle, after
+   * the save state. */
+  workspace?(doc: OpenDocument, header: HTMLElement, footer: HTMLElement): void;
+  /** More commands for a document's menus. */
+  commands?(doc: OpenDocument): Action[];
+  /** A tab of its own in Preferences. */
+  preferences?(): { name: string; panel: HTMLElement };
+  /** A file's full path on this computer, where Gittin knows it. */
+  diskPath?(identity: Identity): string | null;
 }
 export let extensions: Extensions = {};
 export const extend = (added: Extensions) => { extensions = added; };

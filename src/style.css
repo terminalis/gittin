@@ -337,12 +337,38 @@ a:has(> .app-icon) {
   min-height: 0;
   margin: 0;
 }
-.workspace-dialog h2 {
+/* The title row: the heading, then the ✕ of a dialog that only shows information. */
+.dialog-title {
+  display: flex;
   flex: none;
+  align-items: flex-start;
+  gap: 12px;
   margin: 0 0 20px;
+}
+.workspace-dialog h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
   font-size: 24px;
   font-weight: 400;
   line-height: 32px;
+}
+.workspace-dialog .dialog-close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  min-height: 32px;
+  margin: 0 -8px 0 0;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+.workspace-dialog .dialog-close:hover:where(:not(:disabled)) {
+  border-color: transparent;
+  background: var(--hover);
+  color: var(--ink);
 }
 .dialog-body {
   min-height: 0;
@@ -437,13 +463,14 @@ a:has(> .app-icon) {
   max-width: 100%;
   padding: 8px 24px;
 }
-.dialog-actions > button:not(.primary) {
-  border-color: transparent;
-  background: transparent;
-  color: var(--accent);
+/* A dialog that only shows information has no footer. */
+.dialog-actions:empty {
+  display: none;
 }
-.dialog-actions > button:not(.primary):hover:not(:disabled) {
-  background: var(--warm);
+/* Destructive choices are red: outlined, or filled when they are the dialog's main action. Others are plain buttons. */
+.dialog-actions > button.danger:not(.primary) {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .workspace-dialog [role=alert] {
   margin: 12px 0 0;
@@ -467,7 +494,7 @@ a:has(> .app-icon) {
 }
 .table-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1.6rem);
+  grid-template-columns: repeat(10, 1.6rem);
   gap: .2rem;
   margin: .7rem 0;
 }
@@ -486,6 +513,11 @@ a:has(> .app-icon) {
 }
 .table-grid button:hover {
   background: var(--hover);
+}
+.table-size {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 .symbol-choices {
   display: flex;
@@ -621,18 +653,24 @@ a:has(> .app-icon) {
 .statistics-dialog {
   --dialog-width: 350px;
 }
-.statistics-dialog table {
+/* File statistics' table, which File details shares; details' values are words and paths, read from the left, with
+   Copy path at the end. */
+.statistics-dialog table,
+.details-dialog table {
   width: 100%;
   border-collapse: collapse;
 }
 .statistics-dialog th,
-.statistics-dialog td {
+.statistics-dialog td,
+.details-dialog th,
+.details-dialog td {
   height: 52px;
   padding: 0 16px;
   border-bottom: 1px solid var(--line);
   font-weight: 400;
 }
-.statistics-dialog th {
+.statistics-dialog th,
+.details-dialog th {
   text-align: left;
 }
 .statistics-dialog td {
@@ -640,7 +678,15 @@ a:has(> .app-icon) {
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
-.statistics-dialog tr:last-child > * {
+.details-dialog td {
+  overflow-wrap: anywhere;
+}
+.details-dialog td button {
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.statistics-dialog tr:last-child > *,
+.details-dialog tr:last-child > * {
   border-bottom: 0;
 }
 .statistics-help {
@@ -654,14 +700,109 @@ a:has(> .app-icon) {
   height: fit-content;
   z-index: 100;
 }
-.help-dialog nav {
+/* Help: topics on the left, the chosen topic's points on the right; on a phone the topics sit above. */
+.help-dialog {
+  --dialog-width: 760px;
+}
+.help-topics {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+.help-topics nav {
+  position: sticky;
+  top: 0;
   display: grid;
   gap: 4px;
-  margin-bottom: 20px;
 }
-.help-dialog nav button {
+.help-topics nav button {
+  border-color: transparent;
   border-radius: 4px;
+  background: transparent;
   text-align: left;
+}
+.help-topic h3 {
+  margin: 16px 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.help-topic h3:first-child {
+  margin-top: 0;
+}
+.help-topic p {
+  margin: 0;
+}
+/* Getting Started: icon rows, then how your files are kept as labelled rows. */
+.start-steps {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.start-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.start-steps li > .app-icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent);
+}
+.start-steps p {
+  margin: 2px 0 0;
+  color: var(--muted);
+}
+.start-dialog h3 {
+  margin: 24px 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.start-files {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 0;
+}
+.start-files dt {
+  font-weight: 600;
+}
+.start-files dd {
+  margin: 0;
+}
+/* What's new: a folding section per release, its name and date as the heading. */
+.release {
+  border-top: 1px solid var(--line);
+}
+.release:first-child {
+  border-top: 0;
+}
+.release summary {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 0;
+  cursor: pointer;
+}
+.release summary small {
+  color: var(--muted);
+}
+.release ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+.release li + li {
+  margin-top: 4px;
+}
+@media (max-width: 600px) {
+  .help-topics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .help-topics nav {
+    position: static;
+  }
 }
 .dialog-drag-handle {
   cursor: grab;
@@ -692,7 +833,7 @@ a:has(> .app-icon) {
   max-height: 60vh;
   overflow: auto;
 }
-/* Version history: one row per version, actions on the same line; Clear sits apart from Close. */
+/* Version history: one row per version, actions on the same line. */
 .version-list {
   list-style: none;
   margin: 12px 0 0;
@@ -718,11 +859,49 @@ a:has(> .app-icon) {
   flex: none;
   gap: 4px;
 }
-/* Linked resources reuses those rows with its two actions under the address, which wraps when long. */
+/* A choice laid out as a row: its name in bold, what it does under it; a destructive one in red. */
+.workspace-dialog .choice-row {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 10px 14px;
+  text-align: left;
+}
+.choice-row small {
+  color: var(--muted);
+  font-size: 13px;
+}
+.workspace-dialog .choice-row.danger {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+/* File changed on disk: Compare beside the message. */
+.disk-change-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.disk-change-message p {
+  flex: 1;
+  margin: 0;
+}
+/* Linked resources reuses those rows: the kind's icon, the target and its line, then its actions; a long target
+   wraps. */
 .resource-list .version-row {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
+  align-items: flex-start;
+}
+.resource-kind {
+  flex: none;
+  margin-top: 2px;
+  color: var(--muted);
+}
+.resource-list .version-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  max-width: 50%;
 }
 .resource-list .version-label {
   gap: 2px;
@@ -733,13 +912,14 @@ a:has(> .app-icon) {
 }
 .resource-note {
   color: var(--muted);
+  text-align: right;
 }
-.workspace-dialog .dialog-actions > button.danger {
+/* A footer button set apart at the left, such as Version history's Clear, its icon before its name. */
+.workspace-dialog .dialog-actions > button.apart {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   margin-right: auto;
-  border-color: var(--accent);
 }
 @media (max-width: 600px) {
   .workspace-dialog {
@@ -975,17 +1155,6 @@ label.home-option {
   color: var(--ink);
   text-decoration: underline;
 }
-.home-help-topics details {
-  padding: 12px 0;
-  border-top: 1px solid var(--line);
-}
-.home-help-topics summary {
-  cursor: pointer;
-  font-weight: 600;
-}
-.home-help-topics details p {
-  margin: 12px 0 0;
-}
 @keyframes home-drawer-enter {
   from {
     transform: translateX(100%);
@@ -1082,17 +1251,42 @@ label.home-option {
   gap: 10px;
   margin-top: 26px;
 }
-#folders > span {
+#folders-label {
   margin-right: 4px;
   color: var(--muted);
   font-size: 15px;
 }
-#folders button {
+/* A recent folder: a pill holding its open button and the × that takes it off Home. */
+.folder-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+}
+.folder-chip:hover {
+  border-color: var(--accent);
+}
+#folders .folder-chip > button {
+  border: 0;
+  background: transparent;
+}
+#folders .folder-open {
   min-height: 38px;
-  padding: 0 16px;
+  padding: 0 6px 0 16px;
   gap: 8px;
   border-radius: 999px;
   font-size: 15px;
+}
+#folders .folder-remove {
+  width: 30px;
+  height: 30px;
+  margin-right: 4px;
+  padding: 0;
+  border-radius: 50%;
+}
+#folders .folder-remove:hover {
+  color: var(--accent);
 }
 #folders .app-icon {
   --icon: 18px;
@@ -1100,7 +1294,7 @@ label.home-option {
 }
 /* On the warm band a hovered button keeps its own surface, so it does not vanish into the band. */
 .home-welcome .document-actions button:not(.primary):hover,
-#folders button:hover {
+.folder-chip:hover {
   background: var(--surface);
 }
 .home-welcome .reassurance {
@@ -1448,10 +1642,10 @@ label.home-option {
   #folders {
     margin-top: 22px;
   }
-  #folders > span {
+  #folders-label {
     width: 100%;
   }
-  #folders button {
+  #folders .folder-open {
     min-height: 44px;
   }
   .home-content {
@@ -1920,9 +2114,11 @@ label.home-option {
   position: sticky;
   bottom: 0;
   z-index: 2;
-  display: flex;
+  display: grid;
+  /* Equal sides keep the save state at the middle, whatever each side holds. */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
+  gap: 4px 16px;
   margin: 0 20px;
   padding: 8px 0;
   border-top: 1px solid var(--line);
@@ -1935,11 +2131,21 @@ label.home-option {
   padding: 4px 8px;
   font-size: 13px;
 }
-.editor-status {
+.editor-status,
+.editor-state {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 16px;
   min-width: 0;
+}
+/* A problem wraps beside Focus rather than being cut short. */
+.editor-report {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  min-width: 0;
+  text-align: end;
 }
 .editor-footer #focus-toggle {
   flex-shrink: 0;
@@ -1984,68 +2190,114 @@ label.home-option {
 #file-status:empty {
   display: none;
 }
+/* Find floats as a card over the top centre of the text, under the view switch, without moving the text. */
 .find-bar {
   position: sticky;
   top: 0;
   z-index: 35;
-  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: center;
+  height: 0;
+}
+.find-card {
+  width: min(560px, calc(100% - 32px));
+  height: fit-content;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
   background: var(--surface);
-  padding: 12px 20px;
-  box-shadow: 0 3px 8px #0001;
+  box-shadow: var(--shadow-dialog);
 }
-.find-bar > div {
+.find-row {
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin: 4px 0;
+  gap: 4px;
 }
-.find-bar > div > input {
+.find-row + .find-row {
+  margin-top: 6px;
+}
+.find-field {
+  position: relative;
   flex: 1;
-  max-width: 320px;
+  min-width: 0;
 }
-.find-bar strong,
-.find-bar .search-scope,
-.find-bar output {
-  font-size: 13px;
+.find-field input {
+  width: 100%;
+  padding-right: 32px;
 }
-.search-scope {
+.find-field input::-webkit-search-cancel-button {
+  display: none;
+}
+.find-field .app-icon {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  --icon: 16px;
   color: var(--muted);
+  transform: translateY(-50%);
+  pointer-events: none;
 }
-.find-bar [data-action="close"] {
-  margin-left: auto;
+/* The Replace field lines up under the find field, past the chevron. */
+.find-replace input {
+  flex: 1;
+  min-width: 0;
+  margin-left: 36px;
 }
-.find-bar button {
+.find-count {
+  min-width: 64px;
+  color: var(--muted);
   font-size: 13px;
-  padding: 4px 8px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
-.find-options {
-  flex-wrap: wrap;
+.find-message {
+  margin: 6px 0 0 36px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 18px;
 }
-.find-options label {
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
+.find-message:empty {
+  display: none;
 }
-.find-options small {
-  font-size: 11px;
-}
-/* Find: one 32px control height; icon buttons are square. */
-.find-bar input:not([type=checkbox]),
-.find-bar button {
+/* Find: one 32px control height; icon buttons are square and plain until hovered. */
+.find-card input,
+.find-card button {
   box-sizing: border-box;
   height: 32px;
   min-height: 32px;
 }
-.find-bar input:not([type=checkbox]) {
+.find-card input {
   padding-block: 4px;
 }
-.find-bar button:has(> .app-icon) {
+.find-card button {
+  padding: 4px 10px;
+  font-size: 13px;
+}
+.find-card button:has(> .app-icon) {
+  display: grid;
+  place-items: center;
   width: 32px;
   padding: 0;
+  border-color: transparent;
+  background: transparent;
 }
-.find-bar output {
-  min-width: 95px;
+.find-card button:has(> .app-icon):hover:where(:not(:disabled)) {
+  background: var(--hover);
+}
+/* A dot on the options button while any option is on. */
+.find-card [data-action="options"].options-on {
+  position: relative;
+}
+.find-card [data-action="options"].options-on::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 .command-dialog {
   --dialog-width: 520px;
@@ -2066,11 +2318,48 @@ label.home-option {
   text-align: left;
   font-size: 15px;
 }
-.command-results kbd {
-  font: 11px var(--font-secondary);
+.command-results .menu-path {
   color: var(--muted);
-  margin-left: auto;
+  font-size: 12px;
   white-space: nowrap;
+}
+.command-results .key-caps {
+  margin-left: auto;
+}
+/* Shortcut keys drawn as key caps. */
+.key-caps {
+  display: inline-flex;
+  gap: 4px;
+  white-space: nowrap;
+}
+.key-caps kbd {
+  min-width: 22px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 12px/18px var(--font-secondary);
+  text-align: center;
+}
+/* Keyboard shortcuts: a table per menu, keys at the right. */
+.shortcuts-dialog h3 {
+  margin: 16px 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.shortcut-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.shortcut-table td {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.shortcut-table td:last-child {
+  text-align: right;
 }
 .document-title-row {
   display: flex;
@@ -2098,7 +2387,7 @@ label.home-option {
   border: 0;
   line-height: 24px;
 }
-#location {
+#details {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2107,7 +2396,7 @@ label.home-option {
   padding: 4px;
   border: 0;
 }
-.workspace-header :where(#document-title, #favourite, #location) {
+.workspace-header :where(#document-title, #favourite, #details) {
   background: transparent;
 }
 .workspace-header .menus > details > summary {
@@ -2143,7 +2432,7 @@ label.home-option {
   --icon: 14px;
 }
 #favourite > .app-icon,
-#location > .app-icon,
+#details > .app-icon,
 .open-document button > .app-icon {
   --icon: 18px;
 }
@@ -2243,22 +2532,20 @@ label.home-option {
   flex: 1 1 240px;
 }
 .folder-header {
-  display: flex;
-  align-items: center;
-  gap: 2px;
   margin: 0 0 10px;
 }
-.workspace-body > aside .folder-header h2 {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
+.folder-name {
+  margin: 0 0 4px;
   overflow: hidden;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The buttons' icons line up with the name above them. */
 .folder-tools {
   display: flex;
   gap: 2px;
+  margin-left: -5px;
 }
 .folder-tools button {
   border: 0;
@@ -2290,6 +2577,47 @@ label.home-option {
   margin-left: 11px;
   padding-left: 5px;
   border-left: 1px solid var(--line);
+}
+.folder-tree ul:empty {
+  display: none;
+}
+/* Image from folder: thumbnails under their folders' names. */
+.image-dialog {
+  --dialog-width: 640px;
+}
+.image-groups h3 {
+  margin: 16px 0 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.image-groups h3:first-child {
+  margin-top: 0;
+}
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 8px;
+}
+.workspace-dialog .image-choice {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px;
+  text-align: center;
+}
+.image-choice img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: var(--code);
+  object-fit: contain;
+}
+.image-choice span {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .folder-tree p {
   font-size: 13px;
@@ -2475,22 +2803,12 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   #editor {
     padding: 25px 25px;
   }
-  .find-bar {
-    padding: 9px;
+  .find-card {
+    width: calc(100% - 16px);
   }
-  .find-bar > div {
-    flex-wrap: wrap;
-  }
-  /* The match count takes its own line so the search field has room for its placeholder. */
-  .find-bar output {
-    flex-basis: 100%;
+  .find-count {
+    min-width: 0;
     font-size: 12px;
-  }
-  .find-bar .search-scope {
-    font-size: 11px;
-  }
-  .find-options small {
-    width: 100%;
   }
   /* Phone: logo, title and Save share the first row; the menus take the whole second row. */
   .workspace-header {
@@ -2578,6 +2896,14 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   .workspace-tools .panel-label {
     display: none;
   }
+  /* The footer's three groups take a row each, in order. */
+  .editor-footer {
+    grid-template-columns: 1fr;
+  }
+  .editor-report {
+    justify-content: space-between;
+    text-align: start;
+  }
   #menus-toggle {
     display: inline-flex;
   }
@@ -2591,9 +2917,9 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   #workspace:not(.focus-mode) .workspace-header.menus-hidden {
     display: grid;
   }
-  /* The title needs the room; File › Location and File › Add/remove favourite stay in the menu. */
+  /* The title needs the room; File › Details and File › Add/remove favourite stay in the menu. */
   #favourite,
-  #location {
+  #details {
     display: none;
   }
   .workspace-tools > button > [data-icon^="layout-sidebar"] {

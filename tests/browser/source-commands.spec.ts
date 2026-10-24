@@ -3,6 +3,7 @@ import {
   EDITOR,
   commandIds,
   editor,
+  findOption,
   menuAction,
   mountEditor,
   newFile,
@@ -187,7 +188,7 @@ test('paste and Edit › Paste write pasted links as Markdown; Ctrl+Shift+V and 
   await editor(page).press('ControlOrMeta+End');
   await selectionIs(page, 45, 45);
   await menuAction(page, 'Paste');
-  expect(await source(page)).toBe('`xcode` See [the docs](https://a.test/) plain[more](https://b.test/)');
+  await expect.poll(() => source(page)).toBe('`xcode` See [the docs](https://a.test/) plain[more](https://b.test/)');
 });
 
 test('whole word source/visible-text and regex retain literal replacement and read-only rules', async ({
@@ -198,13 +199,14 @@ test('whole word source/visible-text and regex retain literal replacement and re
   const find = page.getByRole('searchbox', { name: 'Find in current document' });
   const matches = page.locator('.find-bar output');
   await find.fill('cat');
-  await page.getByLabel('Whole word').check();
-  await expect(matches).toHaveText('1 of 3 matches');
-  await page.getByLabel('Match case').check();
-  await expect(matches).toHaveText('1 of 2 matches');
-  await page.getByLabel('Regular expression (Markdown)').check();
+  await findOption(page, 'Whole word');
+  await expect(matches).toHaveText('1 of 3');
+  await findOption(page, 'Match case');
+  await expect(matches).toHaveText('1 of 2');
+  await findOption(page, 'Regular expression');
   await find.fill('c.t');
-  await expect(matches).toHaveText('1 of 2 matches');
+  await expect(matches).toHaveText('1 of 2');
+  await page.getByRole('button', { name: 'Toggle Replace', exact: true }).click();
   await page.getByRole('textbox', { name: 'Replace with' }).fill('$1');
   await page.getByRole('button', { name: 'Replace all', exact: true }).click();
   expect(await source(page)).toBe('$1 scatter cat_cat Cat **$1**');
@@ -214,8 +216,8 @@ test('whole word source/visible-text and regex retain literal replacement and re
     controller.setMode('preview');
   });
   await find.fill('cat');
-  await expect(matches).toHaveText('1 of 2 matches');
-  await expect(page.getByRole('button', { name: 'Replace all', exact: true })).toBeDisabled();
+  await expect(matches).toHaveText('1 of 2');
+  await expect(page.getByRole('button', { name: 'Toggle Replace', exact: true })).toBeDisabled();
 });
 
 test('recognized, removed and unknown extensions refresh commands without changing source or history', async ({

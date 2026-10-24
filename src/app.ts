@@ -16,13 +16,13 @@ import { headingAnchors } from './editor/heading-anchors';
 import { fileName, fileTypeForName, otherTs, type FileType } from './documents/file-types';
 import { clearVersionsAt, moveVersions, recordVersion, versionKey } from './documents/versions';
 import {
-  addFile, addFolder, addReadOnlyFolder, folderHolding, isAt, loadSources, recentFolders, rememberedFiles,
+  addFile, addFolder, addReadOnlyFolder, folderHolding, hideFolder, isAt, loadSources, recentFolders, rememberedFiles,
   restoreSource, sourceFor, type Revive,
 } from './sources/registry';
 import { FolderSource } from './sources/folder';
 import { countFiles } from './sources/search';
 import { basename, dirname, suffixed } from './sources/paths';
-import type { FileHandle } from './sources/handle';
+import type { DirectoryHandle, FileHandle } from './sources/handle';
 import type { FileSource } from './sources/types';
 import { canPickSaveLocation, chooseFile, chooseFolder, pickSaveLocation } from './sources/pickers';
 import { conflictDialog } from './ui/disk-change';
@@ -68,6 +68,7 @@ const actions = {
   openFolder: openFolderCommand,
   openRecentFolder: (id: string) => void openRecentFolder(id),
   remove: (id: string) => void removeRecent(id),
+  removeFolder: (id: string) => void hideFolder(id).then(() => navigate({ screen: 'home' })),
   createLocal: (source: string, title: string) =>
     openNew(() => newDraft({ source, title, fileType: 'yaml' })),
   makeCopy: (doc: OpenDocument) => openNew(() => copyOf(doc, 'copy')),
@@ -241,7 +242,7 @@ function closeDocument(id: string) {
           local
             ? `This file is only in ${place}. Discarding deletes it.`
             : `It has unsaved changes kept in ${place}.`,
-          [['Save', 'save'], ['Discard changes', 'discard']]);
+          [['Save', 'save'], ['Discard changes', 'discard', 'danger']]);
         if (choice === 'cancel') return;
         if (choice === 'save' && !(await writeFile(doc, false))) return;
         discard = choice === 'discard';
@@ -258,7 +259,7 @@ async function removeRecent(id: string) {
   if (!row) return;
   if (row.unsaved) {
     const choice = await ask(`Remove ${row.title}?`,
-      `This deletes the unsaved changes kept in ${place}. This can't be undone.`, [['Remove', 'remove']]);
+      `This deletes the unsaved changes kept in ${place}. This can't be undone.`, [['Remove', 'remove', 'danger']]);
     if (choice !== 'remove') return;
   }
   const open = documents.get(id);
@@ -305,12 +306,25 @@ function openFolderCommand() {
         if (files.length) void addReadOnlyFolder(files).then(showFolder, notice);
       };
       folderInput.click();
-    } else if (choice) {
-      const folder = await addFolder(choice);
-      await adoptFiles(folder);
-      showFolder(folder);
-    }
+    } else if (choice) await openFolderHandle(choice);
   }).catch(notice);
+}
+/** Opens a folder as Open folder does once one is picked; the desktop app's Clone opens its clone this way. */
+export async function openFolderHandle(handle: DirectoryHandle) {
+  const folder = await addFolder(handle);
+  await adoptFiles(folder);
+  showFolder(folder);
+}
+/** Shows the current screen again, reading the open file from disk: after Sync changes a repository's files. */
+export const reshow = () => transition(current.screen === 'editor' ? rebuild : () => show(current)).then(refocus);
+/** Opens a folder's file in Diff against `text`: Sync's comparison of a conflicting file with GitHub's version. */
+export async function compareFile(source: FolderSource, path: string, text: string, label: string) {
+  const doc = await load(source, path);
+  if (typeof doc === 'string') return;
+  await transition(() => show({ screen: 'editor', id: doc.session.id }, true));
+  writeRoute(current);
+  if (workspace?.document !== doc) return;
+  workspace.controller.setComparison(text, label);
 }
 /** Files opened on their own that lie inside the folder become part of it: their draft and version history
  * move to the folder's path, so each file is one document. A file the folder already has a draft for stays as it is. */
@@ -473,7 +487,7 @@ function deleteEntry(source: FolderSource, path: string, kind: 'file' | 'directo
     // The transition has just stored the open file's draft, so stored drafts say what is unsaved.
     if ((await listRecent()).some(row => row.unsaved && isAt(row.identity, source.id, path)))
       text += ` Unsaved changes kept in ${place} are deleted too.`;
-    if ((await ask(`Delete ${name}?`, text, [['Delete', 'delete']])) !== 'delete') return;
+    if ((await ask(`Delete ${name}?`, text, [['Delete', 'delete', 'danger']])) !== 'delete') return;
     try { await source.remove(path); } catch (error) { notice(reason(error, source, path)); return; }
     await extensions.changed?.(source, { kind: 'delete', path }).catch(notice);
     const affected = [...documents.values()].filter(doc => isAt(doc.session.identity, source.id, path));
@@ -560,7 +574,8 @@ async function writeFile(doc: OpenDocument, saveAs: boolean, overwrite = false):
     const later = doc.session.current.revision === version.revision ? '' : ' Later edits are not saved yet.';
     const unrecorded = stored ? ''
       : ` The saved state could not be recorded in ${place}; use the device status actions.`;
-    report(doc, `${picker ? 'Saved as' : 'Saved to'} ${basename(target.path)}.${later}${unrecorded}`);
+    // A good save shows in the save state alone; the report is for what needs attention.
+    report(doc, `${later}${unrecorded}`.trim());
     if (picker && workspace?.document === doc) { await rebuild(); refocus(); }
     if (picker && target.source instanceof FolderSource)
       await extensions.changed?.(target.source, { kind: 'add', path: target.path }).catch(notice);

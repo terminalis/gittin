@@ -2,7 +2,11 @@
 // Tauri's file dialogs and file access. Gittin's own file code then runs unchanged in the desktop app.
 import { open, save } from '@tauri-apps/plugin-dialog';
 import * as fs from '@tauri-apps/plugin-fs';
+import type { Identity } from '../documents/types';
+import { FolderSource } from '../sources/folder';
 import type { DirectoryHandle, FileHandle } from '../sources/handle';
+import { sourceFor } from '../sources/registry';
+import { SingleFileSource } from '../sources/single-file';
 
 /** The file calls the handles make: Tauri's file plugin, or a stand-in in tests. */
 export interface Disk {
@@ -115,4 +119,14 @@ export function installPickers() {
 export function revive(stored: DirectoryHandle | FileHandle): DirectoryHandle | FileHandle {
   const { path } = stored as unknown as { path: string };
   return stored.kind === 'directory' ? new DesktopDirectoryHandle(path) : new DesktopFileHandle(path);
+}
+/** A file's full path on disk: its folder's path joined with its path in the folder, with the folder's own
+ * separator, or the path of a file opened on its own. */
+export function diskPath(identity: Identity) {
+  if (identity.kind !== 'source') return null;
+  const source = sourceFor(identity);
+  if (source instanceof FolderSource)
+    return identity.path.split('/').reduce((path, part) => new DesktopDirectoryHandle(path).child(part),
+      (source.root as DesktopDirectoryHandle).path);
+  return source instanceof SingleFileSource ? (source.handle as DesktopFileHandle | null)?.path ?? null : null;
 }

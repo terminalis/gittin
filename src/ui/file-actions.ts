@@ -1,10 +1,8 @@
-import { button, el, field, fileDialog, unreadable } from './dom';
+import { button, copyText, el, field, fileDialog, iconButton, unreadable } from './dom';
 import { icon, type IconName } from './icons';
 import { fileDescriptor, type FileType } from '../documents/file-types';
-import { locationText } from '../documents/save-state';
-import type { Identity } from '../documents/types';
+import { sizeLabel } from '../documents/labels';
 import { basename, dirname, join } from '../sources/paths';
-import { sourceInfoFor } from '../sources/registry';
 import { findFolders } from '../sources/search';
 import type { FileSource } from '../sources/types';
 /** A tree row: icons, then the name, then optional faint detail. */
@@ -46,17 +44,36 @@ export function nameDialog(title: string, label: string, action: string, value: 
     footer.append(confirm);
   });
 }
-const where = (identity: Identity) => locationText(identity, sourceInfoFor(identity));
-/** Where the open file is: in a folder, opened on its own, or only in this browser. */
-export function locationDialog(identity: Identity) {
-  fileDialog('File location', body => body.append(el('p', { textContent: where(identity) })));
+/** What File details shows about the open file. */
+export interface FileFacts {
+  type: FileType;
+  source: string;
+  /** Where it is: its full path on disk where Gittin knows it, else its folder and path. */
+  location: string;
+  /** What Copy path copies; null for a file with no path. */
+  path: string | null;
+  state: string;
+  draft: string;
+  /** Whether Diff has the file as it was opened or last saved. */
+  baseline: boolean;
 }
-/** The open file's type, size and location, then `status`: how its draft and saves stand. */
-export function detailsDialog(type: FileType, source: string, identity: Identity, status: string) {
-  const kind = fileDescriptor(type)?.label ?? 'Unknown UTF-8 file (readable source)';
-  const bytes = new TextEncoder().encode(source).length;
-  const text = `${kind} · ${bytes} bytes · ${where(identity)}. ${status}`;
-  fileDialog('File details', body => body.append(el('p', { textContent: text })));
+/** The open file's type, size, location, save state, draft and what Diff compares it with, laid out as File
+ * statistics. */
+export function detailsDialog(facts: FileFacts) {
+  fileDialog('File details', body => {
+    const table = el('table', { ariaLabel: 'File details' });
+    const row = (label: string, ...value: (Node | string)[]) =>
+      table.insertRow().append(el('th', { scope: 'row', textContent: label }), el('td', {}, ...value));
+    row('Type', fileDescriptor(facts.type)?.label ?? 'Unknown UTF-8 file (readable source)');
+    row('Size', sizeLabel(new TextEncoder().encode(facts.source).length));
+    const path = facts.path;
+    row('Location', el('span', { textContent: facts.location }), ...(path === null ? [] : [iconButton('copy',
+      'Copy path', () => copyText(path, 'Path copied.', 'Select the path and copy it with your device shortcut.'))]));
+    row('State', facts.state);
+    row('Draft', facts.draft);
+    row('Diff compares with', facts.baseline ? 'The file as you opened or last saved it' : 'Nothing yet');
+    body.append(table);
+  }, { className: 'details-dialog', info: true });
 }
 /** Rename a file where it is. Links to and from it are not rewritten. */
 export function renameDialog(path: string, move: Move) {
@@ -64,27 +81,44 @@ export function renameDialog(path: string, move: Move) {
   nameDialog('Rename file', 'File name', 'Rename', name, next => move(path, join(dirname(path), next)),
     `Links to and from ${name} are not updated.`);
 }
-/** Choose the folder to move a file into. Links to and from it are not rewritten. */
-export function moveDialog(source: FileSource, path: string, move: Move) {
-  const name = basename(path);
-  fileDialog(`Move ${name}`, async (body, close) => {
+/** Choose the folder to move a file into, from the folder's folders drawn as a tree with the file's own folder marked.
+ * New folder… makes one beside the file, to pick next. Links to and from it are not rewritten. */
+export function moveDialog(source: FileSource, path: string, move: Move,
+  createFolder: (path: string) => Promise<string | null>) {
+  const name = basename(path), here = dirname(path);
+  fileDialog(`Move ${name}`, (body, close, footer) => {
     const text = el('p', { textContent: 'Looking for folders…' });
-    const list = el('div', { className: 'folder-tree' }), failure = failureLine();
-    body.append(text, failure.line, list);
-    let found;
-    try { found = await findFolders(source); }
-    catch (error) { text.textContent = unreadable(error); return; }
-    const folders = found.filter(directory => directory !== dirname(path));
-    text.textContent = folders.length ? `Choose a folder. Links to and from ${name} are not updated.`
-      : 'There are no other folders.';
-    for (const directory of folders) {
-      const choice = row(button('', async () => {
-        choice.disabled = true;
-        const reason = await move(path, join(directory, name));
-        if (reason === null) close();
-        else { choice.disabled = false; failure.show(reason); }
-      }), ['folder'], directory || source.label);
-      list.append(choice);
-    }
+    const tree = el('ul', { className: 'folder-tree' }), failure = failureLine();
+    body.append(text, failure.line, tree);
+    const draw = async (focus?: string) => {
+      let folders;
+      try { folders = await findFolders(source); }
+      catch (error) { text.textContent = unreadable(error); return; }
+      text.textContent = `Choose a folder. Links to and from ${name} are not updated.`;
+      const lists = new Map<string, HTMLElement>();
+      tree.replaceChildren();
+      // Sorted, a folder comes before the folders in it.
+      for (const directory of folders.sort()) {
+        const current = directory === here;
+        const choice = row(button('', async () => {
+          choice.disabled = true;
+          const reason = await move(path, join(directory, name));
+          if (reason === null) close();
+          else { choice.disabled = false; failure.show(reason); }
+        }), ['folder'], directory ? basename(directory) : source.label, current ? 'Current folder' : '');
+        choice.disabled = current;
+        choice.setAttribute('aria-current', String(current));
+        const children = el('ul');
+        lists.set(directory, children);
+        (directory ? lists.get(dirname(directory))! : tree).append(el('li', {}, choice, children));
+        if (directory === focus) choice.focus();
+      }
+    };
+    footer.append(button('New folder…', () => nameDialog('New folder', 'Folder name', 'Create', '', async folder => {
+      const made = join(here, folder), reason = await createFolder(made);
+      if (reason === null) void draw(made);
+      return reason;
+    }), 'apart'));
+    void draw();
   });
 }

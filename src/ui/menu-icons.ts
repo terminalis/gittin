@@ -2,10 +2,10 @@ import { el } from './dom';
 import { icon, type IconName } from './icons';
 
 const actionIcons: Record<string, IconName> = {
-  home: 'home', new: 'file-description', open: 'folder', 'open-folder': 'folder',
+  home: 'home', new: 'file-description', open: 'folder', 'open-folder': 'folder', clone: 'download',
   'make-copy': 'copy', 'email-file': 'mail', 'email-draft': 'mail',
-  save: 'device-floppy', 'save-as': 'file-export', 'version-history': 'history',
-  rename: 'pencil', move: 'folder-share', 'delete-file': 'trash', location: 'folder-symlink',
+  save: 'device-floppy', 'save-as': 'file-export', 'version-history': 'history', sync: 'arrows-up-down',
+  rename: 'pencil', move: 'folder-share', 'delete-file': 'trash',
   favourite: 'star',
   details: 'info-circle', print: 'printer', 'download-pdf': 'file-type-pdf', close: 'x', undo: 'arrow-back-up', redo: 'arrow-forward-up',
   cut: 'cut', copy: 'copy', paste: 'clipboard', selectAll: 'select-all',
@@ -37,7 +37,7 @@ const actionIcons: Record<string, IconName> = {
   preferences: 'settings',
   commands: 'search', 'gittin-help': 'help', 'getting-started': 'school', 'whats-new': 'broadcast',
   feedback: 'message-report', privacy: 'shield-lock', terms: 'file-description',
-  notices: 'file-description', about: 'info-circle', shortcuts: 'keyboard',
+  notices: 'file-description', shortcuts: 'keyboard',
   'reset-toolbar': 'restore', 'submenu-arrow': 'chevron-right', heading: 'pilcrow',
 };
 const groupIcons: Record<string, IconName> = {
@@ -61,9 +61,9 @@ export function actionIcon(key: string): IconName | undefined {
   return actionIcons[key];
 }
 
-export function menuIcon(key: string, options: { selected?: boolean; submenu?: boolean } = {}) {
+export function menuIcon(key: string, options: { selected?: boolean; submenu?: boolean; icon?: IconName } = {}) {
   const slot = el('span', { className: 'menu-icon', ariaHidden: 'true' });
-  const name = options.selected ? 'check' : options.submenu ? groupIcons[key] : actionIcon(key);
+  const name = options.selected ? 'check' : options.icon ?? (options.submenu ? groupIcons[key] : actionIcon(key));
   if (name) slot.append(icon(name));
   return slot;
 }

@@ -27,6 +27,8 @@ test('drawer order, focus, Escape and backdrop at 1280px and 390px', async ({ pa
     const nav = drawer(page).getByRole('navigation');
     await expect(nav.locator('.home-drawer-label')).toHaveText(['Settings', 'Drafts', 'Help']);
     await expect(nav.getByRole('group', { name: 'Drafts', exact: true }).getByRole('button')).toHaveText(['Export drafts', 'Restore drafts']);
+    await expect(nav.getByRole('button', { name: 'Restore drafts', exact: true })).toHaveAttribute(
+      'title', 'Restore drafts from a backup file. Drafts already on this device are kept unchanged.');
     const settings = nav.getByRole('group', { name: 'Settings', exact: true });
     await expect(settings.getByRole('button')).toHaveText(['10', '25', 'All']);
     await expect(settings.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true');
@@ -175,15 +177,16 @@ test('Help, searchable shortcuts and navigation cleanup', async ({ page }) => {
   await homeMenu(page, 'Help');
   const help = page.getByRole('dialog', { name: 'Gittin Help', exact: true });
   await help.getByText('Saving and recovery', { exact: true }).click();
-  await expect(help.getByText('Unsaved changes are kept in this browser', { exact: false })).toBeVisible();
+  await expect(help.getByText('Kept in this browser, which you or the browser can clear.', { exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await homeMenu(page, 'Shortcuts');
   const shortcuts = page.getByRole('dialog', { name: 'Keyboard shortcuts', exact: true });
   // Home lists the same shortcuts as the editor.
-  await expect(shortcuts).toContainText('Save — Ctrl + S');
-  await expect(shortcuts).toContainText('Print — Ctrl + P');
+  const keysOf = (label: string) => shortcuts.locator('tr').filter({ hasText: label }).locator('kbd');
+  await expect(keysOf('Save')).toHaveText(['Ctrl', 'S']);
+  await expect(keysOf('Print')).toHaveText(['Ctrl', 'P']);
   await shortcuts.getByRole('searchbox').fill('bold');
-  await expect(shortcuts).toContainText('Bold — Ctrl + B');
+  await expect(keysOf('Bold')).toHaveText(['Ctrl', 'B']);
   await expect(shortcuts).not.toContainText('Find and replace');
   await page.evaluate(() => { location.hash = '#/'; });
   await expect(shortcuts).toHaveCount(0);

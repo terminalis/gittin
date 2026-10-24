@@ -52,7 +52,7 @@ test('nested New is keyboard reachable, header identity is logo-only, Find searc
   await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter');
   await expect.poll(async () => (await savedDraft(page))?.fileType).toBe('text');
   await page.getByRole('button', { name: 'Find in current file' }).click();
-  await expect(page.locator('.find-bar')).toBeVisible();
+  await expect(page.locator('.find-card')).toBeVisible();
   await expect(page.locator('[data-command="undo"]')).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Menus', exact: true }).click();
@@ -138,7 +138,7 @@ test('save completion captures the baseline, later typing stays unsaved, Save as
   await expect.poll(async () => (await savedDraft(page))?.localBaseline?.source).toBe('captured');
   expect((await savedDraft(page)).current.source).toBe('later');
   await command(page, 'Save as…');
-  await expect(page.locator('#file-status')).toContainText('Saved as');
+  await expect(page.locator('#file-status')).toBeHidden();
   await expect.poll(async () => (await savedDraft(page))?.localBaseline?.source).toBe('later');
   await editor(page).click();
   await editor(page).press('ControlOrMeta+a');

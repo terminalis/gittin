@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { editor, expectDraftSaved, openText, pageErrors, readable } from './kit';
+import { editor, expectDraftSaved, findMessage, findOption, openText, pageErrors, readable } from './kit';
 
 test('a 1 MiB file opens, edits, undoes, previews and refuses an unbounded search', async ({
   page,
@@ -26,9 +26,10 @@ test('a 1 MiB file opens, edits, undoes, previews and refuses an unbounded searc
 
   await page.keyboard.press('ControlOrMeta+f');
   await page.getByRole('searchbox', { name: 'Find in current document' }).fill('a');
-  await expect(page.locator('.find-bar output')).toContainText('Narrow your search');
-  await page.getByLabel('Regular expression (Markdown)').check();
-  await expect(page.locator('.find-bar output')).toContainText('Narrow your search');
+  await expect(findMessage(page)).toContainText('Narrow your search');
+  await findOption(page, 'Regular expression');
+  await expect(findMessage(page)).toContainText('Narrow your search');
+  await page.getByRole('button', { name: 'Toggle Replace', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Replace all', exact: true })).toBeDisabled();
   await expect(page.locator('.find-match,.find-current')).toHaveCount(0);
   expect(errors).toEqual([]);

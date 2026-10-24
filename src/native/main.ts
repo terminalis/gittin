@@ -1,16 +1,21 @@
 // The desktop app: the shared app in a Tauri window, with the browser's file API provided by Tauri, the
-// files the system asks Gittin to open, and git for repository folders. It has no landing page and no
+// files the system asks Gittin to open, and git and GitHub for repository folders. It has no landing page and no
 // offline copy.
 import './git.css';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { openHandles, start } from '../app';
+import type { Extensions } from '../extensions';
 import { notice } from '../ui/dom';
-import { DesktopFileHandle, installPickers, revive } from './files';
+import { accountButton } from './account';
+import { cloneButton, cloneCommand } from './clone';
+import { DesktopFileHandle, diskPath, installPickers, revive } from './files';
 import { offerRepository } from './folder';
 import { openHistory } from './history';
 import { askBeforeQuitting } from './quit';
 import { changed, saveAll } from './save';
+import { gitPreferences } from './save-dialog';
+import { githubStatus, syncCommand, syncInFolder } from './sync';
 
 installPickers();
 /** Opens the files handed to Gittin that are waiting. */
@@ -27,7 +32,14 @@ const colourFrame = () => {
     text: style.getPropertyValue('--ink').trim(),
   }).catch(() => {});
 };
-const extensions = { save: saveAll, changed, history: openHistory, folder: offerRepository };
+const extensions: Extensions = {
+  save: saveAll, changed, history: openHistory,
+  folder: (source, panel) => { offerRepository(source, panel); syncInFolder(source, panel); },
+  home: (header, actions) => { accountButton(header); cloneButton(actions); },
+  workspace: (doc, header, footer) => { accountButton(header); githubStatus(doc, footer); },
+  commands: doc => [cloneCommand, syncCommand(doc)],
+  preferences: gitPreferences, diskPath,
+};
 void start({ revive, extensions }).then(async () => {
   colourFrame();
   new MutationObserver(colourFrame).observe(document.documentElement, { attributeFilter: ['data-theme'] });

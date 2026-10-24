@@ -6,8 +6,8 @@ const sections: Record<string, readonly (readonly string[])[]> = {
   File: [
     ['home', 'New', 'Open', 'make-copy'],
     ['Email'],
-    ['save', 'save-as', 'version-history'],
-    ['rename', 'move', 'delete-file', 'location', 'favourite'],
+    ['save', 'save-as', 'sync', 'version-history'],
+    ['rename', 'move', 'delete-file', 'favourite'],
     ['details', 'print', 'download-pdf', 'close'],
   ],
   Edit: [['undo', 'redo'], ['cut', 'copy', 'paste'], ['selectAll', 'deleteSelection', 'Lines'], ['find']],
@@ -31,8 +31,8 @@ const sections: Record<string, readonly (readonly string[])[]> = {
     ['preferences'],
   ],
   Help: [
-    ['commands'], ['gittin-help', 'getting-started', 'whats-new'], ['feedback'],
-    ['privacy', 'terms', 'notices', 'about'], ['shortcuts'],
+    ['commands'], ['getting-started', 'gittin-help', 'whats-new'], ['feedback'],
+    ['privacy', 'terms', 'notices'], ['shortcuts'],
   ],
   'Edit/Lines': [['duplicateLines'], ['moveLinesUp', 'moveLinesDown'], ['deleteLines']],
   'Format/Text': [['bold', 'italic', 'strike', 'code', 'ins', 'sup', 'sub', 'mark']],

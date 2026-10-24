@@ -6,9 +6,11 @@ import {
   expectDraftSaved,
   findField,
   holdModule,
+  home,
   mountWorkspace,
   newFile,
   noSidewaysScroll,
+  openMenu,
   openText,
   palette,
   readable,
@@ -23,14 +25,11 @@ const bytes = async (page: Page) => (await download(page, () => command(page, 'S
 const dialog = (page: Page, name: string) => page.getByRole('dialog', { name, exact: true });
 const close = (page: Page, name: string) =>
   dialog(page, name).getByRole('button', { name: 'Close', exact: true }).click();
-async function attribution(page: Page) {
+/** Opens Attributions and picks what to make. */
+async function attribution(page: Page, kind: string) {
   await command(page, 'Attributions…');
   const d = dialog(page, 'Attributions');
-  await d.getByLabel('Project or work title').fill('Supplied project');
-  await d.getByLabel('Author / project or organisation name').fill('Supplied Team');
-  await d.getByLabel('Source URL (optional)').fill('https://example.com/source');
-  await d.getByLabel('Licence information / SPDX expression').fill('MIT');
-  await d.getByLabel('Copyright text and years (SPDX)').fill('2026 Supplied Owner');
+  await d.getByRole('button', { name: kind, exact: true }).click();
   return d;
 }
 async function openFile(page: Page, text: string, name = 'source.md') {
@@ -57,10 +56,10 @@ test('statistics and temporary Compare preserve exact source and saved baseline'
   ]);
   await page.keyboard.press('Escape');
   await expect(dialog(page, 'File statistics')).toHaveCount(0);
+  const chooser = page.waitForEvent('filechooser');
   await command(page, 'Compare files…');
-  await dialog(page, 'Compare files')
-    .getByLabel('Comparison file')
-    .setInputFiles({ name: 'other.md', mimeType: 'text/markdown', buffer: Buffer.from('other\r\n') });
+  await (await chooser).setFiles({ name: 'other.md', mimeType: 'text/markdown', buffer: Buffer.from('other\r\n') });
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Diff', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -81,44 +80,30 @@ test('statistics and temporary Compare preserve exact source and saved baseline'
   expect(await bytes(page)).toEqual(Buffer.from(original));
 });
 
-test('live statistics save with OK, update while typing, persist and discard cancelled changes', async ({
+test('live statistics apply as the box is ticked, update while typing and persist', async ({
   page,
 }) => {
   await createFile(page);
   await editor(page).pressSequentially('one');
   const stats = page.locator('#file-stats');
-  await expect(stats).toBeHidden();
+  await expect(stats).toHaveText('3 characters');
   await command(page, 'File statistics…');
   let d = dialog(page, 'File statistics');
-  await expect(
-    d.getByRole('checkbox', { name: 'Display stats while typing', exact: true }),
-  ).not.toBeChecked();
-  await d.getByRole('checkbox').check();
-  await d.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await expect(stats).toBeHidden();
-  await command(page, 'File statistics…');
-  d = dialog(page, 'File statistics');
-  await expect(d.getByRole('checkbox')).not.toBeChecked();
-  await d.getByRole('checkbox').check();
+  const box = d.getByRole('checkbox', { name: 'Display stats while typing', exact: true });
+  await expect(box).not.toBeChecked();
+  await expect(d.locator('.dialog-actions button')).toHaveCount(0);
+  await box.check();
+  await expect(stats).toHaveText('1 word · 3 characters · 1 line · 3 bytes');
   await page.keyboard.press('Escape');
   await expect(d).toHaveCount(0);
-  await expect(stats).toBeHidden();
-  await command(page, 'File statistics…');
-  d = dialog(page, 'File statistics');
-  await expect(d.getByRole('checkbox')).not.toBeChecked();
-  await d.getByRole('checkbox').check();
-  await d.getByRole('button', { name: 'OK', exact: true }).click();
-  await expect(stats).toBeVisible();
-  await expect(stats).toHaveText('1 words · 3 characters · 1 lines · 3 bytes');
   await editor(page).press('ControlOrMeta+End');
   await editor(page).pressSequentially(' two');
-  await expect(stats).toHaveText('2 words · 7 characters · 1 lines · 7 bytes');
+  await expect(stats).toHaveText('2 words · 7 characters · 1 line · 7 bytes');
   // The status can read "saved" from before the typing; wait for the stored text and choice.
   await expect.poll(async () => (await savedDraft(page))?.current.source).toBe('one two');
   await expect.poll(async () => (await savedPreferences(page)).showStatsWhileTyping).toBe(true);
   await page.reload();
-  await expect(stats).toBeVisible();
-  await expect(stats).toHaveText('2 words · 7 characters · 1 lines · 7 bytes');
+  await expect(stats).toHaveText('2 words · 7 characters · 1 line · 7 bytes');
   await page.setViewportSize({ width: 390, height: 844 });
   await command(page, 'File statistics…');
   d = dialog(page, 'File statistics');
@@ -127,19 +112,13 @@ test('live statistics save with OK, update while typing, persist and discard can
   expect(bounds!.x).toBeGreaterThanOrEqual(0);
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
   await d.getByRole('checkbox').uncheck();
-  await d.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await expect(stats).toBeVisible();
-  await command(page, 'File statistics…');
-  d = dialog(page, 'File statistics');
-  await expect(d.getByRole('checkbox')).toBeChecked();
-  await d.getByRole('checkbox').uncheck();
-  await d.getByRole('button', { name: 'OK', exact: true }).click();
-  await expect(stats).toBeHidden();
-  await expect(page.locator('#view-status')).toHaveText('Edit');
+  await close(page, 'File statistics');
+  await expect(stats).toHaveText('7 characters');
+  await expect(page.locator('#file-type')).toHaveText('Markdown');
   await expect.poll(async () => (await savedPreferences(page)).showStatsWhileTyping).toBe(false);
   await page.reload();
   await expect(editor(page)).toBeVisible();
-  await expect(stats).toBeHidden();
+  await expect(stats).toHaveText('7 characters');
   expect(await bytes(page)).toEqual(Buffer.from('one two'));
 });
 
@@ -152,20 +131,24 @@ test('resources list links and images, preserve relative references and navigate
   await openFile(page, original);
   await command(page, 'Linked resources…');
   let d = dialog(page, 'Linked resources');
-  await expect(d.getByRole('button', { name: 'Jump to reference' })).toHaveCount(5);
-  await expect(d.getByRole('link', { name: 'Open target' })).toHaveCount(2);
+  await expect(d.locator('p').first()).toHaveText('The links and images in this file, in order.');
+  await expect(d.locator('.resource-kind').first()).toHaveAttribute('aria-label', 'Link');
+  await expect(d.locator('.resource-kind').nth(3)).toHaveAttribute('aria-label', 'Image');
+  await expect(d.locator('.version-label small').first()).toHaveText('Line 3');
+  await expect(d.getByRole('button', { name: 'Go to line', exact: true })).toHaveCount(5);
+  await expect(d.getByRole('link', { name: 'Open', exact: true })).toHaveCount(2);
   await expect(d).toContainText('Target unavailable without a file opened from a folder.');
   await expect(d).toContainText('Unsafe or unsupported target.');
-  await expect(d.getByRole('link', { name: 'Open target' }).first()).toHaveAttribute(
+  await expect(d.getByRole('link', { name: 'Open', exact: true }).first()).toHaveAttribute(
     'rel',
     'noopener noreferrer',
   );
-  await d.getByRole('button', { name: 'Jump to reference' }).nth(1).click();
+  await d.getByRole('button', { name: 'Go to line', exact: true }).nth(1).click();
   await expect(editor(page)).toBeFocused();
   expect(await bytes(page)).toEqual(Buffer.from(original));
   await command(page, 'Linked resources…');
   d = dialog(page, 'Linked resources');
-  await d.getByRole('button', { name: 'Open target' }).click();
+  await d.getByRole('button', { name: 'Open', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Preview', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -183,35 +166,48 @@ test('resources list links and images, preserve relative references and navigate
   });
   await command(page, 'Linked resources…');
   d = dialog(page, 'Linked resources');
-  await expect(d.getByRole('button', { name: 'Jump to reference' })).toHaveCount(2);
-  await expect(d.getByRole('link', { name: 'Open target' }).first()).toHaveAttribute(
+  await expect(d.getByRole('button', { name: 'Go to line', exact: true })).toHaveCount(2);
+  await expect(d.getByRole('link', { name: 'Open', exact: true }).first()).toHaveAttribute(
     'href',
     'https://example.com/?a=1&b=2',
   );
   expect(requests).toEqual([]);
 });
 
-test('attribution previews all supplied outputs, inserts with one Undo and creates a local YAML CFF file', async ({
+test('attributions make a credit line, a comment or a licence header with one Undo, or a local CITATION.cff', async ({
   page,
 }) => {
   const original = '\ufefforiginal\r\ntail\n';
   await openFile(page, original);
   await editor(page).press('ControlOrMeta+End');
-  let d = await attribution(page);
+  let d = await attribution(page, 'Credit line');
+  await d.getByLabel('Title of the work', { exact: true }).fill('Supplied project');
+  await d.getByLabel('Author (optional)', { exact: true }).fill('Supplied Team');
+  await d.getByLabel('Source address (optional)', { exact: true }).fill('https://example.com/source');
+  await d.getByLabel('Licence (optional)', { exact: true }).fill('MIT');
   await expect(d.locator('pre')).toContainText('Credit: Supplied project by Supplied Team');
-  await d.getByLabel('Output format').selectOption('Source comment');
+  await d.getByRole('button', { name: 'Back', exact: true }).click();
+  await d.getByRole('button', { name: 'Code comment', exact: true }).click();
+  // What was typed stays for the next kind.
+  await expect(d.getByLabel('Title of the work', { exact: true })).toHaveValue('Supplied project');
   await expect(d.locator('pre')).toContainText('<!--');
-  await d.getByLabel('Output format').selectOption('SPDX/REUSE header');
+  await d.getByRole('button', { name: 'Back', exact: true }).click();
+  await d.getByRole('button', { name: 'Licence header', exact: true }).click();
+  await expect(d.getByLabel('Title of the work', { exact: true })).toHaveCount(0);
+  await d.getByLabel('Copyright', { exact: true }).fill('2026 Supplied Owner');
+  await d.getByLabel('Licence (SPDX identifier)', { exact: true }).fill('MIT');
   await expect(d.locator('pre')).toContainText('SPDX-License-Identifier: MIT');
-  await d.getByRole('button', { name: 'Insert at cursor' }).click();
+  await d.getByRole('button', { name: 'Insert', exact: true }).click();
   expect((await bytes(page)).toString()).toContain('SPDX-FileCopyrightText: 2026 Supplied Owner');
   await page.locator('[data-command=undo]').click();
   expect(await bytes(page)).toEqual(Buffer.from(original));
-  d = await attribution(page);
-  await d.getByLabel('Output format').selectOption('CITATION.cff');
-  await d.getByLabel('CFF author kind').selectOption('Project or organisation');
+  d = await attribution(page, 'Citation file');
+  await d.getByLabel('Title of the work', { exact: true }).fill('Supplied project');
+  await d.getByLabel('The author is', { exact: true }).selectOption('An organisation or project');
+  await expect(d.getByLabel('Family name', { exact: true })).toBeHidden();
+  await d.getByLabel('Name', { exact: true }).fill('Supplied Team');
   const expected = await d.locator('pre').textContent();
-  await d.getByRole('button', { name: 'Create local CITATION.cff' }).click();
+  await d.getByRole('button', { name: 'Create CITATION.cff', exact: true }).click();
   await expect(page.locator('#document-title')).toHaveText('CITATION.cff');
   await expect(page.getByRole('button', { name: 'Edit', exact: true })).toHaveAttribute(
     'aria-pressed',
@@ -225,9 +221,9 @@ test('attribution previews all supplied outputs, inserts with one Undo and creat
   await expect(dialog(page, 'File details')).toContainText('YAML');
   await close(page, 'File details');
   await openFile(page, '{"key":true}', 'file.json');
-  d = await attribution(page);
-  await d.getByLabel('Output format').selectOption('Source comment');
-  await expect(d.getByRole('button', { name: 'Insert at cursor' })).toBeDisabled();
+  d = await attribution(page, 'Code comment');
+  await d.getByLabel('Title of the work', { exact: true }).fill('Supplied project');
+  await expect(d.getByRole('button', { name: 'Insert', exact: true })).toBeDisabled();
   await expect(d.getByRole('alert')).toContainText('does not support');
 });
 
@@ -244,8 +240,15 @@ test('email previews exact saved and draft snapshots and long copy fallback with
     'textContent',
     baseline,
   );
+  await expect(dialog(page, 'Email this file')).toContainText('Subject: source.md');
+  await expect(dialog(page, 'Email this file').locator('.dialog-hint')).toHaveCount(0);
+  await expect(dialog(page, 'Email this file').locator('.dialog-actions > button')).toHaveText([
+    'Open in mail app',
+    'Copy text',
+    'Close',
+  ]);
   await expect(
-    dialog(page, 'Email this file').getByRole('button', { name: 'Open email draft' }),
+    dialog(page, 'Email this file').getByRole('button', { name: 'Open in mail app' }),
   ).toBeEnabled();
   await close(page, 'Email this file');
   await command(page, 'Email this draft');
@@ -269,9 +272,9 @@ test('email previews exact saved and draft snapshots and long copy fallback with
   await command(page, 'Email this draft');
   const d = dialog(page, 'Email this draft');
   await expect(d.locator('pre')).toHaveJSProperty('textContent', long);
-  await expect(d.getByRole('button', { name: 'Open email draft' })).toBeDisabled();
-  await expect(d).toContainText('Nothing has been truncated');
-  await d.getByRole('button', { name: 'Copy preview text' }).click();
+  await expect(d.getByRole('button', { name: 'Open in mail app' })).toBeDisabled();
+  await expect(d.locator('.dialog-hint')).toHaveText('Too long for a mail link. Copy the text into your mail app instead; nothing was cut.');
+  await d.getByRole('button', { name: 'Copy text' }).click();
   expect(await page.evaluate(() => (window as any).copied)).toBe(long);
   await close(page, 'Email this draft');
   expect(await bytes(page)).toEqual(Buffer.from(long));
@@ -335,36 +338,47 @@ test('Help opens as a dialog, guides separate, shortcuts assigned/platform-speci
   await page.keyboard.press('Escape');
   await expect(panel).toHaveCount(0);
   await command(page, 'Getting Started');
-  await expect(dialog(page, 'Getting Started').locator('li')).toHaveCount(5);
+  await expect(dialog(page, 'Getting Started').locator('.start-steps li')).toHaveCount(5);
   await close(page, 'Getting Started');
   await command(page, "What's new");
+  const news = dialog(page, "What's new").locator('details');
+  await expect(news.first()).toHaveAttribute('open', '');
+  await expect(news.first().locator('summary')).toHaveText('Lists, paste, images and backups22 October 2026');
+  await expect(news.first().locator('li').first()).toHaveText('A pressed list button removes the list.');
+  await expect(news.nth(1)).not.toHaveAttribute('open', '');
+  await expect(news.nth(1).locator('li').first()).toBeHidden();
   await expect(dialog(page, "What's new")).toContainText('27 September 2026');
   await close(page, "What's new");
   await command(page, 'Keyboard shortcuts');
   let d = dialog(page, 'Keyboard shortcuts');
-  await expect(d.locator('h3')).toHaveCount(0);
-  await expect(d).toContainText('Search the menus — Ctrl + Shift + P');
-  await expect(d).toContainText('Hide or show the menus — Ctrl + Shift + F');
-  await expect(d).toContainText('Print — Ctrl + P');
+  const keysOf = (label: string) => d.locator('tr').filter({ hasText: label }).locator('kbd');
+  await expect(d.locator('h3')).toHaveText(['File', 'Edit', 'View', 'Insert', 'Format', 'Help']);
+  await expect(keysOf('Search the menus')).toHaveText(['Ctrl', 'Shift', 'P']);
+  await expect(keysOf('Hide or show the menus')).toHaveText(['Ctrl', 'Shift', 'F']);
+  await expect(keysOf('Print')).toHaveText(['Ctrl', 'P']);
+  await expect(keysOf('Move lines up')).toHaveText(['Alt', '↑']);
   await d.getByRole('searchbox').fill('Bold');
-  await expect(d).toContainText('Bold — Ctrl + B');
+  await expect(keysOf('Bold')).toHaveText(['Ctrl', 'B']);
   await expect(d).not.toContainText('Search the menus');
+  await expect(d.locator('h3')).toHaveText(['Format']);
   await close(page, 'Keyboard shortcuts');
   await page.evaluate(() =>
     Object.defineProperty(navigator, 'platform', { configurable: true, value: 'MacIntel' }),
   );
   await command(page, 'Keyboard shortcuts');
   d = dialog(page, 'Keyboard shortcuts');
-  await expect(d).toContainText('Search the menus — ⌘ + ⇧ + P');
+  await expect(keysOf('Search the menus')).toHaveText(['⌘', '⇧', 'P']);
   await close(page, 'Keyboard shortcuts');
   // Letter keys read as capitals wherever a shortcut is shown.
   await expect(page.locator('[data-command="bold"]')).toHaveAttribute('title', /\(Ctrl\/⌘-B\)$/);
   await page.keyboard.press('ControlOrMeta+Shift+p');
   d = palette(page);
   await d.getByRole('searchbox').fill('Bold');
-  await expect(d.locator('kbd')).toHaveText('Ctrl/⌘-B');
+  const bold = d.getByRole('button', { name: 'Bold', exact: true }).filter({ has: page.locator('kbd') });
+  await expect(bold.locator('kbd')).toHaveText(['⌘', 'B']);
+  await expect(bold.locator('.menu-path')).toHaveText('Format › Text');
   await d.getByRole('searchbox').fill('Print');
-  await expect(d.getByRole('button', { name: 'Print', exact: true }).locator('kbd')).toHaveText('Ctrl/⌘-P');
+  await expect(d.getByRole('button', { name: 'Print', exact: true }).locator('kbd')).toHaveText(['⌘', 'P']);
   await close(page, 'Search commands and settings');
   await expect(d).toHaveCount(0);
   for (const [label, path] of [
@@ -390,7 +404,7 @@ test('Help opens as a dialog, guides separate, shortcuts assigned/platform-speci
   await feedback.close();
   await page.setViewportSize({ width: 390, height: 844 });
   await command(page, 'Gittin Help');
-  await expect(page.getByRole('button', { name: 'Close Help' })).toBeInViewport();
+  await expect(dialog(page, 'Gittin Help').getByRole('button', { name: 'Close', exact: true })).toBeInViewport();
   expect(await noSidewaysScroll(page)).toBe(true);
 });
 
@@ -437,7 +451,7 @@ test('Help can move by pointer and keyboard without resizing the editor or leavi
   expect(small.y).toBeGreaterThanOrEqual(0);
   expect(small.x + small.width).toBeLessThanOrEqual(390);
   expect(small.y + small.height).toBeLessThanOrEqual(640);
-  await expect(help.getByRole('button', { name: 'Close Help' })).toBeInViewport();
+  await expect(help.getByRole('button', { name: 'Close', exact: true })).toBeInViewport();
   await heading.press('Escape');
   await expect(help).toHaveCount(0);
   // At 390px the menu row is folded behind the Menus button, so focus returns there.
@@ -458,38 +472,76 @@ test('Help has a Markdown cheat sheet', async ({ page }) => {
   await expect(help.getByRole('table')).toHaveCount(0);
 });
 
-test('About drafts and files can be dismissed and reopened without changing the document', async ({
+test('Help lists its topics on the left and the chosen topic as headed points, on Home too', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await createFile(page);
+  await command(page, 'Gittin Help');
+  let help = dialog(page, 'Gittin Help');
+  const nav = (await help.getByRole('navigation', { name: 'Help topics' }).boundingBox())!;
+  const topic = (await help.locator('.help-topic').boundingBox())!;
+  expect(nav.x + nav.width).toBeLessThanOrEqual(topic.x);
+  await expect(help.locator('.help-topic h3')).toHaveText([
+    'Edit is the source',
+    'Find and replace',
+    'Hidden toolbar items',
+  ]);
+  await help.getByRole('button', { name: 'Close', exact: true }).click();
+  await home(page);
+  await page.getByRole('button', { name: 'Main menu', exact: true }).click();
+  await page.locator('#home-menu').getByRole('button', { name: 'Help', exact: true }).click();
+  help = dialog(page, 'Gittin Help');
+  await expect(help.getByRole('navigation', { name: 'Help topics' })).toBeVisible();
+  await help.getByRole('button', { name: 'Saving and recovery', exact: true }).click();
+  await expect(help.locator('.help-topic h3').first()).toHaveText('Save');
+  await expect(help.locator('details')).toHaveCount(0);
+});
+
+test('Getting Started lists its steps with icons, then how your files are kept, and heads the Help menu', async ({
   page,
 }) => {
   await createFile(page);
   await editor(page).fill('Keep this draft.');
-  for (const dismiss of ['click', 'keyboard']) {
-    await command(page, 'About drafts and files');
-    const notice = page.locator('#notice');
-    await expect(notice).toContainText('Gittin has no accounts');
-    const closeButton = notice.getByRole('button', { name: 'Dismiss notice' });
-    if (dismiss === 'click') await closeButton.click();
-    else await closeButton.press('Enter');
-    await expect(notice).toBeHidden();
-    await expect(editor(page)).toHaveText('Keep this draft.');
-    await expect(editor(page)).toBeFocused();
-  }
+  await openMenu(page, 'Help');
+  await expect(page.locator('.menus .menu-items > button .menu-label')).toContainText([
+    'Search the menus',
+    'Getting Started',
+    'Gittin Help',
+    "What's new",
+  ]);
+  await expect(page.locator('.menus .menu-items').getByRole('button', { name: 'About drafts and files' })).toHaveCount(0);
+  await page.locator('.menus').getByRole('button', { name: 'Getting Started', exact: true }).click();
+  const d = dialog(page, 'Getting Started');
+  await expect(d.locator('.start-steps strong')).toHaveText([
+    'Start a file',
+    'Write',
+    'Check it',
+    'Work in a folder',
+    'Look things up',
+  ]);
+  await expect(d.locator('.start-steps li > svg')).toHaveCount(5);
+  await expect(d.locator('.start-files dt')).toHaveText(['Your files', 'Saving', 'Unsaved changes']);
+  await expect(d.locator('.start-files')).toContainText('Gittin has no accounts.');
+  await close(page, 'Getting Started');
+  await expect(editor(page)).toHaveText('Keep this draft.');
+  await expect(editor(page)).toBeFocused();
 });
 
 test('attribution application rejects a changed source or read-only mode', async ({ page }) => {
   await mountWorkspace(page, 'original');
-  let d = await attribution(page);
+  let d = await attribution(page, 'Credit line');
+  await d.getByLabel('Title of the work', { exact: true }).fill('Supplied project');
   await page.evaluate(() => {
     const { session } = (window as any).fixture;
     session.applyWriteSource('changed', 'command', session.bookmark);
   });
-  await d.getByRole('button', { name: 'Insert at cursor' }).click();
+  await d.getByRole('button', { name: 'Insert', exact: true }).click();
   await expect(d.getByRole('alert')).toContainText('changed');
   expect(await source(page)).toBe('changed');
   await close(page, 'Attributions');
-  d = await attribution(page);
+  d = await attribution(page, 'Credit line');
+  await d.getByLabel('Title of the work', { exact: true }).fill('Supplied project');
   await setMode(page, 'preview');
-  await d.getByRole('button', { name: 'Insert at cursor' }).click();
+  await d.getByRole('button', { name: 'Insert', exact: true }).click();
   await expect(d.getByRole('alert')).toContainText('changed');
   expect(await source(page)).toBe('changed');
 });
@@ -524,7 +576,7 @@ test('closing Help after hiding the menus moves focus to the menu toggle', async
   await expect(dialog(page, 'Gittin Help')).toBeVisible();
   await page.keyboard.press('Control+Shift+f');
   await expect(page.locator('.workspace-header')).toBeHidden();
-  await dialog(page, 'Gittin Help').getByRole('button', { name: 'Close Help' }).click();
+  await dialog(page, 'Gittin Help').getByRole('button', { name: 'Close', exact: true }).click();
   await expect(dialog(page, 'Gittin Help')).toHaveCount(0);
   await expect(page.locator('.toolbar-menu-toggle')).toBeFocused();
 });
@@ -545,4 +597,18 @@ test('holding Ctrl+F or Ctrl+Shift+P does not repeat them', async ({ page }) => 
   await palette(page).getByRole('searchbox').fill('Bold');
   expect(await held('P', true)).toBe(false);
   await expect(palette(page).getByRole('searchbox')).toHaveValue('Bold');
+});
+
+test('Gittin Help keeps one height across its topics', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await createFile(page);
+  await command(page, 'Gittin Help');
+  const help = dialog(page, 'Gittin Help');
+  const first = (await help.boundingBox())!;
+  for (const topic of ['Markdown syntax', 'Preview and Diff', 'Editing']) {
+    await help.getByRole('button', { name: topic, exact: true }).click();
+    const box = (await help.boundingBox())!;
+    expect(box.height).toBeCloseTo(first.height, 0);
+    expect(box.y).toBeCloseTo(first.y, 0);
+  }
 });

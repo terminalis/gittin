@@ -226,11 +226,9 @@ test('backs up all drafts to a zip and restores it, or a JSON backup, in an empt
   const other = await context.newPage();
   await other.goto(new URL(page.url()).origin + '/#/home');
   const restore = async (name: string, mimeType: string, buffer: Buffer) => {
+    const chooser = other.waitForEvent('filechooser');
     await homeMenu(other, 'Restore drafts');
-    await other
-      .getByRole('dialog', { name: 'Restore drafts' })
-      .getByLabel('Backup file')
-      .setInputFiles({ name, mimeType, buffer });
+    await (await chooser).setFiles({ name, mimeType, buffer });
   };
   await restore('backup.zip', 'application/zip', backup.bytes);
   await expect(other.locator('#notice')).toContainText(
@@ -376,7 +374,19 @@ test('status bar shows the caret line and column in Edit only', async ({ page })
   await expect(page.locator('#caret-status')).toHaveText('Ln 2, Col 12');
   await page.getByRole('button', { name: 'Preview', exact: true }).click();
   await expect(page.locator('#caret-status')).toBeHidden();
-  await expect(page.locator('#view-status')).toHaveText('Preview · read-only');
+  await expect(page.locator('#view-status')).toHaveCount(0);
+});
+
+test('the status footer shows the file on the left, its save state in the middle and only Focus as a button', async ({ page }) => {
+  await openText(page, 'first\nsecond line\n');
+  await expectDraftSaved(page);
+  await expect(page.locator('#file-type')).toHaveText('Markdown');
+  await expect(page.locator('#file-stats')).toHaveText('18 characters');
+  await expect(page.locator('#view-status')).toHaveCount(0);
+  const footer = (await page.locator('.editor-footer').boundingBox())!;
+  const state = (await page.locator('.editor-state').boundingBox())!;
+  expect(Math.abs(state.x + state.width / 2 - (footer.x + footer.width / 2))).toBeLessThan(2);
+  await expect(page.locator('.editor-footer button')).toHaveCount(1);
 });
 
 test('Focus mode keeps the typing line centred', async ({ page }) => {

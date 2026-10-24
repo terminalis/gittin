@@ -18,6 +18,13 @@ export const notice = (page: Page) => page.locator('.view-notice');
 export const findField = (page: Page) =>
   page.getByRole('searchbox', { name: 'Find in current document' });
 export const findResult = (page: Page) => page.locator('.find-bar output');
+/** Why Find shows no count: an invalid pattern, a search over one second, too many matches. */
+export const findMessage = (page: Page) => page.locator('.find-message');
+/** Ticks or unticks one of Find's options, from its options menu. */
+export async function findOption(page: Page, name: string) {
+  await page.getByRole('button', { name: 'Find options', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name, exact: true }).click();
+}
 
 /** Collects uncaught page errors; expect it to be empty at the end of a test. */
 export function pageErrors(page: Page) {
@@ -193,7 +200,7 @@ export async function useFolder(page: Page, files: Record<string, string | numbe
 
 export async function openFromFolder(page: Page, path: string) {
   await page.getByRole('button', { name: 'Open folder', exact: true }).click();
-  const chooser = page.getByRole('dialog', { name: 'project', exact: true });
+  const chooser = page.getByRole('dialog', { name: 'Open a file in project', exact: true });
   for (const part of path.split('/').slice(0, -1))
     await chooser.locator('summary', { hasText: part }).click();
   await chooser.getByRole('button', { name: path.split('/').pop()!, exact: true }).click();
@@ -249,7 +256,7 @@ export async function useReadOnlyFolder(
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Open folder', exact: true }).click();
   await (await chooser).setFiles(root);
-  return page.getByRole('dialog', { name, exact: true });
+  return page.getByRole('dialog', { name: `Open a file in ${name}`, exact: true });
 }
 
 /** Stores a remembered folder; Home lists it without reading its stand-in locator. */

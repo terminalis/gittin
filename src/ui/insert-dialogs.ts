@@ -1,7 +1,5 @@
 import type { GittinController, SourceContext } from '../editor/controller';
-import {
-  insertElement, snippets, imageContext, transformImage, transformTable, type ElementRequest,
-} from '../editor/markdown-elements';
+import { insertElement, imageContext, transformImage, transformTable, type ElementRequest } from '../editor/markdown-elements';
 import { headingAnchors } from '../editor/heading-anchors';
 import {
   button, checkbox, dialogShell, dropDown, el, field, select, showDialog, textField,
@@ -16,20 +14,17 @@ const symbolChoices = [
 type Edit = Parameters<SourceContext['apply']>[0];
 type Link = ReturnType<GittinController['getLinkValues']>;
 /** Adds a form's fields to `body` and returns its edit, or null when there is nothing to edit. */
-type Form = (body: HTMLElement, context: SourceContext, id?: string, link?: Link) => Edit | null;
+type Form = (body: HTMLElement, context: SourceContext, link?: Link) => Edit | null;
 
 const insert = (request: () => ElementRequest): Edit =>
   (source, selection, type) => insertElement(source, selection, type, request());
 const hint = (body: HTMLElement, text: string) =>
   body.append(el('p', { className: 'dialog-hint', textContent: text }));
-/** A form with no fields: a hint about what it inserts. */
-const explained = (kind: string, text: string): Form =>
-  (body, _context, id) => { hint(body, text); return insert(() => ({ kind, id })); };
 const textForm = (kind: string, label: string, value: string): Form => body => {
   const text = textField(body, label, { name: 'text', type: 'text', value });
   return insert(() => ({ kind, text: text.value }));
 };
-const linkForm = (kind: 'link' | 'image'): Form => (body, _context, _id, link) => {
+const linkForm = (kind: 'link' | 'image'): Form => (body, _context, link) => {
   const image = kind === 'image';
   const url = textField(body, image ? 'Image URL' : 'URL',
     { name: 'url', type: 'text', value: link?.linkUrl || '', required: true });
@@ -38,28 +33,57 @@ const linkForm = (kind: 'link' | 'image'): Form => (body, _context, _id, link) =
   if (image) hint(body, 'Use Insert › Image › From folder… for images in the document’s folder.');
   return insert(() => ({ kind, url: url.value, text: text.value }));
 };
+/** The grid's sizes: 2 to 9 rows, header included, by 1 to 10 columns; larger tables take the fields under it. */
+const gridRows = 8, gridColumns = 10;
 const tableForm: Form = body => {
-  const rows = textField(body, 'Rows (including header)',
+  const rows = el('input',
     { name: 'rows', type: 'number', value: '3', required: true, min: '2', max: '100', step: '1' });
-  const columns = textField(body, 'Columns',
+  const columns = el('input',
     { name: 'columns', type: 'number', value: '2', required: true, min: '1', max: '50', step: '1' });
-  const grid = el('div', { className: 'table-grid', ariaLabel: 'Table grid' }), output = el('output');
-  const update = () => {
-    output.textContent = rows.value + ' rows × ' + columns.value + ' columns';
-    for (const b of grid.querySelectorAll<HTMLButtonElement>('button'))
-      b.dataset.selected = String(Number(b.dataset.row) <= Number(rows.value)
-        && Number(b.dataset.column) <= Number(columns.value));
+  const grid = el('div', { className: 'table-grid', role: 'group', ariaLabel: 'Table size' });
+  const output = el('output'), cells: HTMLButtonElement[] = [];
+  /** Highlights the grid up to `r` rows and `c` columns and names that size under it. */
+  const show = (r: number, c: number) => {
+    output.textContent = r + ' rows × ' + c + ' columns';
+    for (const cell of cells)
+      cell.dataset.selected = String(Number(cell.dataset.row) <= r && Number(cell.dataset.column) <= c);
   };
-  for (let r = 2; r <= 6; r++)
-    for (let c = 1; c <= 6; c++) {
-      const pick = () => { rows.value = String(r); columns.value = String(c); update(); };
-      const b = Object.assign(button('', pick), { ariaLabel: r + ' rows, ' + c + ' columns' });
-      Object.assign(b.dataset, { row: String(r), column: String(c) });
-      grid.append(b);
+  const fields = () => show(Number(rows.value), Number(columns.value));
+  // A click inserts that size at once, through the form, as Insert does.
+  const pick = (r: number, c: number) => {
+    rows.value = String(r);
+    columns.value = String(c);
+    body.closest('form')!.requestSubmit();
+  };
+  for (let r = 2; r <= gridRows + 1; r++)
+    for (let c = 1; c <= gridColumns; c++) {
+      const cell = Object.assign(button('', () => pick(r, c)),
+        { ariaLabel: r + ' rows, ' + c + ' columns', tabIndex: -1 });
+      Object.assign(cell.dataset, { row: String(r), column: String(c) });
+      cell.addEventListener('pointerenter', () => show(r, c));
+      cell.addEventListener('focus', () => show(r, c));
+      cells.push(cell);
     }
-  body.append(grid, output);
-  rows.oninput = columns.oninput = update;
-  update();
+  // One tab stop, at the fields' 3 by 2; the arrow keys move within the grid.
+  cells[gridColumns + 1].tabIndex = 0;
+  const steps: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: gridColumns, ArrowUp: -gridColumns };
+  grid.addEventListener('keydown', event => {
+    const at = cells.indexOf(document.activeElement as HTMLButtonElement), step = steps[event.key];
+    if (at < 0 || step === undefined) return;
+    event.preventDefault();
+    const next = cells[at + step];
+    if (!next || (Math.abs(step) === 1 && next.dataset.row !== cells[at].dataset.row)) return;
+    cells[at].tabIndex = -1;
+    next.tabIndex = 0;
+    next.focus();
+  });
+  grid.addEventListener('pointerleave', fields);
+  grid.addEventListener('focusout', event => { if (!grid.contains(event.relatedTarget as Node | null)) fields(); });
+  grid.append(...cells);
+  body.append(grid, output, el('div', { className: 'table-size' },
+    field('Rows (including header)', rows), field('Columns', columns)));
+  rows.oninput = columns.oninput = fields;
+  fields();
   return insert(() => ({ kind: 'table', rows: Number(rows.value), columns: Number(columns.value) }));
 };
 const symbolForm: Form = body => {
@@ -120,19 +144,9 @@ const forms: Record<string, [title: string, form: Form]> = {
   }],
   footnote: ['Footnote', textForm('footnote', 'Note text', 'Note')],
   details: ['Collapsible section', textForm('details', 'Summary', 'Details')],
-  comment: ['Comment', explained('comment', 'Inserts a comment stub using this file’s language.')],
   alert: ['Alert', body => {
     const type = dropDown(body, 'Alert type', ['NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION']);
     return insert(() => ({ kind: 'alert', id: type.value }));
-  }],
-  math: ['Math', explained('math', 'Inserts math source. Preview typesets it.')],
-  diagram: ['Diagram',
-    explained('diagram', 'Inserts a Mermaid source block. Preview draws it as a diagram.')],
-  toc: ['Table of contents',
-    explained('toc', 'Inserts ordinary heading links. Renaming headings may require updating links.')],
-  snippet: ['Insert snippet', (body, context, id) => {
-    hint(body, snippets(context.type).find(s => s.id === id)?.text || 'No snippet available.');
-    return insert(() => ({ kind: 'snippet', id }));
   }],
   imageSize: ['Image size', imageSizeForm],
   alignColumn: ['Align column', body => {
@@ -144,7 +158,7 @@ const forms: Record<string, [title: string, form: Form]> = {
 export class InsertDialogs {
   private dialog?: HTMLDialogElement;
   constructor(private controller: GittinController) {}
-  open(kind: string, id?: string) {
+  open(kind: string) {
     if (!this.controller.isEditable()) return;
     this.close();
     // Cancel restores the selection from before a link's text was selected for editing.
@@ -153,15 +167,15 @@ export class InsertDialogs {
     const context = this.controller.captureSourceContext();
     const [title, build] = forms[kind], form = el('form');
     const { dialog, body, footer } = dialogShell(title, 'insert-dialog', form);
-    const edit = build(body, context, id, link);
+    const edit = build(body, context, link);
     if (!edit) return;
     const error = el('p', { role: 'alert' });
     const cancel = () => { this.close(); original.restore(); };
     const label = kind === 'imageSize' || kind === 'alignColumn' ? 'Apply'
       : link?.linkUrl ? 'Update link' : 'Insert';
     body.append(error);
-    footer.append(button('Cancel', cancel),
-      el('button', { type: 'submit', className: 'primary', textContent: label }));
+    footer.append(el('button', { type: 'submit', className: 'primary', textContent: label }),
+      button('Cancel', cancel));
     form.onsubmit = event => {
       event.preventDefault();
       if (!form.reportValidity()) return;

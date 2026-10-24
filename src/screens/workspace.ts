@@ -6,7 +6,7 @@ import {
 import { workspaceHelpDialog, gettingStarted, whatsNew, keyboardShortcuts } from '../ui/help';
 import { defaultDisplay, type DisplaySettings } from '../editor/display';
 import { headingAnchors } from '../editor/heading-anchors';
-import { fileTypes, fileTypeForName, type FileType } from '../documents/file-types';
+import { fileDescriptor, fileTypes, fileTypeForName, type FileType } from '../documents/file-types';
 import { GittinController } from '../editor/controller';
 import { openPreferences } from '../ui/preferences-dialog';
 import { keysFor, pressed, shortcutHint, shortcuts } from '../ui/shortcuts';
@@ -24,12 +24,10 @@ import { extensions } from '../extensions';
 import { isAt, sourceFor, sourceInfoFor } from '../sources/registry';
 import { FolderSource } from '../sources/folder';
 import { renderFolderPanel, imageFromFolderDialog } from '../ui/folder-panel';
-import {
-  detailsDialog, locationDialog, moveDialog, nameDialog, renameDialog,
-} from '../ui/file-actions';
+import { detailsDialog, moveDialog, nameDialog, renameDialog } from '../ui/file-actions';
 import { versionHistoryButton, openVersionHistory } from '../ui/version-history';
 import { basename, dirname, fragment, join, relativePath, resolvePath, imageType, suffixed } from '../sources/paths';
-import { desktop, place } from '../platform';
+import { place } from '../platform';
 import { FindBar } from '../ui/find-bar';
 import { Menus, editorActions, type Action } from '../ui/menus';
 import {
@@ -105,7 +103,7 @@ export class Workspace {
   private menus: Menus;
   private subscriptions: (() => void)[] = [];
   private abort = new AbortController();
-  private outlineTimer?: ReturnType<typeof setTimeout>;
+  private pauseTimer?: ReturnType<typeof setTimeout>;
   private left = !narrow.matches;
   private right = this.left;
   private focus = false;
@@ -136,11 +134,12 @@ export class Workspace {
       void this.controller.redrawDiagrams();
     }));
     // Menus calls this before running any command, so the phone menu row closes once one is chosen.
-    const commands = [...this.catalogue(), ...editorActions(this.controller, this.controls)];
+    const commands = [...this.catalogue(), ...(extensions.commands?.(doc) ?? []), ...editorActions(this.controller, this.controls)];
     const chosen = () => { this.showPhoneMenus(false); this.controller.focusDocument(); };
     this.menus = new Menus(commands, chosen);
     this.menus.element.id = 'workspace-menus';
     this.part('.document-identity').append(this.menus.element);
+    extensions.workspace?.(doc, this.part('.workspace-header-actions'), this.part('.editor-state'));
     this.subscriptions.push(
       // A tap outside the header closes the phone menu row, as menus and drawers already dismiss.
       onDocumentClick([this.part('.workspace-header')], () => this.showPhoneMenus(false)),
@@ -160,9 +159,10 @@ export class Workspace {
     doc.session.endGroup();
     this.renderDocuments();
     this.update();
-    // The outline waits for typing to pause; a file that has just opened shows its outline at once.
-    clearTimeout(this.outlineTimer);
+    // The outline and the counts wait for typing to pause; a file that has just opened shows them at once.
+    clearTimeout(this.pauseTimer);
     this.updateOutline();
+    this.updateStatistics();
     this.layout();
     window.addEventListener('keydown', e => this.onKeyDown(e), { signal: this.abort.signal });
   }
@@ -186,8 +186,8 @@ export class Workspace {
       { id: 'document-title', title: 'Rename file' });
     const favourite = Object.assign(iconButton('star', 'Add favourite', () => this.toggleFavourite()),
       { id: 'favourite' });
-    const location = Object.assign(
-      iconButton('folder', 'File location', () => locationDialog(this.identity)), { id: 'location' });
+    const detailsButton = Object.assign(
+      iconButton('folder', 'File details', () => this.details()), { id: 'details' });
     const history = versionHistoryButton(identity.kind === 'source', () => this.openHistory());
     const save = Object.assign(button('Save', () => actions.save(false), 'primary'),
       { id: 'save-file', title: `Save (${shortcutHint(keysFor('save')!)})` });
@@ -199,7 +199,7 @@ export class Workspace {
     const header = el('header',
       { id: 'workspace-header', className: 'workspace-header', innerHTML: brand('#/home', true) },
       el('div', { className: 'document-identity' },
-        el('div', { className: 'document-title-row' }, title, favourite, location)),
+        el('div', { className: 'document-title-row' }, title, favourite, detailsButton)),
       el('div', { className: 'workspace-header-actions' }, history,
         el('div', { className: 'save-split' }, save),
         menusToggle));
@@ -228,14 +228,16 @@ export class Workspace {
       el('h2', { textContent: 'Open Files' }), el('div', { id: 'open-documents' }),
       el('h2', { textContent: 'Outline' }),
       el('nav', { id: 'outline', ariaLabel: 'Document outline' }));
+    // Status only, with Focus its one button: the file on the left, its save state in the middle, and what needs
+    // attention on the right.
     const status = el('div', { className: 'editor-status' },
-      el('span', { id: 'file-stats', hidden: true }), el('span', { id: 'caret-status', hidden: true }),
-      el('span', { id: 'save-state' }), el('span', { id: 'view-status' }),
-      el('span', { id: 'file-status', role: 'status' }));
+      el('span', { id: 'file-type' }), el('span', { id: 'caret-status', hidden: true }), el('span', { id: 'file-stats' }));
+    const state = el('div', { className: 'editor-state' }, el('span', { id: 'save-state' }));
     const focus = Object.assign(button('', () => this.toggle('focus')), { id: 'focus-toggle' });
+    const report = el('div', { className: 'editor-report' }, el('span', { id: 'file-status', role: 'status' }), focus);
     const column = el('main', { className: 'writing-column' },
       el('div', { id: 'access-bar', hidden: true }), el('div', { id: 'disk-change-host' }),
-      el('div', { id: 'editor' }), el('footer', { className: 'editor-footer' }, status, focus));
+      el('div', { id: 'editor' }), el('footer', { className: 'editor-footer' }, status, state, report));
     const body = el('div', { className: 'workspace-body' }, documents, column,
       el('aside', { id: 'repository-panel', ariaLabel: 'Folder' }));
     // On narrow screens the dimmed area behind an open drawer is .workspace-body's own ::after overlay.
@@ -277,11 +279,6 @@ export class Workspace {
         () => void prefs.save({ toolbarItems: { ...items(), [id]: items()[id] === false } }),
         selected(() => items()[id] !== false)]),
     ]);
-    const about = 'Gittin has no accounts. Your files stay on your device. '
-      + 'Save writes back to the file you opened; Save as writes a new file. '
-      + (desktop ? 'Unsaved changes are kept in this app. In a git repository, Save also commits.'
-        : 'Unsaved changes are kept in this browser, which you or the browser can clear. '
-          + 'After its first visit, Gittin can start offline on this device.');
     const rows: Row[] = [
       ['File', 'home', 'Home', actions.home],
       ['File/New', 'new', 'File', () => actions.new()],
@@ -306,7 +303,6 @@ export class Workspace {
         const folder = this.managed();
         if (folder) actions.deleteEntry(folder, this.path(), 'file');
       }, managed],
-      ['File', 'location', 'Location', () => locationDialog(this.identity)],
       ['File', 'favourite', 'Add/remove favourite', () => this.toggleFavourite(),
         selected(() => doc.favourite)],
       ['File', 'details', 'Details', () => this.details()],
@@ -330,7 +326,8 @@ export class Workspace {
         selected(() => prefs.value.theme === theme)]),
       ['Tools', 'statistics', 'File statistics…',
         () => openStatistics(doc.session.current.source, prefs)],
-      ['Tools', 'compare-files', 'Compare files…', () => openComparison(this.controller)],
+      ['Tools', 'compare-files', 'Compare files…', () => openComparison(this.controller),
+        { tip: 'Choose another file to compare with this one in Diff. Neither file changes.' }],
       ['Tools', 'attributions', 'Attributions…',
         () => openAttributions(this.controller, actions.createLocal),
         { state: () => ({ disabled: !this.controller.isEditable() }) }],
@@ -340,15 +337,14 @@ export class Workspace {
       ...toolbar,
       ['View/Toolbar', 'reset-toolbar', 'Reset toolbar',
         () => void prefs.save({ toolbarGroups: {}, toolbarItems: {} })],
+      ['Help', 'getting-started', 'Getting Started', gettingStarted],
       ['Help', 'gittin-help', 'Gittin Help',
         () => workspaceHelpDialog(this.part('.workspace-body'), this.abort.signal)],
-      ['Help', 'getting-started', 'Getting Started', gettingStarted],
       ['Help', 'whats-new', "What's new", whatsNew],
       page('feedback', ['Send feedback…', 'https://github.com/terminalis/gittin/issues/new']),
       page('privacy', privacy),
       page('terms', terms),
       ['Help', 'shortcuts', 'Keyboard shortcuts', () => keyboardShortcuts()],
-      ['Help', 'about', 'About drafts and files', () => notice(about)],
       page('notices', notices),
     ];
     return rows.map(([menu, id, label, run, more]) => ({ id, label, menu, run, ...more }));
@@ -371,18 +367,24 @@ export class Workspace {
   }
   private move() {
     const folder = this.managed();
-    if (folder) moveDialog(folder, this.path(), (from, to) => this.actions.moveFile(folder, from, to));
+    if (folder) moveDialog(folder, this.path(), (from, to) => this.actions.moveFile(folder, from, to),
+      path => this.actions.createFolder(folder, path));
   }
   private toggleFavourite() {
     void this.document.autosave.updateMetadata({ favourite: !this.document.favourite });
   }
   private details() {
-    const doc = this.document;
-    detailsDialog(doc.fileType, doc.session.current.source, this.identity, [
-      this.part('#draft-status').textContent,
-      doc.fileStatus || 'No device-file save acknowledged in this session.',
-      doc.localBaseline ? 'Comparison baseline available.' : 'No comparison baseline yet.',
-    ].join(' '));
+    const doc = this.document, identity = this.identity, info = this.info();
+    const disk = extensions.diskPath?.(identity) ?? null;
+    detailsDialog({
+      type: doc.fileType,
+      source: doc.session.current.source,
+      location: disk ?? locationText(identity, info),
+      path: disk ?? (identity.kind === 'source' && info?.kind !== 'file' ? identity.path : null),
+      state: this.part('#save-state').textContent ?? '',
+      draft: this.part('#draft-status').textContent ?? '',
+      baseline: !!doc.localBaseline,
+    });
   }
   private openHistory() {
     const identity = this.identity;
@@ -497,7 +499,8 @@ export class Workspace {
     else renderPanel(false);
     // Left unset outside a folder, which disables Insert › Image › From folder….
     this.controls.onFolderImage = folder ? () => imageFromFolderDialog(folder, this.path(),
-      path => { this.controller.insertElement({ kind: 'image', url: path, text: '' }); }, relativePath)
+      path => { this.controller.insertElement({ kind: 'image', url: path, text: '' }); }, relativePath,
+      reference => this.folderLinks?.image(reference) ?? Promise.resolve(null))
       : undefined;
     this.controller.setImageSaver(managed ? async files => {
       const directory = dirname(this.path()), paths: string[] = [];
@@ -586,12 +589,10 @@ export class Workspace {
       b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
     if (mode === 'preview') this.updatePreviewTooltip();
     this.controls.refresh();
-    this.updateStatistics();
     this.updateCaret();
-    this.part('#view-status').textContent =
-      modeNames[mode] + (mode === 'markdown' ? '' : ' · read-only');
-    clearTimeout(this.outlineTimer);
-    this.outlineTimer = setTimeout(() => this.updateOutline(), 150);
+    this.part('#file-type').textContent = fileDescriptor(this.document.fileType)?.label ?? 'Text';
+    clearTimeout(this.pauseTimer);
+    this.pauseTimer = setTimeout(() => { this.updateOutline(); this.updateStatistics(); }, 150);
     const current = this.document.fileStatusRevision === this.document.session.current.revision;
     this.part('#file-status').textContent = current ? this.document.fileStatus : '';
     this.updateSaveState();
@@ -608,12 +609,12 @@ export class Workspace {
     for (const row of rows) markUnsaved(row, unsaved(doc));
   }
   private updateStatistics() {
-    const output = this.part('#file-stats');
-    output.hidden = !this.prefs.value.showStatsWhileTyping;
-    if (output.hidden) return;
     const stats = fileStatistics(this.document.session.current.source);
-    output.textContent = `${stats.words} words · ${stats.characters} characters · `
-      + `${stats.lines} lines · ${stats.bytes} bytes`;
+    const count = (n: number, noun: string) => `${n.toLocaleString('en-GB')} ${noun}${n === 1 ? '' : 's'}`;
+    this.part('#file-stats').textContent = this.prefs.value.showStatsWhileTyping
+      ? [count(stats.words, 'word'), count(stats.characters, 'character'), count(stats.lines, 'line'),
+        count(stats.bytes, 'byte')].join(' · ')
+      : count(stats.characters, 'character');
   }
   private updateCaret() {
     const caret = this.controller.caretPosition();
@@ -725,7 +726,7 @@ export class Workspace {
   dispose() {
     document.querySelector('#print-file')?.remove();
     this.document.scrollTop = this.part('.writing-column').scrollTop;
-    clearTimeout(this.outlineTimer);
+    clearTimeout(this.pauseTimer);
     this.abort.abort();
     this.subscriptions.forEach((fn) => fn());
     this.find.dispose();

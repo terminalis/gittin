@@ -3,15 +3,25 @@
 import { button, el, field, fileDialog, textField } from '../ui/dom';
 import type { OpenDocument } from '../screens/workspace';
 import type { Author } from './git';
+import { commitTemplate, setCommitTemplate } from './messages';
 import type { Place } from './repositories';
+import { signIn } from './sign-in';
 
 /** Documents saved together: one repository's (with their described message), or files outside any. */
-export interface SaveGroup { place: Place | null; docs: { doc: OpenDocument; path: string }[]; message: string }
+export interface SaveGroup {
+  place: Place | null;
+  docs: { doc: OpenDocument; path: string }[];
+  message: string;
+  /** Workflow files the save leaves out of the commit: GitHub would refuse them from this sign-in. */
+  workflow: string[];
+}
 export type SaveAnswer = Map<string, string> | 'discard' | 'cancel';
-const titles = { save: 'Save and commit', close: 'Close with unsaved changes?', quit: 'Save before quitting?' };
+const titles = {
+  save: 'Save and commit', close: 'Close with unsaved changes?', quit: 'Save before quitting?', sync: 'Save before syncing?',
+};
 
 /** Resolves with each repository's commit message, by its folder, or the writer's other choice. */
-export function saveDialog(groups: SaveGroup[], reason: 'save' | 'close' | 'quit') {
+export function saveDialog(groups: SaveGroup[], reason: 'save' | 'close' | 'quit' | 'sync') {
   return new Promise<SaveAnswer>(resolve => {
     let chosen: SaveAnswer = 'cancel';
     const messages = new Map<string, HTMLInputElement>();
@@ -31,11 +41,25 @@ export function saveDialog(groups: SaveGroup[], reason: 'save' | 'close' | 'quit
           });
           section.append(field('Commit message', message));
           messages.set(group.place.root, message);
+          if (group.workflow.length) {
+            const files = group.workflow.join(', ');
+            const note = el('div', { className: 'workflow-note', role: 'note' },
+              el('p', { textContent: 'GitHub accepts changes to workflow files only from a sign-in that allows them, so '
+                + `${files} ${group.workflow.length === 1 ? 'is' : 'are'} saved but left out of the commit.` }),
+              button('Allow workflow changes…', () => void signIn({ workflow: true }).then(account => {
+                if (!account?.scopes.includes('workflow')) return;
+                group.workflow = [];
+                message.focus();
+                note.remove();
+              })));
+            section.append(note);
+          }
         }
         body.append(section);
       }
-      footer.append(button('Save', save, 'primary'));
-      if (reason !== 'save') footer.append(button("Don't save", () => { chosen = 'discard'; close(); }));
+      footer.append(button(reason === 'sync' ? 'Save and sync' : 'Save', save, 'primary'));
+      if (reason === 'close' || reason === 'quit')
+        footer.append(button("Don't save", () => { chosen = 'discard'; close(); }, 'danger'));
     }, { className: 'save-dialog', closeLabel: 'Cancel', onClose: () => resolve(chosen) });
   });
 }
@@ -62,4 +86,14 @@ export function askAuthor(repository: string) {
       footer.append(button('Use these', use, 'primary'));
     }, { closeLabel: 'Cancel', onClose: () => resolve(author) });
   });
+}
+
+/** Preferences › Git: the template the save dialog's commit message starts from. */
+export function gitPreferences() {
+  const template = el('input', { type: 'text', value: commitTemplate(), autocomplete: 'off' });
+  template.oninput = () => setCommitTemplate(template.value);
+  const panel = el('section', {}, field('Commit message template', template),
+    el('p', { className: 'preferences-hint', textContent: "Fills the save dialog's commit message, which you can still "
+      + "change each time. {changes} describes what changed, {files} lists the files and {date} is today's date." }));
+  return { name: 'Git', panel };
 }

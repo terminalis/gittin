@@ -6,7 +6,8 @@ import type { FolderSource } from '../sources/folder';
 import { basename, dirname } from '../sources/paths';
 import { notice } from '../ui/dom';
 import { git, type Author, type Outcome } from './git';
-import { commitMessage } from './messages';
+import { github } from './github';
+import { commitTemplate, fillTemplate } from './messages';
 import { placeOf, placeOfDocument, type Place } from './repositories';
 import { askAuthor, saveDialog, type SaveGroup } from './save-dialog';
 
@@ -15,9 +16,11 @@ export const useDialogs = (stand: typeof ask) => { ask = stand; };
 
 /** Files Gittin created for documents (images added beside them), committed with their repository's next save. */
 const created = new Map<string, Set<string>>();
+/** Told after each commit Gittin makes, so the footer's GitHub status and the Folder panel's count follow. */
+export const committed = new Set<() => unknown>();
 
 const authorKey = 'gittin-git-author';
-function storedAuthor(): Author | null {
+export function storedAuthor(): Author | null {
   try { return JSON.parse(localStorage.getItem(authorKey) ?? 'null'); } catch { return null; }
 }
 function storeAuthor(author: Author) {
@@ -34,25 +37,40 @@ const leftOutReasons = {
   lfs: 'stored in Git LFS; commit it with git',
   filter: 'which git converts as it commits; commit it with git',
   ignored: 'ignored by the repository',
+  workflow: 'a workflow file, which GitHub takes only from a sign-in that allows workflow changes',
 };
 export function outcomeText(place: Place, outcome: Outcome): string {
   if (outcome.kind === 'refused') return `Saved, but not committed to ${place.name}: ${reasons[outcome.reason]}.`;
-  let text = outcome.kind === 'committed' ? `Saved and committed to ${place.name}.` : 'Saved. Nothing new to commit.';
-  if (outcome.kind === 'committed' && outcome.hooks) text += ' Its git hooks did not run.';
-  for (const { path, reason } of outcome.leftOut) text += ` Not committed: ${path}, ${leftOutReasons[reason]}.`;
-  return text;
+  const parts = outcome.kind === 'committed' && outcome.hooks ? [`${place.name}'s git hooks did not run.`] : [];
+  for (const { path, reason } of outcome.leftOut) parts.push(`Not committed: ${path}, ${leftOutReasons[reason]}.`);
+  return parts.join(' ');
+}
+
+/** Asks once for the name and email to use whenever git has none, and keeps them; null when the writer cancels. */
+export async function fallbackAuthor(repository: string) {
+  const author = await ask.author(repository);
+  if (author) storeAuthor(author);
+  return author;
 }
 
 /** Commits paths, asking once for a name and email when git has none. */
 async function commit(place: Place, paths: string[], message: string): Promise<Outcome> {
   let outcome = await git.commit(place.root, paths, message, storedAuthor());
   if (outcome.kind === 'refused' && outcome.reason === 'identity') {
-    const author = await ask.author(place.name);
+    const author = await fallbackAuthor(place.name);
     if (!author) return outcome;
-    storeAuthor(author);
     outcome = await git.commit(place.root, paths, message, author);
   }
+  if (outcome.kind === 'committed') for (const listener of [...committed]) void listener();
   return outcome;
+}
+
+const isWorkflow = (path: string) => path.startsWith('.github/workflows/');
+/** Whether GitHub would take a commit of workflow files from here: the remote isn't on GitHub, or the sign-in allows
+ * workflow changes. Signed out counts as not allowing them. */
+async function workflowAllowed(root: string) {
+  const [state, account] = await Promise.all([github.remote(root), github.account()]);
+  return !state.github || !!account?.scopes.includes('workflow');
 }
 
 /** The documents by repository, repositories first by name, files outside any last, each repository's
@@ -63,25 +81,27 @@ async function group(docs: OpenDocument[]): Promise<SaveGroup[]> {
     const place = await placeOfDocument(doc), identity = doc.session.identity;
     const path = place?.path ?? (identity.kind === 'source' ? identity.path : doc.title);
     let group = groups.get(place?.root ?? '');
-    if (!group) groups.set(place?.root ?? '', group = { place, docs: [], message: '' });
+    if (!group) groups.set(place?.root ?? '', group = { place, docs: [], message: '', workflow: [] });
     group.docs.push({ doc, path });
   }
   for (const group of groups.values()) {
     if (!group.place) continue;
     const added = [...(created.get(group.place.root) ?? [])].filter(path => !group.docs.some(d => d.path === path));
-    group.message = commitMessage([
+    group.message = fillTemplate(commitTemplate(), [
       ...group.docs.map(({ doc, path }) =>
         ({ path, before: doc.localBaseline?.source ?? null, after: doc.session.current.source })),
       ...added.map(path => ({ path, before: null, after: '' })),
     ]);
+    const workflows = group.docs.map(item => item.path).filter(isWorkflow);
+    if (workflows.length && !(await workflowAllowed(group.place.root))) group.workflow = workflows;
   }
   return [...groups.values()].sort((a, b) =>
     Number(!a.place) - Number(!b.place) || (a.place?.name ?? '').localeCompare(b.place?.name ?? ''));
 }
 
 /** Saves documents through the save dialog, committing each repository's. Resolves null when saving or
- * closing involves no repository, so Gittin saves as usual; quitting always asks. */
-export async function saveAll(docs: OpenDocument[], reason: 'save' | 'close' | 'quit', tools: SaveTools):
+ * closing involves no repository, so Gittin saves as usual; quitting and syncing always ask. */
+export async function saveAll(docs: OpenDocument[], reason: 'save' | 'close' | 'quit' | 'sync', tools: SaveTools):
   Promise<SaveResult | null> {
   const groups = await group(docs);
   if (reason !== 'quit' && !groups.some(group => group.place)) return null;
@@ -94,10 +114,15 @@ export async function saveAll(docs: OpenDocument[], reason: 'save' | 'close' | '
     for (const item of group.docs) if (await tools.write(item.doc)) written.push(item); else saved = false;
     if (!group.place || !written.length) continue;
     const root = group.place.root;
-    const paths = [...new Set([...written.map(item => item.path), ...(created.get(root) ?? [])])];
-    const outcome = await commit(group.place, paths, answer.get(root) || group.message);
+    const leftOut = group.workflow.filter(path => written.some(item => item.path === path))
+      .map(path => ({ path, reason: 'workflow' as const }));
+    const paths = [...new Set([...written.map(item => item.path), ...(created.get(root) ?? [])])]
+      .filter(path => !group.workflow.includes(path));
+    const outcome: Outcome = paths.length
+      ? await commit(group.place, paths, answer.get(root) || group.message) : { kind: 'unchanged', leftOut: [] };
     if (outcome.kind !== 'refused') created.delete(root);
-    const text = outcomeText(group.place, outcome);
+    const text = outcomeText(group.place,
+      outcome.kind === 'refused' ? outcome : { ...outcome, leftOut: [...outcome.leftOut, ...leftOut] });
     for (const { doc } of written) tools.report(doc, text);
     // Closing removes the file status, so a commit that couldn't be made says why here.
     if (reason === 'close' && outcome.kind === 'refused') notice(text);
@@ -107,8 +132,20 @@ export async function saveAll(docs: OpenDocument[], reason: 'save' | 'close' | '
 
 /** Commits a file operation at once, saying so if it can't be. */
 async function commitNow(place: Place, paths: string[], message: string) {
+  if (paths.some(isWorkflow) && !(await workflowAllowed(place.root))) return notice(`${message} wasn't committed to `
+    + `${place.name}: GitHub takes changes to workflow files only from a sign-in that allows them.`);
   const outcome = await commit(place, paths, message);
   if (outcome.kind === 'refused') notice(`${message} wasn't committed to ${place.name}: ${reasons[outcome.reason]}.`);
+}
+
+/** Commits a repository's first files as it starts, naming what couldn't be committed. */
+export async function commitFirst(place: Place, paths: string[]) {
+  if (!paths.length) return;
+  const outcome = await commit(place, paths, 'Initial commit');
+  if (outcome.kind === 'refused')
+    return notice(`Started a repository in ${place.name}, but its files weren't committed: ${reasons[outcome.reason]}.`);
+  const left = outcome.leftOut.map(({ path, reason }) => `Not committed: ${path}, ${leftOutReasons[reason]}.`);
+  if (left.length) notice(`Started a repository in ${place.name}. ${left.join(' ')}`);
 }
 
 /** After Gittin changes a folder's files: an added image waits for its document's save; a file saved for the

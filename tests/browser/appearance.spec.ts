@@ -121,8 +121,8 @@ test('at phone width Save shares the title row and the menus sit behind one butt
   await editor(page).click();
   await expect(menus).toBeHidden();
   await toggle.click();
-  await menu(page, 'File', 'Location');
-  await expect(page.getByRole('dialog', { name: 'File location', exact: true })).toBeVisible();
+  await menu(page, 'File', 'Details');
+  await expect(page.getByRole('dialog', { name: 'File details', exact: true })).toBeVisible();
   await expect(menus).toBeHidden();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   expect(await noSidewaysScroll(page)).toBe(true);
@@ -197,13 +197,16 @@ test('the Find bar and Home notes use the interface face; Find controls share on
   await newFile(page);
   await editor(page).click();
   await page.keyboard.press('ControlOrMeta+f');
-  const bar = page.locator('.find-bar');
+  const bar = page.locator('.find-card');
   await expect(bar).toBeVisible();
-  for (const selector of ['strong', '.find-options label', 'output'])
+  await bar.getByRole('button', { name: 'Toggle Replace', exact: true }).click();
+  for (const selector of ['input[type=search]', 'output', '[data-action="replace"]'])
     expect(await face(bar.locator(selector).first())).toContain('Source Sans 3');
   const controls = [
     'input[type=search]',
+    '[data-action="chevron"]',
     '[data-action="previous"]',
+    '[data-action="options"]',
     '[data-action="replace"]',
     '[data-action="close"]',
   ];
@@ -260,7 +263,7 @@ for (const scheme of ['light', 'dark'] as const)
     await expect(field).toBeFocused();
     const look = await field.evaluate((el) => ({
       edge: getComputedStyle(el).borderTopColor,
-      ground: getComputedStyle(el.closest('.find-bar')!).backgroundColor,
+      ground: getComputedStyle(el.closest('.find-card')!).backgroundColor,
       offset: getComputedStyle(el).outlineOffset,
     }));
     expect(contrast(look.edge, look.ground)).toBeGreaterThanOrEqual(3.5);
@@ -290,8 +293,8 @@ test('buttons and dialogs share the app shape; Close is never the filled action'
   for (const name of ['Cancel', 'Insert'])
     expect(await radius(link.getByRole('button', { name, exact: true }))).toBe('5px');
   await page.keyboard.press('Escape');
-  await menu(page, 'File', 'Location');
-  const location = page.getByRole('dialog', { name: 'File location', exact: true });
+  await menu(page, 'File', 'Details');
+  const location = page.getByRole('dialog', { name: 'File details', exact: true });
   const close = location.getByRole('button', { name: 'Close', exact: true });
   await expect(close).not.toHaveClass(/primary/);
   expect(await radius(close)).toBe('5px');
@@ -303,7 +306,9 @@ test('buttons and dialogs share the app shape; Close is never the filled action'
   );
 });
 
-test('confirmation dialogs fill the confirming choice only', async ({ page }) => {
+test('confirmation dialogs follow Windows: the confirming choice first and filled, a destructive one red, Cancel last', async ({
+  page,
+}) => {
   await newFile(page);
   await editor(page).fill('only here');
   await expectDraftSaved(page);
@@ -311,9 +316,25 @@ test('confirmation dialogs fill the confirming choice only', async ({ page }) =>
   const closing = page.getByRole('dialog', { name: 'Close Untitled file?', exact: true });
   const choice = (dialog: Locator, name: string) =>
     dialog.getByRole('button', { name, exact: true });
+  const look = (button: Locator) =>
+    button.evaluate((b) => {
+      const style = getComputedStyle(b);
+      return { text: style.color, edge: style.borderTopColor, fill: style.backgroundColor };
+    });
+  await expect(closing.locator('.dialog-actions > button')).toHaveText(['Save', 'Discard changes', 'Cancel']);
   await expect(choice(closing, 'Save')).toHaveClass(/primary/);
-  await expect(choice(closing, 'Discard changes')).not.toHaveClass(/primary/);
-  await expect(choice(closing, 'Cancel')).not.toHaveClass(/primary/);
+  await expect(choice(closing, 'Discard changes')).toHaveClass(/danger/);
+  await page.mouse.move(0, 0);
+  // Red is Gittin's accent; every other choice is the app's plain outlined button.
+  expect(await look(choice(closing, 'Discard changes'))).toMatchObject({
+    text: 'rgb(196, 62, 44)',
+    edge: 'rgb(196, 62, 44)',
+  });
+  expect(await look(choice(closing, 'Cancel'))).toEqual({
+    text: 'rgb(41, 38, 35)',
+    edge: 'rgb(222, 219, 213)',
+    fill: 'rgb(255, 255, 255)',
+  });
   await expect(page.locator('#app')).toHaveAttribute('inert', '');
   await choice(closing, 'Cancel').click();
   // Close file runs as a transition that ignores hash changes until it ends and un-inerts the app.
@@ -321,24 +342,25 @@ test('confirmation dialogs fill the confirming choice only', async ({ page }) =>
   await home(page);
   await page.getByRole('button', { name: 'Remove Untitled file', exact: true }).click();
   const removing = page.getByRole('dialog', { name: 'Remove Untitled file?', exact: true });
+  await expect(removing.locator('.dialog-actions > button')).toHaveText(['Remove', 'Cancel']);
   await expect(choice(removing, 'Remove')).toHaveClass(/primary/);
-  await expect(choice(removing, 'Cancel')).not.toHaveClass(/primary/);
+  await expect(choice(removing, 'Remove')).toHaveClass(/danger/);
 });
 
-test('on a phone the title row gives a long title room; favourite and location stay in the File menu', async ({
+test('on a phone the title row gives a long title room; favourite and details stay in the File menu', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openText(page, 'text', 'Quarterly planning notes for the design team.md');
   await expect(page.locator('#favourite')).toBeHidden();
-  await expect(page.locator('#location')).toBeHidden();
+  await expect(page.locator('#details')).toBeHidden();
   // About 81px (five characters) with the two icons; 145px without them.
   expect((await page.locator('#document-title').boundingBox())!.width).toBeGreaterThanOrEqual(120);
   await page.getByRole('button', { name: 'Menus', exact: true }).click();
   await openMenu(page, 'File');
   const fileItem = (label: RegExp) =>
     page.locator('.menus .menu-items button').filter({ hasText: label });
-  await expect(fileItem(/^Location$/)).toBeVisible();
+  await expect(fileItem(/^Details$/)).toBeVisible();
   await expect(fileItem(/^Add\/remove favourite$/)).toBeVisible();
 });
 

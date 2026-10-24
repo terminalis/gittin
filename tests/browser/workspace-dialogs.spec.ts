@@ -8,9 +8,8 @@ test('dialog actions stay reachable and cancellation preserves source at 1280px 
     await page.setViewportSize({ width, height: 640 });
     for (const [label, title, dismiss] of [
       ['Rename…', 'Rename file', 'Close'],
-      ['File statistics…', 'File statistics', 'Cancel'],
+      ['File statistics…', 'File statistics', 'Close'],
       ['Preferences…', 'Preferences', 'Close'],
-      ['Compare files…', 'Compare files', 'Close'],
       ['Attributions…', 'Attributions', 'Close'],
       ['Keyboard shortcuts', 'Keyboard shortcuts', 'Close'],
       ['Insert link', 'Insert link', 'Cancel'],
@@ -25,19 +24,21 @@ test('dialog actions stay reachable and cancellation preserves source at 1280px 
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
       expect(bounds!.y).toBeGreaterThanOrEqual(0);
       expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(640);
-      for (const control of await dialog.locator('.dialog-actions button').all())
+      for (const control of await dialog.locator('.dialog-actions button, .dialog-close').all())
         await expect(control).toBeInViewport();
+      // Dialogs that only show information close with ✕ and have no footer.
+      if (['File statistics', 'Keyboard shortcuts'].includes(title)) {
+        await expect(dialog.locator('.dialog-title .dialog-close')).toBeVisible();
+        await expect(dialog.locator('.dialog-actions')).toBeHidden();
+      }
       if (title === 'Attributions') {
-        await expect(dialog.getByLabel('Output format')).toBeFocused();
-        const lastField = dialog.getByLabel('Modifications (optional)');
+        await expect(dialog.getByRole('button', { name: 'Credit line', exact: true })).toBeFocused();
+        await dialog.getByRole('button', { name: 'Citation file', exact: true }).click();
+        const lastField = dialog.getByLabel('Your changes (optional)', { exact: true });
         await lastField.focus();
         await expect(lastField).toBeInViewport();
-        await expect(
-          dialog.getByRole('button', { name: 'Insert at cursor', exact: true }),
-        ).toBeInViewport();
-        expect(
-          await dialog.locator('.dialog-body').evaluate(body => body.scrollTop),
-        ).toBeGreaterThan(0);
+        await expect(dialog.getByRole('button', { name: 'Create CITATION.cff', exact: true })).toBeInViewport();
+        expect(await dialog.locator('.dialog-body').evaluate(body => body.scrollTop)).toBeGreaterThan(0);
       }
       await dialog.getByRole('button', { name: dismiss, exact: true }).click();
       await expect(dialog).toHaveCount(0);

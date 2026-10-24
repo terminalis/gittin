@@ -114,6 +114,14 @@ test.describe('writable folders', () => {
     await save(page);
     const dialog = page.getByRole('dialog', { name: 'File changed on disk', exact: true });
     await expect(dialog).toContainText('a.md changed on disk since you opened it. Your unsaved changes are safe in this browser.');
+    await expect(dialog.locator('.choice-row small')).toHaveText([
+      'Replaces your text; Undo brings it back.',
+      'Your text goes to a new file.',
+      'Your text replaces the version on disk.',
+    ]);
+    await expect(dialog.getByRole('button', { name: 'Overwrite', exact: true })).toHaveClass(/danger/);
+    await expect(dialog.locator('.disk-change-message').getByRole('button', { name: 'Compare', exact: true })).toBeVisible();
+    await expect(dialog.locator('.dialog-actions > button')).toHaveText(['Cancel']);
     await dialog.getByRole('button', { name: 'Compare', exact: true }).click();
     await expect(page.locator('.view-notice')).toContainText('Temporary comparison: Version on disk');
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
@@ -333,8 +341,11 @@ test.describe('writable folders', () => {
     await page.getByRole('menuitem', { name: 'Move to…', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Move b.md', exact: true });
     await expect(dialog).toContainText('Links to and from b.md are not updated.');
-    // The file's own folder is not offered.
-    await expect(dialog.getByRole('button', { name: 'project', exact: true })).toHaveCount(0);
+    // The file's own folder is marked and can't be picked; the folders in it nest under it.
+    const current = dialog.locator('.folder-row[aria-current="true"]');
+    await expect(current).toHaveText('projectCurrent folder');
+    await expect(current).toBeDisabled();
+    await expect(dialog.locator('.folder-tree > li > ul > li > .folder-row')).toHaveText(['docs']);
     await dialog.getByRole('button', { name: 'docs', exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect(editor(page)).toBeFocused();
@@ -353,6 +364,49 @@ test.describe('writable folders', () => {
     await page.locator('#recent').getByRole('button', { name: 'b.md', exact: true }).click();
     await page.getByRole('button', { name: 'Version history', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Version history', exact: true })).toContainText('Opened');
+  });
+
+  test('Move to… makes a new folder beside the file, which takes the file', async ({ page }) => {
+    await useFolder(page, { 'a.md': 'A' });
+    await openFromFolder(page, 'a.md');
+    await command(page, 'Move to…');
+    const move = page.getByRole('dialog', { name: 'Move a.md', exact: true });
+    await expect(move.locator('.folder-row')).toHaveText(['projectCurrent folder']);
+    await move.getByRole('button', { name: 'New folder…', exact: true }).click();
+    const naming = page.getByRole('dialog', { name: 'New folder', exact: true });
+    await naming.getByLabel('Folder name').fill('notes');
+    await naming.getByRole('button', { name: 'Create', exact: true }).click();
+    await expect(move.getByRole('button', { name: 'notes', exact: true })).toBeFocused();
+    await move.getByRole('button', { name: 'notes', exact: true }).click();
+    await expect(move).toHaveCount(0);
+    expect(await disk.read(page, 'notes/a.md')).toBe('A');
+  });
+
+  test('File details shows six rows with the location and Copy path, and opens from the folder button', async ({ page }) => {
+    await useFolder(page, { 'docs/a.md': '# A\n' });
+    await openFromFolder(page, 'docs/a.md');
+    await expectDraftSaved(page);
+    await page.evaluate(() =>
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: async (text: string) => { (window as any).copied = text; } },
+      }));
+    await page.getByRole('button', { name: 'File details', exact: true }).click();
+    const details = page.getByRole('dialog', { name: 'File details', exact: true });
+    await expect(details.getByRole('row')).toHaveText([
+      'TypeMarkdown',
+      'Size4 bytes',
+      'Locationproject › docs/a.md',
+      'StateSaved',
+      'DraftDraft saved on this device',
+      'Diff compares withThe file as you opened or last saved it',
+    ]);
+    await details.getByRole('button', { name: 'Copy path', exact: true }).click();
+    await expect.poll(() => page.evaluate(() => (window as any).copied)).toBe('docs/a.md');
+    await expect(page.locator('#notice')).toContainText('Path copied.');
+    await details.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.locator('.menus > details > summary').filter({ hasText: /^File$/ }).click();
+    await expect(page.locator('.menus .menu-items button').filter({ hasText: /^Location$/ })).toHaveCount(0);
   });
 
   test('Delete… asks first, then deletes the file and its draft for good', async ({ page }) => {
@@ -430,8 +484,30 @@ test.describe('writable folders', () => {
     await page.locator('.submenu > summary').filter({ hasText: /^Image$/ }).click();
     await page.getByRole('button', { name: 'From folder…', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Image from folder', exact: true });
-    await dialog.getByRole('button', { name: 'img/dot.png', exact: true }).click();
+    const choice = dialog.getByRole('button', { name: 'img/dot.png', exact: true });
+    await expect(dialog.getByRole('heading', { name: 'docs/img', exact: true })).toBeVisible();
+    await expect(choice.locator('img')).toHaveAttribute('src', /^blob:/);
+    await expect(choice).toHaveText('dot.png');
+    await choice.click();
     await expect(editor(page)).toContainText('![](<img/dot.png>)');
+  });
+
+  test('Image from folder offers a search once there are many images', async ({ page }) => {
+    const png = [...Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64')];
+    const files: Record<string, string | number[]> = { 'notes.md': '' };
+    for (let n = 0; n < 25; n++) files[`pics/p${n}.png`] = png;
+    await useFolder(page, files);
+    await openFromFolder(page, 'notes.md');
+    await editor(page).click();
+    await page.locator('.menus > details > summary').filter({ hasText: /^Insert$/ }).click();
+    await page.locator('.submenu > summary').filter({ hasText: /^Image$/ }).click();
+    await page.getByRole('button', { name: 'From folder…', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Image from folder', exact: true });
+    await expect(dialog.locator('.image-choice')).toHaveCount(25);
+    await dialog.getByRole('searchbox', { name: 'Find an image' }).fill('p7.');
+    await expect(dialog.locator('.image-choice')).toHaveCount(1);
+    await dialog.getByRole('button', { name: 'pics/p7.png', exact: true }).click();
+    await expect(editor(page)).toContainText('![](<pics/p7.png>)');
   });
 
   test('Linked resources opens relative links and images from the folder', async ({ page }) => {
@@ -443,14 +519,13 @@ test.describe('writable folders', () => {
     await openFromFolder(page, 'docs/guide.md');
     await command(page, 'Linked resources…');
     const dialog = page.getByRole('dialog', { name: 'Linked resources', exact: true });
-    await expect(dialog).toContainText('Relative targets open from this file’s folder.');
     await expect(dialog).toContainText('Target is outside this folder.');
-    await expect(dialog.getByRole('link', { name: 'Open target' })).toHaveAttribute('href', /^blob:/);
+    await expect(dialog.getByRole('link', { name: 'Open', exact: true })).toHaveAttribute('href', /^blob:/);
     // A missing file keeps the dialog open and says so; the other links still open.
-    await dialog.getByRole('button', { name: 'Open target' }).nth(2).click();
+    await dialog.getByRole('button', { name: 'Open', exact: true }).nth(2).click();
     await expect(dialog).toContainText('docs/gone.md is not in project.');
-    await expect(dialog.getByRole('button', { name: 'Jump to reference' }).nth(2)).toBeFocused();
-    await dialog.getByRole('button', { name: 'Open target' }).nth(1).click();
+    await expect(dialog.getByRole('button', { name: 'Go to line', exact: true }).nth(2)).toBeFocused();
+    await dialog.getByRole('button', { name: 'Open', exact: true }).nth(1).click();
     await expect(dialog).toHaveCount(0);
     await expect(page.locator('#document-title')).toHaveText('readme.md');
     await expect(editor(page)).toContainText('# Readme');
@@ -465,7 +540,7 @@ test.describe('writable folders', () => {
     await openFromFolder(page, 'docs/note.md');
     await command(page, 'Linked resources…');
     const dialog = page.getByRole('dialog', { name: 'Linked resources', exact: true });
-    const targets = dialog.getByRole('link', { name: 'Open target' });
+    const targets = dialog.getByRole('link', { name: 'Open', exact: true });
     await expect(targets).toHaveCount(2);
     for (const index of [0, 1]) {
       const opened = page.context().waitForEvent('page');
@@ -506,7 +581,7 @@ test.describe('writable folders', () => {
     await expect(readable(page).locator('img[alt="page"]')).toHaveAttribute('src', /^data:/);
     await command(page, 'Linked resources…');
     const opened = page.context().waitForEvent('page');
-    await page.getByRole('dialog', { name: 'Linked resources', exact: true }).getByRole('link', { name: 'Open target' }).first().click();
+    await page.getByRole('dialog', { name: 'Linked resources', exact: true }).getByRole('link', { name: 'Open', exact: true }).first().click();
     const tab = await opened;
     await expect(tab.locator('img')).toHaveAttribute('src', /^data:image\/svg\+xml/);
     expect(await originOf((await tab.locator('img').getAttribute('src'))!)).toBe('null');
@@ -558,7 +633,7 @@ test.describe('writable folders', () => {
     await expect(editor(page)).toHaveText('third');
   });
 
-  test('version history rows keep their actions together; Clear is separate and confirmed, and Close is secondary', async ({
+  test('version history rows keep their actions together; Clear is red and confirmed, and ✕ closes it', async ({
     page,
   }) => {
     const dialog = await openHistory(page, 'second');
@@ -573,10 +648,8 @@ test.describe('writable folders', () => {
     const compare = (await rowButton('Compare').boundingBox())!;
     const restore = (await rowButton('Restore').boundingBox())!;
     expect(Math.abs(compare.y - restore.y)).toBeLessThan(2);
-    await expect(dialog.locator('.dialog-actions > button')).toHaveText([
-      'Clear history for this file',
-      'Close',
-    ]);
+    await expect(dialog.locator('.dialog-actions > button')).toHaveText(['Clear history for this file']);
+    await expect(dialog.locator('.dialog-title .dialog-close')).toBeFocused();
     await expect(close).not.toHaveClass(/primary/);
     const clear = dialog.getByRole('button', { name: 'Clear history for this file', exact: true });
     await expect(clear).toHaveClass(/danger/);
@@ -659,6 +732,17 @@ test.describe('writable folders', () => {
     expect(await disk.read(page, 'b.md')).toBe('B');
   });
 
+  test("the Folder panel reads Current Folder, then the folder's name, then its buttons", async ({ page }) => {
+    await useFolder(page, { 'a.md': 'A' });
+    await openFromFolder(page, 'a.md');
+    const panel = folderPanel(page);
+    await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Current Folder');
+    await expect(panel.locator('.folder-name')).toHaveText('project');
+    const name = (await panel.locator('.folder-name').boundingBox())!;
+    const tools = (await panel.locator('.folder-tools').boundingBox())!;
+    expect(tools.y).toBeGreaterThanOrEqual(name.y + name.height);
+  });
+
   test('Save as… in the File changed on disk dialog writes a new file and leaves the changed one', async ({ page }) => {
     await useFolder(page, { 'a.md': 'one' });
     await page.addInitScript(() => {
@@ -683,7 +767,7 @@ test.describe('writable folders', () => {
   test('Open file on a file inside a folder Gittin has opened it as part of that folder', async ({ page }) => {
     await useFolder(page, { 'docs/a.md': 'A' });
     await page.getByRole('button', { name: 'Open folder', exact: true }).click();
-    const chooser = page.getByRole('dialog', { name: 'project', exact: true });
+    const chooser = page.getByRole('dialog', { name: 'Open a file in project', exact: true });
     await expect(chooser).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(chooser).toHaveCount(0);
@@ -726,7 +810,7 @@ test.describe('writable folders', () => {
   test('one Escape closes the folder chooser with text in its search box', async ({ page }) => {
     await useFolder(page, { 'readme.md': '# Readme' });
     await page.getByRole('button', { name: 'Open folder', exact: true }).click();
-    const chooser = page.getByRole('dialog', { name: 'project', exact: true });
+    const chooser = page.getByRole('dialog', { name: 'Open a file in project', exact: true });
     await chooser.getByRole('searchbox', { name: 'Find a file in this folder' }).fill('read');
     await page.keyboard.press('Escape');
     await expect(chooser).toHaveCount(0);
@@ -771,7 +855,7 @@ test('no Git or GitHub wording appears in the web app', async ({ page }) => {
   const texts = await page.evaluate(() => [...document.querySelectorAll('#workspace button, #workspace summary, #workspace [title], #workspace [aria-label]')]
     .map(el => [el.textContent, el.getAttribute('title'), el.getAttribute('aria-label')].join(' ')));
   expect(texts.filter(text => banned.test(text))).toEqual([]);
-  for (const topic of ['Gittin Help', 'About drafts and files', 'Getting Started', "What's new"]) {
+  for (const topic of ['Gittin Help', 'Getting Started', "What's new"]) {
     await command(page, topic);
     expect(await page.locator('body').innerText()).not.toMatch(banned);
     await page.keyboard.press('Escape');

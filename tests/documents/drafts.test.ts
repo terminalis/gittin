@@ -136,7 +136,7 @@ test('save state says whether a file is saved, unsaved, read-only or only in thi
 });
 test('location names the folder; a single file was opened on its own', () => {
   expect(locationText({ kind: 'local', id: 'x' }, undefined)).toBe('Only in this browser');
-  expect(locationText({ kind: 'source', sourceId: 'f', path: 'notes/a.md' }, { kind: 'folder', label: 'project', open: true })).toBe('In project › notes/a.md');
+  expect(locationText({ kind: 'source', sourceId: 'f', path: 'notes/a.md' }, { kind: 'folder', label: 'project', open: true })).toBe('project › notes/a.md');
   expect(locationText({ kind: 'source', sourceId: 'f', path: 'a.md' }, { kind: 'file', label: 'a.md', open: true })).toBe('Opened on its own');
 });
 test('Home names the folder under a recent file without repeating the file name', () => {

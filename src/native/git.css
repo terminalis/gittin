@@ -1,4 +1,5 @@
-/* The desktop app's git: the Start a repository bar and the save dialog's sections. */
+/* The desktop app's git and GitHub: the Start a repository bar, the save dialog's sections, the account button
+   and the sign-in code. */
 .repository-offer {
   display: flex;
   flex-wrap: wrap;
@@ -11,6 +12,15 @@
   flex-basis: 100%;
   margin: 0;
 }
+/* Start a repository's list of the folder's entries, scrolling when it is long. */
+.start-entries {
+  max-height: 320px;
+  overflow: auto;
+}
+.start-entries .dialog-option {
+  min-height: 36px;
+  margin: 0;
+}
 .save-group h3 {
   margin: 12px 0 4px;
   font-size: 16px;
@@ -21,4 +31,108 @@
 }
 .save-group input {
   width: 100%;
+}
+.workflow-note {
+  margin: 0 0 8px;
+}
+.workflow-note p {
+  margin: 0 0 4px;
+}
+/* The account button: GitHub's mark signed out, the avatar in a circle signed in. */
+.account {
+  display: flex;
+  align-items: center;
+}
+.account:empty {
+  display: none;
+}
+.home-header > .account {
+  margin-left: 8px;
+}
+.account > button {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 4px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+}
+.account > button:hover {
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+}
+/* In the workspace the mark is the size of Version history's clock beside it. */
+.workspace-header-actions .account .app-icon {
+  --icon: 24px;
+}
+.account-trigger img {
+  display: block;
+  border-radius: 50%;
+}
+.account-name {
+  margin: 4px 12px 8px;
+  color: var(--muted);
+}
+.sign-in-code {
+  display: block;
+  margin: 12px 0;
+  font: 600 28px/1.2 var(--font-secondary);
+  letter-spacing: 0.08em;
+}
+/* Clone: the account's repositories in a bordered area, which signed out is one row offering the sign-in, and signed in
+   keeps the list's height from the start, the list scrolling under its filter. */
+.clone-repositories {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.clone-repositories > p {
+  flex: 1;
+  margin: 0;
+}
+.clone-repositories.listing {
+  flex-direction: column;
+  align-items: stretch;
+  height: 300px;
+}
+.clone-repositories.listing > label {
+  margin: 0;
+}
+.clone-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+.clone-list button {
+  width: 100%;
+  text-align: start;
+}
+.clone-dialog [role=status]:empty {
+  display: none;
+}
+/* The status footer's word on GitHub, and the Folder panel's count of edited files not there yet. */
+.github-status:empty {
+  display: none;
+}
+#repository-panel .unsent-count {
+  margin: 0 0 10px;
+  color: var(--muted);
+}
+/* Home's four buttons, with Clone repository, in two rows of two; on narrow windows New file and Clone repository
+   take a row each, Open file and Open folder sharing the one between. The id outweighs the shared stylesheet's rules,
+   which load after this file. */
+#home .home-welcome .document-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 760px) {
+  #home .home-welcome .document-actions > :last-child {
+    grid-column: 1 / -1;
+  }
 }

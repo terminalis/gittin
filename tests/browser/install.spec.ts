@@ -50,11 +50,26 @@ test('the dialog links to the Microsoft Store and the Flatpak, with the command 
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   }
-  await expect(dialog(page).locator('.version-label')).toHaveText(['WindowsThe desktop app', 'LinuxThe desktop app']);
+  await expect(dialog(page).locator('.version-label')).toHaveText(['WindowsDesktop app', 'LinuxDesktop app']);
   await expect(dialog(page).getByText('Or in a terminal:', { exact: true })).toBeVisible();
   await expect(dialog(page).locator('code')).toHaveText(`flatpak install --user ${flatpakref}`);
-  // One line that scrolls sideways, rather than wrapping beside the button.
-  expect(await dialog(page).locator('code').evaluate(code => code.scrollWidth > code.clientWidth)).toBe(true);
+  // The command wraps inside its box, with no sideways scroll, and Copy sits in the box's top corner.
+  const code = dialog(page).locator('code');
+  expect(await code.evaluate(code => code.scrollWidth <= code.clientWidth)).toBe(true);
+  expect((await code.boundingBox())!.height).toBeGreaterThan(30);
+  const box = (await dialog(page).locator('.install-command').boundingBox())!;
+  const copy = (await dialog(page).getByRole('button', { name: 'Copy command', exact: true }).boundingBox())!;
+  expect(box.x + box.width - (copy.x + copy.width)).toBeLessThan(8);
+  expect(copy.y - box.y).toBeLessThan(8);
+  // The address breaks after a slash, not inside the file's name.
+  expect(await code.evaluate(code => {
+    const name = 'gittin.flatpakref';
+    const text = [...code.childNodes].find(node => node.textContent!.includes(name))!;
+    const range = document.createRange(), at = text.textContent!.indexOf(name);
+    range.setStart(text, at);
+    range.setEnd(text, at + name.length);
+    return range.getClientRects().length;
+  })).toBe(1);
   await expect(browserRow(page)).toHaveCount(0);
 });
 

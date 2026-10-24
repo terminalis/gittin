@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { changedSections, commitMessage } from '../../src/native/messages';
+import { changedSections, commitMessage, fillTemplate } from '../../src/native/messages';
 
 const doc = '# Introduction\nold\n\n## Usage\nsame\n\n## Limits\nsame\n';
 
@@ -37,4 +37,12 @@ test('a message names the files and, for Markdown, up to three changed sections'
     { path: 'a.md', before: doc, after: doc.replace('old', 'new') },
     { path: 'img/b.png', before: null, after: '' },
   ])).toBe('Edit Introduction in a.md; add img/b.png');
+});
+
+test('a template fills in what changed, the files and the date; an empty one gives the description', () => {
+  const changes = [{ path: 'notes.md', before: 'a\n', after: 'b\n' }, { path: 'todo.md', before: null, after: '' }];
+  const day = new Date(2026, 9, 24);
+  expect(fillTemplate('{changes}', changes, day)).toBe('Edit notes.md; add todo.md');
+  expect(fillTemplate('Notes {date}: {files}', changes, day)).toBe('Notes 2026-10-24: notes.md, todo.md');
+  expect(fillTemplate('  ', changes, day)).toBe('Edit notes.md; add todo.md');
 });

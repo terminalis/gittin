@@ -1,5 +1,5 @@
 import { button, el, fileDialog, iconButton, markUnsaved, unreadable } from './dom';
-import { basename, dirname, join } from '../sources/paths';
+import { basename, dirname, imageType, join } from '../sources/paths';
 import { findFiles } from '../sources/search';
 import type { FileSource, TreeEntry } from '../sources/types';
 import { moveDialog, nameDialog, renameDialog, row } from './file-actions';
@@ -18,7 +18,7 @@ export interface FolderPanelOptions {
   /** Resolves with a failure reason to show, or null once the folder exists. */
   createFolder?(path: string): Promise<string | null>;
   /** Rename or move a file; resolves with a failure reason, or null. Rows get a ⋯ menu only when
-   * `move` and `remove` are given. */
+   * `move`, `remove` and `createFolder` are given. */
   move?(from: string, to: string): Promise<string | null>;
   /** Delete a file or folder; the caller asks first. */
   remove?(path: string, kind: TreeEntry['kind']): void;
@@ -28,9 +28,9 @@ export interface FolderPanelOptions {
   signal: AbortSignal;
 }
 export function renderFolderPanel(panel: HTMLElement, o: FolderPanelOptions) {
-  const label = o.label ?? 'Folder';
-  const heading = el('h2', { textContent: label, title: label });
-  const header = el('div', { className: 'folder-header' }, heading);
+  // "Current Folder" heads the panel as "Open Files" heads the Files panel; the folder's name and its buttons follow.
+  const header = el('div', { className: 'folder-header' }, el('h2', { textContent: 'Current Folder' }));
+  if (o.label) header.append(el('p', { className: 'folder-name', textContent: o.label, title: o.label }));
   panel.replaceChildren(header);
   const source = o.source;
   if (!source) {
@@ -61,14 +61,19 @@ export function renderFolderPanel(panel: HTMLElement, o: FolderPanelOptions) {
   header.append(tools);
   const tree = el('ul', { className: 'folder-tree' });
   const results = el('div', { className: 'folder-tree' });
-  const manage = o.move && o.remove ? { move: o.move, remove: o.remove } : null;
+  const manage = o.move && o.remove && o.createFolder
+    ? { move: o.move, remove: o.remove, createFolder: o.createFolder } : null;
   const menu = manage ? new PopupMenu('File actions', 'folder-row-menu', { alignEnd: true }) : null;
   if (menu) o.signal.addEventListener('abort', () => menu.dispose(), { once: true });
   /** The ⋯ menu's items for a row. */
   const menuItems = (path: string, kind: TreeEntry['kind']): [string, () => void][] =>
     !manage ? [] : kind === 'file' ? [
       ['Rename…', () => renameDialog(path, manage.move)],
-      ['Move to…', () => moveDialog(source, path, manage.move)],
+      ['Move to…', () => moveDialog(source, path, manage.move, async folder => {
+        const reason = await manage.createFolder(folder);
+        if (reason === null) refresh();
+        return reason;
+      })],
       ['Delete…', () => manage.remove(path, 'file')],
     ] : [['Delete…', () => manage.remove(path, 'directory')]];
   const more = (item: HTMLElement, path: string, kind: TreeEntry['kind']) => {
@@ -149,7 +154,7 @@ const ancestors = (path: string) =>
 /** Choose a file from a just-opened folder. */
 export function openFolderDialog(source: FileSource, open: (path: string) => Promise<string | null>) {
   const controller = new AbortController();
-  fileDialog(source.label, (body, close) => {
+  fileDialog(`Open a file in ${source.label}`, (body, close) => {
     body.classList.add('folder-chooser');
     renderFolderPanel(body, {
       source, label: source.label, current: null, unavailable: null,
@@ -159,12 +164,14 @@ export function openFolderDialog(source: FileSource, open: (path: string) => Pro
     body.querySelector('.folder-header')?.remove();
   }, { onClose: () => controller.abort() });
 }
-/** Insert › Image › From folder…: pick an image and insert its path relative to `current`. */
+/** Insert › Image › From folder…: the folder's images as thumbnails under their folders' names, with a search once
+ * there are many; picking one inserts its path relative to `current`. `thumbnail` gives an image's address. */
 export function imageFromFolderDialog(
   source: FileSource,
   current: string,
   insert: (path: string) => void,
-  relative: (from: string, to: string) => string
+  relative: (from: string, to: string) => string,
+  thumbnail: (reference: string) => Promise<string | null>
 ) {
   fileDialog('Image from folder', async (body, close) => {
     const text = el('p', { textContent: 'Looking for images…' });
@@ -173,14 +180,32 @@ export function imageFromFolderDialog(
     try { found = await findFiles(source, ''); }
     catch (error) { text.textContent = unreadable(error); return; }
     const { paths, limited } = found;
-    const images = paths.filter(path => /\.(png|jpe?g|gif|svg|webp|avif)$/i.test(path));
+    const images = paths.filter(path => imageType(path));
     text.textContent = !images.length ? 'No images in this folder.'
       : limited ? 'Showing images from the first 20,000 files.' : '';
-    const list = el('div', { className: 'folder-tree' });
-    for (const path of images) {
-      const rel = relative(current, path);
-      list.append(row(button('', () => { close(); insert(rel); }), ['photo'], rel));
+    const groups = el('div', { className: 'image-groups' });
+    const draw = (query: string) => {
+      const shown = images.filter(path => path.toLowerCase().includes(query.toLowerCase()));
+      groups.replaceChildren(...[...new Set(shown.map(dirname))].flatMap(folder => {
+        const grid = el('div', { className: 'image-grid' });
+        for (const path of shown.filter(image => dirname(image) === folder)) {
+          const reference = relative(current, path), picture = el('img', { alt: '' });
+          void thumbnail(reference).then(url => { if (url) picture.src = url; });
+          const choice = button('', () => { close(); insert(reference); }, 'image-choice');
+          choice.append(picture, el('span', { textContent: basename(path) }));
+          choice.setAttribute('aria-label', reference);
+          choice.title = reference;
+          grid.append(choice);
+        }
+        return [el('h3', { textContent: folder || source.label }), grid];
+      }));
+    };
+    if (images.length > 24) {
+      const search = el('input', { type: 'search', placeholder: 'Find an image…', ariaLabel: 'Find an image' });
+      search.oninput = () => draw(search.value);
+      body.append(search);
     }
-    body.append(list);
-  });
+    body.append(groups);
+    draw('');
+  }, { className: 'image-dialog' });
 }

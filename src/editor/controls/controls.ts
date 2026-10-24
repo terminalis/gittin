@@ -227,9 +227,9 @@ export class EditorControls {
     const dialog = dialogs[command];
     if (dialog) this.openInsert(dialog); else this.controller.execute(command);
   }
-  openInsert(kind:string,id?:string) {
+  openInsert(kind:string) {
     if (kind === 'folderImage') { this.onFolderImage?.(); return; }
-    this.closeMenus();this.inserts.open(kind,id);}
+    this.closeMenus();this.inserts.open(kind);}
   refresh() {
     for (const [id, button] of this.buttons) {
       if (id === 'find') continue;
