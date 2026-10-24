@@ -41,10 +41,9 @@ const leftOutReasons = {
 };
 export function outcomeText(place: Place, outcome: Outcome): string {
   if (outcome.kind === 'refused') return `Saved, but not committed to ${place.name}: ${reasons[outcome.reason]}.`;
-  let text = outcome.kind === 'committed' ? `Saved and committed to ${place.name}.` : 'Saved. Nothing new to commit.';
-  if (outcome.kind === 'committed' && outcome.hooks) text += ' Its git hooks did not run.';
-  for (const { path, reason } of outcome.leftOut) text += ` Not committed: ${path}, ${leftOutReasons[reason]}.`;
-  return text;
+  const parts = outcome.kind === 'committed' && outcome.hooks ? [`${place.name}'s git hooks did not run.`] : [];
+  for (const { path, reason } of outcome.leftOut) parts.push(`Not committed: ${path}, ${leftOutReasons[reason]}.`);
+  return parts.join(' ');
 }
 
 /** Asks once for the name and email to use whenever git has none, and keeps them; null when the writer cancels. */

@@ -573,7 +573,8 @@ async function writeFile(doc: OpenDocument, saveAs: boolean, overwrite = false):
     const later = doc.session.current.revision === version.revision ? '' : ' Later edits are not saved yet.';
     const unrecorded = stored ? ''
       : ` The saved state could not be recorded in ${place}; use the device status actions.`;
-    report(doc, `${picker ? 'Saved as' : 'Saved to'} ${basename(target.path)}.${later}${unrecorded}`);
+    // A good save shows in the save state alone; the report is for what needs attention.
+    report(doc, `${later}${unrecorded}`.trim());
     if (picker && workspace?.document === doc) { await rebuild(); refocus(); }
     if (picker && target.source instanceof FolderSource)
       await extensions.changed?.(target.source, { kind: 'add', path: target.path }).catch(notice);

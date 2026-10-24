@@ -29,7 +29,8 @@ export interface Extensions {
   folder?(source: FolderSource, panel: HTMLElement): void;
   /** Adds to Home: `header` is its header, `actions` the row of New file, Open file and Open folder. */
   home?(header: HTMLElement, actions: HTMLElement): void;
-  /** Adds to a document's workspace: `header` holds the header's buttons, `footer` the status footer's items. */
+  /** Adds to a document's workspace: `header` holds the header's buttons, `footer` the status footer's middle, after
+   * the save state. */
   workspace?(doc: OpenDocument, header: HTMLElement, footer: HTMLElement): void;
   /** More commands for a document's menus. */
   commands?(doc: OpenDocument): Action[];

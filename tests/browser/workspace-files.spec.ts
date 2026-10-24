@@ -138,7 +138,7 @@ test('save completion captures the baseline, later typing stays unsaved, Save as
   await expect.poll(async () => (await savedDraft(page))?.localBaseline?.source).toBe('captured');
   expect((await savedDraft(page)).current.source).toBe('later');
   await command(page, 'Save as…');
-  await expect(page.locator('#file-status')).toContainText('Saved as');
+  await expect(page.locator('#file-status')).toBeHidden();
   await expect.poll(async () => (await savedDraft(page))?.localBaseline?.source).toBe('later');
   await editor(page).click();
   await editor(page).press('ControlOrMeta+a');

@@ -376,7 +376,19 @@ test('status bar shows the caret line and column in Edit only', async ({ page })
   await expect(page.locator('#caret-status')).toHaveText('Ln 2, Col 12');
   await page.getByRole('button', { name: 'Preview', exact: true }).click();
   await expect(page.locator('#caret-status')).toBeHidden();
-  await expect(page.locator('#view-status')).toHaveText('Preview · read-only');
+  await expect(page.locator('#view-status')).toHaveCount(0);
+});
+
+test('the status footer shows the file on the left, its save state in the middle and only Focus as a button', async ({ page }) => {
+  await openText(page, 'first\nsecond line\n');
+  await expectDraftSaved(page);
+  await expect(page.locator('#file-type')).toHaveText('Markdown');
+  await expect(page.locator('#file-stats')).toHaveText('18 characters');
+  await expect(page.locator('#view-status')).toHaveCount(0);
+  const footer = (await page.locator('.editor-footer').boundingBox())!;
+  const state = (await page.locator('.editor-state').boundingBox())!;
+  expect(Math.abs(state.x + state.width / 2 - (footer.x + footer.width / 2))).toBeLessThan(2);
+  await expect(page.locator('.editor-footer button')).toHaveCount(1);
 });
 
 test('Focus mode keeps the typing line centred', async ({ page }) => {

@@ -87,7 +87,7 @@ test('live statistics save with OK, update while typing, persist and discard can
   await createFile(page);
   await editor(page).pressSequentially('one');
   const stats = page.locator('#file-stats');
-  await expect(stats).toBeHidden();
+  await expect(stats).toHaveText('3 characters');
   await command(page, 'File statistics…');
   let d = dialog(page, 'File statistics');
   await expect(
@@ -95,30 +95,30 @@ test('live statistics save with OK, update while typing, persist and discard can
   ).not.toBeChecked();
   await d.getByRole('checkbox').check();
   await d.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await expect(stats).toBeHidden();
+  await expect(stats).toHaveText('3 characters');
   await command(page, 'File statistics…');
   d = dialog(page, 'File statistics');
   await expect(d.getByRole('checkbox')).not.toBeChecked();
   await d.getByRole('checkbox').check();
   await page.keyboard.press('Escape');
   await expect(d).toHaveCount(0);
-  await expect(stats).toBeHidden();
+  await expect(stats).toHaveText('3 characters');
   await command(page, 'File statistics…');
   d = dialog(page, 'File statistics');
   await expect(d.getByRole('checkbox')).not.toBeChecked();
   await d.getByRole('checkbox').check();
   await d.getByRole('button', { name: 'OK', exact: true }).click();
   await expect(stats).toBeVisible();
-  await expect(stats).toHaveText('1 words · 3 characters · 1 lines · 3 bytes');
+  await expect(stats).toHaveText('1 word · 3 characters · 1 line · 3 bytes');
   await editor(page).press('ControlOrMeta+End');
   await editor(page).pressSequentially(' two');
-  await expect(stats).toHaveText('2 words · 7 characters · 1 lines · 7 bytes');
+  await expect(stats).toHaveText('2 words · 7 characters · 1 line · 7 bytes');
   // The status can read "saved" from before the typing; wait for the stored text and choice.
   await expect.poll(async () => (await savedDraft(page))?.current.source).toBe('one two');
   await expect.poll(async () => (await savedPreferences(page)).showStatsWhileTyping).toBe(true);
   await page.reload();
   await expect(stats).toBeVisible();
-  await expect(stats).toHaveText('2 words · 7 characters · 1 lines · 7 bytes');
+  await expect(stats).toHaveText('2 words · 7 characters · 1 line · 7 bytes');
   await page.setViewportSize({ width: 390, height: 844 });
   await command(page, 'File statistics…');
   d = dialog(page, 'File statistics');
@@ -134,12 +134,12 @@ test('live statistics save with OK, update while typing, persist and discard can
   await expect(d.getByRole('checkbox')).toBeChecked();
   await d.getByRole('checkbox').uncheck();
   await d.getByRole('button', { name: 'OK', exact: true }).click();
-  await expect(stats).toBeHidden();
-  await expect(page.locator('#view-status')).toHaveText('Edit');
+  await expect(stats).toHaveText('7 characters');
+  await expect(page.locator('#file-type')).toHaveText('Markdown');
   await expect.poll(async () => (await savedPreferences(page)).showStatsWhileTyping).toBe(false);
   await page.reload();
   await expect(editor(page)).toBeVisible();
-  await expect(stats).toBeHidden();
+  await expect(stats).toHaveText('7 characters');
   expect(await bytes(page)).toEqual(Buffer.from('one two'));
 });
 

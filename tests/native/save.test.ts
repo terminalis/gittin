@@ -52,7 +52,7 @@ test('saving a repository file writes it and commits it with the message from th
   expect(shown[0][0].message).toBe('Edit Intro in notes.md');
   expect(t.write).toHaveBeenCalledWith(notes);
   expect(commits).toEqual([['/work', ['notes.md'], 'My words']]);
-  expect(t.report).toHaveBeenCalledWith(notes, 'Saved and committed to work.');
+  expect(t.report).toHaveBeenCalledWith(notes, '');
 });
 
 test('an emptied message falls back to the described one, and added images go with the next save', async () => {
@@ -68,7 +68,7 @@ test('when git has no author, Gittin asks once and commits again with the answer
   const t = tools();
   await saveAll([doc(work.id, 'notes.md', 'x', 'y')], 'save', t);
   expect(commits).toHaveLength(2);
-  expect(t.report).toHaveBeenCalledWith(expect.anything(), 'Saved and committed to work.');
+  expect(t.report).toHaveBeenCalledWith(expect.anything(), '');
 });
 
 test('quitting asks about repository and other files together; Don\'t save writes nothing', async () => {
@@ -88,7 +88,7 @@ test("a workflow file this sign-in can't change is written but left out of the c
   expect(shown[0][0].workflow).toEqual(['.github/workflows/ci.yml']);
   expect(t.write).toHaveBeenCalledWith(workflow);
   expect(commits).toEqual([['/work', ['notes.md'], 'Edit']]);
-  expect(t.report).toHaveBeenCalledWith(workflow, 'Saved and committed to work. Not committed: '
+  expect(t.report).toHaveBeenCalledWith(workflow, 'Not committed: '
     + '.github/workflows/ci.yml, a workflow file, which GitHub takes only from a sign-in that allows workflow changes.');
 });
 
@@ -98,7 +98,7 @@ test('a save of only workflow files left out makes no commit', async () => {
   const workflow = doc(work.id, '.github/workflows/ci.yml', 'a', 'b');
   await saveAll([workflow], 'save', t);
   expect(commits).toEqual([]);
-  expect(t.report).toHaveBeenCalledWith(workflow, 'Saved. Nothing new to commit. Not committed: '
+  expect(t.report).toHaveBeenCalledWith(workflow, 'Not committed: '
     + '.github/workflows/ci.yml, a workflow file, which GitHub takes only from a sign-in that allows workflow changes.');
 });
 
@@ -166,13 +166,14 @@ test('a move out of a repository commits the removal there', async () => {
   expect(commits).toEqual([['/both/notes', ['a.md'], 'Delete a.md']]);
 });
 
-test('the outcome says what happened', () => {
+test('the outcome says only what needs attention', () => {
   const place = { root: '/work', name: 'work', path: 'a.md' };
+  expect(outcomeText(place, { kind: 'committed', hooks: false, leftOut: [] })).toBe('');
+  expect(outcomeText(place, { kind: 'unchanged', leftOut: [] })).toBe('');
   expect(outcomeText(place, { kind: 'committed', hooks: true, leftOut: [{ path: 'a.png', reason: 'lfs' }] }))
-    .toBe('Saved and committed to work. Its git hooks did not run. Not committed: a.png, stored in Git LFS; commit it with git.');
-  expect(outcomeText(place, { kind: 'unchanged', leftOut: [] })).toBe('Saved. Nothing new to commit.');
+    .toBe("work's git hooks did not run. Not committed: a.png, stored in Git LFS; commit it with git.");
   expect(outcomeText(place, { kind: 'unchanged', leftOut: [{ path: 'secret.md', reason: 'filter' }] }))
-    .toBe('Saved. Nothing new to commit. Not committed: secret.md, which git converts as it commits; commit it with git.');
+    .toBe('Not committed: secret.md, which git converts as it commits; commit it with git.');
   expect(outcomeText(place, { kind: 'refused', reason: 'signs' }))
     .toBe("Saved, but not committed to work: it signs its commits, which Gittin can't do, so commit with git.");
 });

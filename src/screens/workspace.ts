@@ -6,7 +6,7 @@ import {
 import { workspaceHelpDialog, gettingStarted, whatsNew, keyboardShortcuts } from '../ui/help';
 import { defaultDisplay, type DisplaySettings } from '../editor/display';
 import { headingAnchors } from '../editor/heading-anchors';
-import { fileTypes, fileTypeForName, type FileType } from '../documents/file-types';
+import { fileDescriptor, fileTypes, fileTypeForName, type FileType } from '../documents/file-types';
 import { GittinController } from '../editor/controller';
 import { openPreferences } from '../ui/preferences-dialog';
 import { keysFor, pressed, shortcutHint, shortcuts } from '../ui/shortcuts';
@@ -105,7 +105,7 @@ export class Workspace {
   private menus: Menus;
   private subscriptions: (() => void)[] = [];
   private abort = new AbortController();
-  private outlineTimer?: ReturnType<typeof setTimeout>;
+  private pauseTimer?: ReturnType<typeof setTimeout>;
   private left = !narrow.matches;
   private right = this.left;
   private focus = false;
@@ -141,7 +141,7 @@ export class Workspace {
     this.menus = new Menus(commands, chosen);
     this.menus.element.id = 'workspace-menus';
     this.part('.document-identity').append(this.menus.element);
-    extensions.workspace?.(doc, this.part('.workspace-header-actions'), this.part('.editor-status'));
+    extensions.workspace?.(doc, this.part('.workspace-header-actions'), this.part('.editor-state'));
     this.subscriptions.push(
       // A tap outside the header closes the phone menu row, as menus and drawers already dismiss.
       onDocumentClick([this.part('.workspace-header')], () => this.showPhoneMenus(false)),
@@ -161,9 +161,10 @@ export class Workspace {
     doc.session.endGroup();
     this.renderDocuments();
     this.update();
-    // The outline waits for typing to pause; a file that has just opened shows its outline at once.
-    clearTimeout(this.outlineTimer);
+    // The outline and the counts wait for typing to pause; a file that has just opened shows them at once.
+    clearTimeout(this.pauseTimer);
     this.updateOutline();
+    this.updateStatistics();
     this.layout();
     window.addEventListener('keydown', e => this.onKeyDown(e), { signal: this.abort.signal });
   }
@@ -229,14 +230,16 @@ export class Workspace {
       el('h2', { textContent: 'Open Files' }), el('div', { id: 'open-documents' }),
       el('h2', { textContent: 'Outline' }),
       el('nav', { id: 'outline', ariaLabel: 'Document outline' }));
+    // Status only, with Focus its one button: the file on the left, its save state in the middle, and what needs
+    // attention on the right.
     const status = el('div', { className: 'editor-status' },
-      el('span', { id: 'file-stats', hidden: true }), el('span', { id: 'caret-status', hidden: true }),
-      el('span', { id: 'save-state' }), el('span', { id: 'view-status' }),
-      el('span', { id: 'file-status', role: 'status' }));
+      el('span', { id: 'file-type' }), el('span', { id: 'caret-status', hidden: true }), el('span', { id: 'file-stats' }));
+    const state = el('div', { className: 'editor-state' }, el('span', { id: 'save-state' }));
     const focus = Object.assign(button('', () => this.toggle('focus')), { id: 'focus-toggle' });
+    const report = el('div', { className: 'editor-report' }, el('span', { id: 'file-status', role: 'status' }), focus);
     const column = el('main', { className: 'writing-column' },
       el('div', { id: 'access-bar', hidden: true }), el('div', { id: 'disk-change-host' }),
-      el('div', { id: 'editor' }), el('footer', { className: 'editor-footer' }, status, focus));
+      el('div', { id: 'editor' }), el('footer', { className: 'editor-footer' }, status, state, report));
     const body = el('div', { className: 'workspace-body' }, documents, column,
       el('aside', { id: 'repository-panel', ariaLabel: 'Folder' }));
     // On narrow screens the dimmed area behind an open drawer is .workspace-body's own ::after overlay.
@@ -588,12 +591,10 @@ export class Workspace {
       b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
     if (mode === 'preview') this.updatePreviewTooltip();
     this.controls.refresh();
-    this.updateStatistics();
     this.updateCaret();
-    this.part('#view-status').textContent =
-      modeNames[mode] + (mode === 'markdown' ? '' : ' · read-only');
-    clearTimeout(this.outlineTimer);
-    this.outlineTimer = setTimeout(() => this.updateOutline(), 150);
+    this.part('#file-type').textContent = fileDescriptor(this.document.fileType)?.label ?? 'Text';
+    clearTimeout(this.pauseTimer);
+    this.pauseTimer = setTimeout(() => { this.updateOutline(); this.updateStatistics(); }, 150);
     const current = this.document.fileStatusRevision === this.document.session.current.revision;
     this.part('#file-status').textContent = current ? this.document.fileStatus : '';
     this.updateSaveState();
@@ -610,12 +611,12 @@ export class Workspace {
     for (const row of rows) markUnsaved(row, unsaved(doc));
   }
   private updateStatistics() {
-    const output = this.part('#file-stats');
-    output.hidden = !this.prefs.value.showStatsWhileTyping;
-    if (output.hidden) return;
     const stats = fileStatistics(this.document.session.current.source);
-    output.textContent = `${stats.words} words · ${stats.characters} characters · `
-      + `${stats.lines} lines · ${stats.bytes} bytes`;
+    const count = (n: number, noun: string) => `${n.toLocaleString('en-GB')} ${noun}${n === 1 ? '' : 's'}`;
+    this.part('#file-stats').textContent = this.prefs.value.showStatsWhileTyping
+      ? [count(stats.words, 'word'), count(stats.characters, 'character'), count(stats.lines, 'line'),
+        count(stats.bytes, 'byte')].join(' · ')
+      : count(stats.characters, 'character');
   }
   private updateCaret() {
     const caret = this.controller.caretPosition();
@@ -727,7 +728,7 @@ export class Workspace {
   dispose() {
     document.querySelector('#print-file')?.remove();
     this.document.scrollTop = this.part('.writing-column').scrollTop;
-    clearTimeout(this.outlineTimer);
+    clearTimeout(this.pauseTimer);
     this.abort.abort();
     this.subscriptions.forEach((fn) => fn());
     this.find.dispose();

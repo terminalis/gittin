@@ -1920,9 +1920,11 @@ label.home-option {
   position: sticky;
   bottom: 0;
   z-index: 2;
-  display: flex;
+  display: grid;
+  /* Equal sides keep the save state at the middle, whatever each side holds. */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
+  gap: 4px 16px;
   margin: 0 20px;
   padding: 8px 0;
   border-top: 1px solid var(--line);
@@ -1935,11 +1937,21 @@ label.home-option {
   padding: 4px 8px;
   font-size: 13px;
 }
-.editor-status {
+.editor-status,
+.editor-state {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 16px;
   min-width: 0;
+}
+/* A problem wraps beside Focus rather than being cut short. */
+.editor-report {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  min-width: 0;
+  text-align: end;
 }
 .editor-footer #focus-toggle {
   flex-shrink: 0;
@@ -2577,6 +2589,14 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
 @media (max-width: 600px) {
   .workspace-tools .panel-label {
     display: none;
+  }
+  /* The footer's three groups take a row each, in order. */
+  .editor-footer {
+    grid-template-columns: 1fr;
+  }
+  .editor-report {
+    justify-content: space-between;
+    text-align: start;
   }
   #menus-toggle {
     display: inline-flex;
