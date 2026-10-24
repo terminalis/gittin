@@ -74,10 +74,33 @@
   font: 600 28px/1.2 var(--font-secondary);
   letter-spacing: 0.08em;
 }
-/* Clone: the account's repositories, scrolling under their filter. */
+/* Clone: the account's repositories in a bordered area, which signed out is one row offering the sign-in, and signed in
+   keeps the list's height from the start, the list scrolling under its filter. */
+.clone-repositories {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.clone-repositories > p {
+  flex: 1;
+  margin: 0;
+}
+.clone-repositories.listing {
+  flex-direction: column;
+  align-items: stretch;
+  height: 300px;
+}
+.clone-repositories.listing > label {
+  margin: 0;
+}
 .clone-list {
-  max-height: 240px;
-  margin: 4px 0 12px;
+  flex: 1;
+  min-height: 0;
+  margin: 0;
   padding: 0;
   overflow: auto;
   list-style: none;
@@ -86,11 +109,8 @@
   width: 100%;
   text-align: start;
 }
-.clone-folder {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+.clone-dialog [role=status]:empty {
+  display: none;
 }
 /* The status footer's word on GitHub, and the Folder panel's count of edited files not there yet. */
 .github-status:empty {

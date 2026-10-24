@@ -1,5 +1,6 @@
 // Clone repository: from an HTTPS address, or one of the signed-in account's repositories, into a new folder named
-// after it inside a folder the writer picks. The clone then opens as a folder, on the repository's default branch.
+// after it inside a folder the writer picks with Clone…, starting where they last cloned. The clone then opens as a
+// folder, on the repository's default branch.
 import { open } from '@tauri-apps/plugin-dialog';
 import { openFolderHandle } from '../app';
 import { button, el, field, fileDialog, notice, textField } from '../ui/dom';
@@ -14,6 +15,10 @@ const stepText = (step: Step) =>
   step.phase === 'receiving' ? `Downloading… ${percent(step)}` : `Writing files… ${percent(step)}`;
 const named = (paths: string[]) =>
   paths.length <= 5 ? paths.join(', ') : `${paths.slice(0, 5).join(', ')} and ${paths.length - 5} more`;
+// The Rust side refuses these too (git::check_address), in the same words.
+const httpsOnly = 'Gittin clones from https:// addresses. On GitHub, copy the HTTPS address from the Code button.';
+const lastFolderKey = 'gittin-clone-folder';
+const lastFolder = () => { try { return localStorage.getItem(lastFolderKey) ?? undefined; } catch { return undefined; } };
 
 /** Home's Clone repository, beside Open file and Open folder. */
 export function cloneButton(actions: HTMLElement) {
@@ -29,28 +34,23 @@ export function openClone() {
     const address = textField(body, 'Repository address',
       { type: 'text', placeholder: 'https://github.com/owner/repository', required: true, autocomplete: 'off' });
     const yours = el('div', { className: 'clone-repositories' });
-    const place = el('p', { textContent: 'Choose the folder to clone into.' });
     const status = el('p', { role: 'status' });
-    let folder: string | null = null;
-    const pick = async () => {
-      const path = await open({ directory: true, recursive: true });
-      if (typeof path !== 'string') return;
-      folder = path;
-      place.textContent = `Clones into a new folder in ${path}.`;
-    };
-    const choose = button('Choose folder…', () => void pick());
-    body.append(yours, el('div', { className: 'clone-folder' }, place, choose), status);
-    const start = button('Clone', () => void run(), 'primary');
+    body.append(yours, status);
+    const start = button('Clone…', () => void run(), 'primary');
     footer.append(start);
     const run = async () => {
       address.value = address.value.trim();
       if (!address.reportValidity()) return;
-      if (!folder) { status.textContent = 'Choose the folder to clone into.'; return; }
-      start.disabled = cloning = true;
+      if (!address.value.startsWith('https://')) { status.textContent = httpsOnly; return; }
+      status.textContent = '';
+      start.disabled = true;
+      const folder = await open({ directory: true, recursive: true, defaultPath: lastFolder(), title: 'Clone into' });
+      if (typeof folder !== 'string') { start.disabled = false; return; }
+      cloning = true;
       status.textContent = 'Starting…';
       let cloned: Cloned | null = null;
       try {
-        cloned = await signedIn(() => github.clone(address.value, folder!, step => { status.textContent = stepText(step); }));
+        cloned = await signedIn(() => github.clone(address.value, folder, step => { status.textContent = stepText(step); }));
         if (!cloned) status.textContent = '';
       } catch (error) {
         if (cloning) status.textContent = isFailure(error) && error.kind === 'offline'
@@ -61,14 +61,15 @@ export function openClone() {
       const cancelled = !cloning;
       start.disabled = cloning = false;
       if (cancelled || !cloned) return;
+      try { localStorage.setItem(lastFolderKey, folder); } catch {}
       close();
       await openFolderHandle(new DesktopDirectoryHandle(cloned.folder));
       if (cloned.filtered.length)
         notice(`These files arrived in their stored form, because git converts them with a filter Gittin can't run, `
           + `such as Git LFS: ${named(cloned.filtered)}.`);
     };
-    address.onkeydown = event => { if (event.key === 'Enter' && !cloning) { event.preventDefault(); void run(); } };
-    void showRepositories(yours, url => { address.value = url; choose.focus(); });
+    address.onkeydown = event => { if (event.key === 'Enter' && !start.disabled) { event.preventDefault(); void run(); } };
+    void showRepositories(yours, url => { address.value = url; start.focus(); });
   }, {
     closeLabel: 'Cancel', className: 'clone-dialog',
     onClose: () => { if (cloning) { cloning = false; void github.cancelClone(); } },
@@ -80,10 +81,13 @@ async function showRepositories(host: HTMLElement, picked: (url: string) => void
   const account = await github.account().catch(() => null);
   if (!host.isConnected) return;
   if (!account) {
+    host.classList.remove('listing');
     host.replaceChildren(el('p', { textContent: 'Sign in to GitHub to pick one of your repositories.' }),
       button('Sign in to GitHub…', () => void signIn().then(signed => signed && showRepositories(host, picked))));
     return;
   }
+  // The area takes the list's height before the list arrives, so its arrival moves nothing.
+  host.classList.add('listing');
   host.replaceChildren(el('p', { textContent: 'Loading your repositories…' }));
   let all: Listed[] | null;
   try {
