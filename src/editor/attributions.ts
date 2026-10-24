@@ -15,7 +15,7 @@ export function attributionText(data: Attribution, format: AttributionFormat, ty
   const values = Object.values(data);
   if (values.some(v => /[\u0000-\u001f]/.test(v))) throw Error('Use single-line metadata.');
   const project = data.project.trim(), author = data.author.trim(), url = data.url.trim();
-  if (!project) throw Error('Enter a project or work title.');
+  if (!project && format !== 'spdx') throw Error('Enter the title of the work.');
   if (url && (!safeURL(url) || !/^https?:\/\//i.test(url) || /[\s<>]/.test(url)))
     throw Error('Source URL must be an HTTP or HTTPS URL.');
   if (url) { try { new URL(url); } catch { throw Error('Enter a valid source URL.'); } }

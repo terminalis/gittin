@@ -9,7 +9,7 @@ import { syntaxSpans } from '../editor/source-language';
 import { headingAnchors } from '../editor/heading-anchors';
 import { fragment } from '../sources/paths';
 import {
-  button, checkbox, copyText, dropDown, el, errorText, fileDialog, listRow, notice, textField,
+  button, checkbox, choiceRow, copyText, dropDown, el, errorText, fileDialog, listRow, notice, textField,
 } from './dom';
 export function fileStatistics(source: string) {
   return {
@@ -166,71 +166,107 @@ export function openResources(controller: GittinController, source: string, fold
     body.append(resources.length ? list : paragraph('No supported links or images in this file.'));
   }, { info: true });
 }
-const formats: AttributionFormat[] = ['markdown', 'comment', 'spdx', 'cff'];
+/** What Attributions makes: its format, its name, what it is, and its button. */
+const kinds: { format: AttributionFormat; name: string; what: string; action: string }[] = [
+  { format: 'markdown', name: 'Credit line',
+    what: 'A line naming the work, who made it, where it comes from and its licence.', action: 'Insert' },
+  { format: 'comment', name: 'Code comment', what: "The same credit as a comment in this file's language.",
+    action: 'Insert' },
+  { format: 'spdx', name: 'Licence header', what: 'SPDX copyright and licence lines, as a comment.',
+    action: 'Insert' },
+  { format: 'cff', name: 'Citation file', what: 'A CITATION.cff file, opened as a new file.',
+    action: 'Create CITATION.cff' },
+];
+const blank: Attribution = { project: '', author: '', authorKind: 'entity', given: '', family: '', url: '',
+  licence: '', copyright: '', modifications: '' };
+/** Tools › Attributions…: first what to make, then only that kind's fields, its preview and its button. */
 export function openAttributions(controller: GittinController,
   create: (source: string, title: string) => void) {
   if (!controller.isEditable()) return;
   const context = controller.captureSourceContext();
+  // What was typed, by field, kept when Back leads to another kind.
+  const typed = new Map<string, string>();
   fileDialog('Attributions', (body, close, footer) => {
-    body.append(paragraph('Formats supplied information only. Review before applying. This does not '
-      + 'select a licence, replace existing notices, install licence texts or validate compliance.'));
-    const format = dropDown(body, 'Output format',
-      ['Markdown credit', 'Source comment', 'SPDX/REUSE header', 'CITATION.cff']);
-    const project = textField(body, 'Project or work title');
-    const author = textField(body, 'Author / project or organisation name');
-    const kind = dropDown(body, 'CFF author kind', ['Person', 'Project or organisation']);
-    const given = textField(body, 'CFF given names (optional)');
-    const family = textField(body, 'CFF family names');
-    const url = textField(body, 'Source URL (optional)');
-    const licence = textField(body, 'Licence information / SPDX expression');
-    const copyright = textField(body, 'Copyright text and years (SPDX)');
-    const modifications = textField(body, 'Modifications (optional)');
-    const output = preview(''), error = el('p', { role: 'alert' });
-    let generated = '';
-    const stale = 'Source, mode or selection changed. Reopen Attributions.';
-    const changed = () => { error.textContent = stale; };
-    const apply = button('Insert at cursor', () => {
-      refresh();
-      if (!generated) return;
-      if (format.value === 'CITATION.cff') {
-        if (!context.valid()) return changed();
-        close();
-        create(generated, 'CITATION.cff');
-        return;
-      }
-      const inserted = context.apply((source, selection) => {
-        const text = generated.replace(/\n/g, newlineStyle(source)), at = selection.head;
-        const end = at + text.length;
-        return { source: source.slice(0, at) + text + source.slice(at),
-          selection: { anchor: end, head: end } };
-      });
-      if (inserted) close();
-      else changed();
-    }, 'primary');
-    const refresh = () => {
-      generated = '';
-      error.textContent = '';
-      const cff = format.value === 'CITATION.cff';
-      apply.textContent = cff ? 'Create local CITATION.cff' : 'Insert at cursor';
-      try {
-        const data: Attribution = { project: project.value, author: author.value,
-          authorKind: kind.value === 'Person' ? 'person' : 'entity', given: given.value,
-          family: family.value, url: url.value, licence: licence.value, copyright: copyright.value,
-          modifications: modifications.value };
-        generated = attributionText(data, formats[format.selectedIndex], context.type);
-        output.textContent = generated;
-        apply.disabled = false;
-      } catch (e) {
-        output.textContent = '';
-        error.textContent = errorText(e);
-        apply.disabled = true;
-      }
+    const choose = () => {
+      footer.querySelectorAll('.attribution-step').forEach(step => step.remove());
+      body.replaceChildren(paragraph('Gittin formats only what you enter. Check it before you use it.'),
+        ...kinds.map(kind => choiceRow(kind.name, kind.what, () => form(kind))));
+      body.querySelector('button')?.focus();
     };
-    footer.append(apply);
-    body.append(paragraph('CFF uses supplied person name fields or an entity name; freeform licence '
-      + 'information remains a YAML comment. The new YAML file opens in Edit and does not modify '
-      + 'other files.'), output, error);
-    body.querySelectorAll('input,select').forEach(input => input.addEventListener('input', refresh));
-    refresh();
+    const form = (kind: typeof kinds[number]) => {
+      const fields = el('div');
+      const entry = (label: string, placeholder = '') => {
+        const input = textField(fields, label, { type: 'text', placeholder, value: typed.get(label) ?? '' });
+        input.addEventListener('input', () => typed.set(label, input.value));
+        return input;
+      };
+      let data: () => Attribution;
+      if (kind.format === 'spdx') {
+        const copyright = entry('Copyright', '2026 Ada Lovelace');
+        const licence = entry('Licence (SPDX identifier)', 'MIT');
+        data = () => ({ ...blank, copyright: copyright.value, licence: licence.value });
+      } else if (kind.format === 'cff') {
+        const project = entry('Title of the work');
+        const who = dropDown(fields, 'The author is', ['A person', 'An organisation or project']);
+        const family = entry('Family name'), given = entry('Given names (optional)'), name = entry('Name');
+        const url = entry('Source address (optional)');
+        const licence = entry('Licence (optional, kept as a comment)'), changes = entry('Your changes (optional)');
+        const person = () => who.selectedIndex === 0;
+        const showWho = () => {
+          family.parentElement!.hidden = given.parentElement!.hidden = !person();
+          name.parentElement!.hidden = person();
+        };
+        who.addEventListener('input', showWho);
+        showWho();
+        data = () => ({ project: project.value, author: name.value, authorKind: person() ? 'person' : 'entity',
+          given: given.value, family: family.value, url: url.value, licence: licence.value, copyright: '',
+          modifications: changes.value });
+      } else {
+        const project = entry('Title of the work'), author = entry('Author (optional)');
+        const url = entry('Source address (optional)'), licence = entry('Licence (optional)');
+        const changes = entry('Your changes (optional)');
+        data = () => ({ ...blank, project: project.value, author: author.value, url: url.value,
+          licence: licence.value, modifications: changes.value });
+      }
+      const output = preview(''), error = el('p', { role: 'alert' });
+      let generated = '';
+      const changed = () => { error.textContent = 'Source, mode or selection changed. Reopen Attributions.'; };
+      const apply = button(kind.action, () => {
+        refresh();
+        if (!generated) return;
+        if (kind.format === 'cff') {
+          if (!context.valid()) return changed();
+          close();
+          create(generated, 'CITATION.cff');
+          return;
+        }
+        const inserted = context.apply((source, selection) => {
+          const text = generated.replace(/\n/g, newlineStyle(source)), at = selection.head;
+          const end = at + text.length;
+          return { source: source.slice(0, at) + text + source.slice(at), selection: { anchor: end, head: end } };
+        });
+        if (inserted) close();
+        else changed();
+      }, 'primary attribution-step');
+      const refresh = () => {
+        generated = '';
+        error.textContent = '';
+        try {
+          generated = attributionText(data(), kind.format, context.type);
+          output.textContent = generated;
+          apply.disabled = false;
+        } catch (e) {
+          output.textContent = '';
+          error.textContent = errorText(e);
+          apply.disabled = true;
+        }
+      };
+      footer.prepend(apply, button('Back', choose, 'attribution-step'));
+      body.replaceChildren(el('h3', { textContent: kind.name }), fields, output, error);
+      fields.querySelectorAll('input, select').forEach(input => input.addEventListener('input', refresh));
+      refresh();
+      fields.querySelector<HTMLElement>('input, select')?.focus();
+    };
+    choose();
   });
 }

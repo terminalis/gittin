@@ -97,6 +97,15 @@ export function listRow(...children: (Node | string)[]) {
   return el('li', { className: 'version-row' }, ...children);
 }
 
+/** A choice laid out as a row: its name in bold and, under it, what it does. */
+export function choiceRow(name: string, what: string, action: () => void, className = '') {
+  const row = button('', action, ('choice-row ' + className).trim());
+  row.append(el('strong', { textContent: name }), el('small', { textContent: what }));
+  row.setAttribute('aria-label', name);
+  row.setAttribute('aria-description', what);
+  return row;
+}
+
 export const errorText = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 

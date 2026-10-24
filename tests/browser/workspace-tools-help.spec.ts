@@ -25,14 +25,11 @@ const bytes = async (page: Page) => (await download(page, () => command(page, 'S
 const dialog = (page: Page, name: string) => page.getByRole('dialog', { name, exact: true });
 const close = (page: Page, name: string) =>
   dialog(page, name).getByRole('button', { name: 'Close', exact: true }).click();
-async function attribution(page: Page) {
+/** Opens Attributions and picks what to make. */
+async function attribution(page: Page, kind: string) {
   await command(page, 'Attributions…');
   const d = dialog(page, 'Attributions');
-  await d.getByLabel('Project or work title').fill('Supplied project');
-  await d.getByLabel('Author / project or organisation name').fill('Supplied Team');
-  await d.getByLabel('Source URL (optional)').fill('https://example.com/source');
-  await d.getByLabel('Licence information / SPDX expression').fill('MIT');
-  await d.getByLabel('Copyright text and years (SPDX)').fill('2026 Supplied Owner');
+  await d.getByRole('button', { name: kind, exact: true }).click();
   return d;
 }
 async function openFile(page: Page, text: string, name = 'source.md') {
@@ -173,27 +170,40 @@ test('resources list links and images, preserve relative references and navigate
   expect(requests).toEqual([]);
 });
 
-test('attribution previews all supplied outputs, inserts with one Undo and creates a local YAML CFF file', async ({
+test('attributions make a credit line, a comment or a licence header with one Undo, or a local CITATION.cff', async ({
   page,
 }) => {
   const original = '\ufefforiginal\r\ntail\n';
   await openFile(page, original);
   await editor(page).press('ControlOrMeta+End');
-  let d = await attribution(page);
+  let d = await attribution(page, 'Credit line');
+  await d.getByLabel('Title of the work', { exact: true }).fill('Supplied project');
+  await d.getByLabel('Author (optional)', { exact: true }).fill('Supplied Team');
+  await d.getByLabel('Source address (optional)', { exact: true }).fill('https://example.com/source');
+  await d.getByLabel('Licence (optional)', { exact: true }).fill('MIT');
   await expect(d.locator('pre')).toContainText('Credit: Supplied project by Supplied Team');
-  await d.getByLabel('Output format').selectOption('Source comment');
+  await d.getByRole('button', { name: 'Back', exact: true }).click();
+  await d.getByRole('button', { name: 'Code comment', exact: true }).click();
+  // What was typed stays for the next kind.
+  await expect(d.getByLabel('Title of the work', { exact: true })).toHaveValue('Supplied project');
   await expect(d.locator('pre')).toContainText('<!--');
-  await d.getByLabel('Output format').selectOption('SPDX/REUSE header');
+  await d.getByRole('button', { name: 'Back', exact: true }).click();
+  await d.getByRole('button', { name: 'Licence header', exact: true }).click();
+  await expect(d.getByLabel('Title of the work', { exact: true })).toHaveCount(0);
+  await d.getByLabel('Copyright', { exact: true }).fill('2026 Supplied Owner');
+  await d.getByLabel('Licence (SPDX identifier)', { exact: true }).fill('MIT');
   await expect(d.locator('pre')).toContainText('SPDX-License-Identifier: MIT');
-  await d.getByRole('button', { name: 'Insert at cursor' }).click();
+  await d.getByRole('button', { name: 'Insert', exact: true }).click();
   expect((await bytes(page)).toString()).toContain('SPDX-FileCopyrightText: 2026 Supplied Owner');
   await page.locator('[data-command=undo]').click();
   expect(await bytes(page)).toEqual(Buffer.from(original));
-  d = await attribution(page);
-  await d.getByLabel('Output format').selectOption('CITATION.cff');
-  await d.getByLabel('CFF author kind').selectOption('Project or organisation');
+  d = await attribution(page, 'Citation file');
+  await d.getByLabel('Title of the work', { exact: true }).fill('Supplied project');
+  await d.getByLabel('The author is', { exact: true }).selectOption('An organisation or project');
+  await expect(d.getByLabel('Family name', { exact: true })).toBeHidden();
+  await d.getByLabel('Name', { exact: true }).fill('Supplied Team');
   const expected = await d.locator('pre').textContent();
-  await d.getByRole('button', { name: 'Create local CITATION.cff' }).click();
+  await d.getByRole('button', { name: 'Create CITATION.cff', exact: true }).click();
   await expect(page.locator('#document-title')).toHaveText('CITATION.cff');
   await expect(page.getByRole('button', { name: 'Edit', exact: true })).toHaveAttribute(
     'aria-pressed',
@@ -207,9 +217,9 @@ test('attribution previews all supplied outputs, inserts with one Undo and creat
   await expect(dialog(page, 'File details')).toContainText('YAML');
   await close(page, 'File details');
   await openFile(page, '{"key":true}', 'file.json');
-  d = await attribution(page);
-  await d.getByLabel('Output format').selectOption('Source comment');
-  await expect(d.getByRole('button', { name: 'Insert at cursor' })).toBeDisabled();
+  d = await attribution(page, 'Code comment');
+  await d.getByLabel('Title of the work', { exact: true }).fill('Supplied project');
+  await expect(d.getByRole('button', { name: 'Insert', exact: true })).toBeDisabled();
   await expect(d.getByRole('alert')).toContainText('does not support');
 });
 
@@ -514,18 +524,20 @@ test('Getting Started lists its steps with icons, then how your files are kept, 
 
 test('attribution application rejects a changed source or read-only mode', async ({ page }) => {
   await mountWorkspace(page, 'original');
-  let d = await attribution(page);
+  let d = await attribution(page, 'Credit line');
+  await d.getByLabel('Title of the work', { exact: true }).fill('Supplied project');
   await page.evaluate(() => {
     const { session } = (window as any).fixture;
     session.applyWriteSource('changed', 'command', session.bookmark);
   });
-  await d.getByRole('button', { name: 'Insert at cursor' }).click();
+  await d.getByRole('button', { name: 'Insert', exact: true }).click();
   await expect(d.getByRole('alert')).toContainText('changed');
   expect(await source(page)).toBe('changed');
   await close(page, 'Attributions');
-  d = await attribution(page);
+  d = await attribution(page, 'Credit line');
+  await d.getByLabel('Title of the work', { exact: true }).fill('Supplied project');
   await setMode(page, 'preview');
-  await d.getByRole('button', { name: 'Insert at cursor' }).click();
+  await d.getByRole('button', { name: 'Insert', exact: true }).click();
   await expect(d.getByRole('alert')).toContainText('changed');
   expect(await source(page)).toBe('changed');
 });

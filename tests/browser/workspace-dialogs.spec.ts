@@ -32,16 +32,13 @@ test('dialog actions stay reachable and cancellation preserves source at 1280px 
         await expect(dialog.locator('.dialog-actions')).toBeHidden();
       }
       if (title === 'Attributions') {
-        await expect(dialog.getByLabel('Output format')).toBeFocused();
-        const lastField = dialog.getByLabel('Modifications (optional)');
+        await expect(dialog.getByRole('button', { name: 'Credit line', exact: true })).toBeFocused();
+        await dialog.getByRole('button', { name: 'Citation file', exact: true }).click();
+        const lastField = dialog.getByLabel('Your changes (optional)', { exact: true });
         await lastField.focus();
         await expect(lastField).toBeInViewport();
-        await expect(
-          dialog.getByRole('button', { name: 'Insert at cursor', exact: true }),
-        ).toBeInViewport();
-        expect(
-          await dialog.locator('.dialog-body').evaluate(body => body.scrollTop),
-        ).toBeGreaterThan(0);
+        await expect(dialog.getByRole('button', { name: 'Create CITATION.cff', exact: true })).toBeInViewport();
+        expect(await dialog.locator('.dialog-body').evaluate(body => body.scrollTop)).toBeGreaterThan(0);
       }
       await dialog.getByRole('button', { name: dismiss, exact: true }).click();
       await expect(dialog).toHaveCount(0);

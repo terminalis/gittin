@@ -859,6 +859,23 @@ a:has(> .app-icon) {
   flex: none;
   gap: 4px;
 }
+/* A choice laid out as a row: its name in bold, what it does under it; a destructive one in red. */
+.workspace-dialog .choice-row {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 10px 14px;
+  text-align: left;
+}
+.choice-row small {
+  color: var(--muted);
+  font-size: 13px;
+}
+.workspace-dialog .choice-row.danger {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 /* Linked resources reuses those rows with its two actions under the address, which wraps when long. */
 .resource-list .version-row {
   flex-direction: column;
