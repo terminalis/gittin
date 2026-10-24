@@ -367,7 +367,8 @@ export class Workspace {
   }
   private move() {
     const folder = this.managed();
-    if (folder) moveDialog(folder, this.path(), (from, to) => this.actions.moveFile(folder, from, to));
+    if (folder) moveDialog(folder, this.path(), (from, to) => this.actions.moveFile(folder, from, to),
+      path => this.actions.createFolder(folder, path));
   }
   private toggleFavourite() {
     void this.document.autosave.updateMetadata({ favourite: !this.document.favourite });

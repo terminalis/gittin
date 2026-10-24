@@ -2578,6 +2578,9 @@ label.home-option {
   padding-left: 5px;
   border-left: 1px solid var(--line);
 }
+.folder-tree ul:empty {
+  display: none;
+}
 .folder-tree p {
   font-size: 13px;
   color: var(--muted);

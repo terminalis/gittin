@@ -81,27 +81,44 @@ export function renameDialog(path: string, move: Move) {
   nameDialog('Rename file', 'File name', 'Rename', name, next => move(path, join(dirname(path), next)),
     `Links to and from ${name} are not updated.`);
 }
-/** Choose the folder to move a file into. Links to and from it are not rewritten. */
-export function moveDialog(source: FileSource, path: string, move: Move) {
-  const name = basename(path);
-  fileDialog(`Move ${name}`, async (body, close) => {
+/** Choose the folder to move a file into, from the folder's folders drawn as a tree with the file's own folder marked.
+ * New folder… makes one beside the file, to pick next. Links to and from it are not rewritten. */
+export function moveDialog(source: FileSource, path: string, move: Move,
+  createFolder: (path: string) => Promise<string | null>) {
+  const name = basename(path), here = dirname(path);
+  fileDialog(`Move ${name}`, (body, close, footer) => {
     const text = el('p', { textContent: 'Looking for folders…' });
-    const list = el('div', { className: 'folder-tree' }), failure = failureLine();
-    body.append(text, failure.line, list);
-    let found;
-    try { found = await findFolders(source); }
-    catch (error) { text.textContent = unreadable(error); return; }
-    const folders = found.filter(directory => directory !== dirname(path));
-    text.textContent = folders.length ? `Choose a folder. Links to and from ${name} are not updated.`
-      : 'There are no other folders.';
-    for (const directory of folders) {
-      const choice = row(button('', async () => {
-        choice.disabled = true;
-        const reason = await move(path, join(directory, name));
-        if (reason === null) close();
-        else { choice.disabled = false; failure.show(reason); }
-      }), ['folder'], directory || source.label);
-      list.append(choice);
-    }
+    const tree = el('ul', { className: 'folder-tree' }), failure = failureLine();
+    body.append(text, failure.line, tree);
+    const draw = async (focus?: string) => {
+      let folders;
+      try { folders = await findFolders(source); }
+      catch (error) { text.textContent = unreadable(error); return; }
+      text.textContent = `Choose a folder. Links to and from ${name} are not updated.`;
+      const lists = new Map<string, HTMLElement>();
+      tree.replaceChildren();
+      // Sorted, a folder comes before the folders in it.
+      for (const directory of folders.sort()) {
+        const current = directory === here;
+        const choice = row(button('', async () => {
+          choice.disabled = true;
+          const reason = await move(path, join(directory, name));
+          if (reason === null) close();
+          else { choice.disabled = false; failure.show(reason); }
+        }), ['folder'], directory ? basename(directory) : source.label, current ? 'Current folder' : '');
+        choice.disabled = current;
+        choice.setAttribute('aria-current', String(current));
+        const children = el('ul');
+        lists.set(directory, children);
+        (directory ? lists.get(dirname(directory))! : tree).append(el('li', {}, choice, children));
+        if (directory === focus) choice.focus();
+      }
+    };
+    footer.append(button('New folder…', () => nameDialog('New folder', 'Folder name', 'Create', '', async folder => {
+      const made = join(here, folder), reason = await createFolder(made);
+      if (reason === null) void draw(made);
+      return reason;
+    }), 'apart'));
+    void draw();
   });
 }

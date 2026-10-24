@@ -341,8 +341,11 @@ test.describe('writable folders', () => {
     await page.getByRole('menuitem', { name: 'Move to…', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Move b.md', exact: true });
     await expect(dialog).toContainText('Links to and from b.md are not updated.');
-    // The file's own folder is not offered.
-    await expect(dialog.getByRole('button', { name: 'project', exact: true })).toHaveCount(0);
+    // The file's own folder is marked and can't be picked; the folders in it nest under it.
+    const current = dialog.locator('.folder-row[aria-current="true"]');
+    await expect(current).toHaveText('projectCurrent folder');
+    await expect(current).toBeDisabled();
+    await expect(dialog.locator('.folder-tree > li > ul > li > .folder-row')).toHaveText(['docs']);
     await dialog.getByRole('button', { name: 'docs', exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect(editor(page)).toBeFocused();
@@ -361,6 +364,22 @@ test.describe('writable folders', () => {
     await page.locator('#recent').getByRole('button', { name: 'b.md', exact: true }).click();
     await page.getByRole('button', { name: 'Version history', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Version history', exact: true })).toContainText('Opened');
+  });
+
+  test('Move to… makes a new folder beside the file, which takes the file', async ({ page }) => {
+    await useFolder(page, { 'a.md': 'A' });
+    await openFromFolder(page, 'a.md');
+    await command(page, 'Move to…');
+    const move = page.getByRole('dialog', { name: 'Move a.md', exact: true });
+    await expect(move.locator('.folder-row')).toHaveText(['projectCurrent folder']);
+    await move.getByRole('button', { name: 'New folder…', exact: true }).click();
+    const naming = page.getByRole('dialog', { name: 'New folder', exact: true });
+    await naming.getByLabel('Folder name').fill('notes');
+    await naming.getByRole('button', { name: 'Create', exact: true }).click();
+    await expect(move.getByRole('button', { name: 'notes', exact: true })).toBeFocused();
+    await move.getByRole('button', { name: 'notes', exact: true }).click();
+    await expect(move).toHaveCount(0);
+    expect(await disk.read(page, 'notes/a.md')).toBe('A');
   });
 
   test('File details shows six rows with the location and Copy path, and opens from the folder button', async ({ page }) => {

@@ -18,7 +18,7 @@ export interface FolderPanelOptions {
   /** Resolves with a failure reason to show, or null once the folder exists. */
   createFolder?(path: string): Promise<string | null>;
   /** Rename or move a file; resolves with a failure reason, or null. Rows get a ⋯ menu only when
-   * `move` and `remove` are given. */
+   * `move`, `remove` and `createFolder` are given. */
   move?(from: string, to: string): Promise<string | null>;
   /** Delete a file or folder; the caller asks first. */
   remove?(path: string, kind: TreeEntry['kind']): void;
@@ -61,14 +61,19 @@ export function renderFolderPanel(panel: HTMLElement, o: FolderPanelOptions) {
   header.append(tools);
   const tree = el('ul', { className: 'folder-tree' });
   const results = el('div', { className: 'folder-tree' });
-  const manage = o.move && o.remove ? { move: o.move, remove: o.remove } : null;
+  const manage = o.move && o.remove && o.createFolder
+    ? { move: o.move, remove: o.remove, createFolder: o.createFolder } : null;
   const menu = manage ? new PopupMenu('File actions', 'folder-row-menu', { alignEnd: true }) : null;
   if (menu) o.signal.addEventListener('abort', () => menu.dispose(), { once: true });
   /** The ⋯ menu's items for a row. */
   const menuItems = (path: string, kind: TreeEntry['kind']): [string, () => void][] =>
     !manage ? [] : kind === 'file' ? [
       ['Rename…', () => renameDialog(path, manage.move)],
-      ['Move to…', () => moveDialog(source, path, manage.move)],
+      ['Move to…', () => moveDialog(source, path, manage.move, async folder => {
+        const reason = await manage.createFolder(folder);
+        if (reason === null) refresh();
+        return reason;
+      })],
       ['Delete…', () => manage.remove(path, 'file')],
     ] : [['Delete…', () => manage.remove(path, 'directory')]];
   const more = (item: HTMLElement, path: string, kind: TreeEntry['kind']) => {
