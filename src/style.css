@@ -1082,7 +1082,7 @@ label.home-option {
   gap: 10px;
   margin-top: 26px;
 }
-#folders > span {
+#folders-label {
   margin-right: 4px;
   color: var(--muted);
   font-size: 15px;
@@ -1473,10 +1473,10 @@ label.home-option {
   #folders {
     margin-top: 22px;
   }
-  #folders > span {
+  #folders-label {
     width: 100%;
   }
-  #folders button {
+  #folders .folder-open {
     min-height: 44px;
   }
   .home-content {
