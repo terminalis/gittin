@@ -4,9 +4,10 @@
 
 use git2::build::{CheckoutBuilder, RepoBuilder};
 use git2::{
-    AttrCheckFlags, Commit, Config, Cred, ErrorCode, FetchOptions, FetchPrune, ObjectType, Oid,
-    PushOptions, RemoteCallbacks, RemoteRedirect, Repository, RepositoryInitOptions,
-    RepositoryState, Signature, Sort, Status, Tree, TreeWalkMode, TreeWalkResult,
+    AttrCheckFlags, Commit, Config, Cred, DiffFindOptions, ErrorCode, FetchOptions, FetchPrune,
+    ObjectType, Oid, PushOptions, RemoteCallbacks, RemoteRedirect, Repository,
+    RepositoryInitOptions, RepositoryState, Signature, Sort, Status, Tree, TreeWalkMode,
+    TreeWalkResult,
 };
 use serde::{Deserialize, Serialize};
 use std::cell::{Cell, RefCell};
@@ -550,8 +551,9 @@ pub struct RemoteState {
     pub url: Option<String>,
     /// Whether that address is on https://github.com.
     pub github: bool,
-    /// Commits on the branch that its upstream lacks; none without an upstream.
-    pub ahead: usize,
+    /// The files the commits GitHub lacks change, by their paths in the repository: every committed file before the
+    /// branch is on GitHub; none without a remote.
+    pub unsent: Vec<String>,
 }
 
 /// Why Sync stopped, changing nothing.
@@ -671,18 +673,50 @@ pub fn remote_state(repo: &Repository) -> Result<RemoteState, git2::Error> {
         .find_remote(name)
         .ok()
         .and_then(|remote| remote.url().ok().map(str::to_string));
-    let head = repo.head().ok().and_then(|head| head.target());
     let tracking = upstream.and_then(|upstream| repo.refname_to_id(&upstream.tracking).ok());
-    let ahead = match (head, tracking) {
-        (Some(head), Some(tracking)) => repo.graph_ahead_behind(head, tracking)?.0,
-        _ => 0,
-    };
+    let remotes = !repo.remotes()?.is_empty();
     Ok(RemoteState {
-        remotes: !repo.remotes()?.is_empty(),
+        remotes,
         github: url.as_deref().is_some_and(|url| url.starts_with(GITHUB)),
         url,
-        ahead,
+        unsent: if remotes {
+            unsent(repo, tracking)?
+        } else {
+            vec![]
+        },
     })
+}
+
+/// The files that differ between `tracking` (GitHub's branch as of the last fetch; none when GitHub doesn't have it)
+/// and the branch's last commit. A rename counts once, under its new name.
+fn unsent(repo: &Repository, tracking: Option<Oid>) -> Result<Vec<String>, git2::Error> {
+    let Ok(head) = repo.head().and_then(|head| head.peel_to_tree()) else {
+        return Ok(vec![]);
+    };
+    let base = match tracking {
+        Some(id) => Some(repo.find_commit(id)?.tree()?),
+        None => None,
+    };
+    let mut diff = repo.diff_tree_to_tree(base.as_ref(), Some(&head), None)?;
+    diff.find_similar(Some(DiffFindOptions::new().renames(true)))?;
+    Ok(diff
+        .deltas()
+        .filter_map(|delta| {
+            delta
+                .new_file()
+                .path()
+                .and_then(Path::to_str)
+                .map(str::to_string)
+        })
+        .collect())
+}
+
+/// Whether the branch's last commit has a file at `path`.
+pub fn tracked(repo: &Repository, path: &str) -> Result<bool, git2::Error> {
+    let Ok(tree) = repo.head().and_then(|head| head.peel_to_tree()) else {
+        return Ok(false);
+    };
+    Ok(tree.get_path(Path::new(path)).is_ok())
 }
 
 /// What bringing `fetched` into the checked-out branch would do, refusing what Sync can't do safely.
@@ -1806,13 +1840,13 @@ mod tests {
     }
 
     #[test]
-    fn remote_state_tells_publish_from_sync_and_counts_saves_not_on_github() {
+    fn remote_state_tells_publish_from_sync_and_lists_files_not_on_github() {
         let (plain, _repo) = repository();
         let alone = RemoteState {
             remotes: false,
             url: None,
             github: false,
-            ahead: 0,
+            unsent: vec![],
         };
         assert_eq!(remote_state(&opened(&plain)).unwrap(), alone);
         let (origin, root) = github();
@@ -1822,13 +1856,30 @@ mod tests {
             remotes: true,
             url: Some(url(&origin)),
             github: false,
-            ahead: 1,
+            unsent: vec!["a.md".into()],
         };
         assert_eq!(remote_state(&opened(&root)).unwrap(), cloned);
         opened(&root)
             .remote_set_url("origin", "https://github.com/owner/notes.git")
             .unwrap();
         assert!(remote_state(&opened(&root)).unwrap().github);
+    }
+
+    #[test]
+    fn a_rename_is_one_file_not_on_github_and_only_committed_files_are_tracked() {
+        let (_origin, root) = github();
+        assert_eq!(
+            remote_state(&opened(&root)).unwrap().unsent,
+            Vec::<String>::new()
+        );
+        fs::rename(root.join("b.md"), root.join("c.md")).unwrap();
+        save(&root, &["b.md", "c.md"], "Rename B");
+        assert_eq!(remote_state(&opened(&root)).unwrap().unsent, vec!["c.md"]);
+        assert!(tracked(&opened(&root), "a.md").unwrap());
+        assert!(tracked(&opened(&root), "c.md").unwrap());
+        assert!(!tracked(&opened(&root), "b.md").unwrap());
+        write(&root, "loose.md", "x");
+        assert!(!tracked(&opened(&root), "loose.md").unwrap());
     }
 
     #[test]
@@ -1870,7 +1921,10 @@ mod tests {
             tip(&origin, "refs/heads/master"),
             tip(&root, "refs/heads/master")
         );
-        assert_eq!(remote_state(&opened(&root)).unwrap().ahead, 0);
+        assert_eq!(
+            remote_state(&opened(&root)).unwrap().unsent,
+            Vec::<String>::new()
+        );
     }
 
     #[test]
@@ -1959,7 +2013,10 @@ mod tests {
             config.get_string("branch.draft.merge").unwrap(),
             "refs/heads/draft"
         );
-        assert_eq!(remote_state(&opened(&root)).unwrap().ahead, 0);
+        assert_eq!(
+            remote_state(&opened(&root)).unwrap().unsent,
+            Vec::<String>::new()
+        );
     }
 
     #[test]
@@ -2072,7 +2129,7 @@ mod tests {
             matches!(&synced, Synced::Refused { message } if message.contains("lock")),
             "{synced:?}"
         );
-        assert_eq!(remote_state(&opened(&root)).unwrap().ahead, 1);
+        assert_eq!(remote_state(&opened(&root)).unwrap().unsent, vec!["a.md"]);
     }
 
     #[test]

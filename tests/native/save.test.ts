@@ -106,7 +106,7 @@ test('workflow files are committed with a sign-in that allows them, or when the 
   answer(groups => new Map([[groups[0].place!.root, 'Edit']]));
   useGitHubStand({ account: vi.fn(async () => ({ ...octocat, scopes: ['repo', 'workflow'] })) });
   await saveAll([doc(work.id, '.github/workflows/ci.yml', 'a', 'b')], 'save', tools());
-  useGitHubStand({ remote: vi.fn(async () => ({ remotes: true, url: 'https://gitlab.com/owner/work.git', github: false, ahead: 0 })) });
+  useGitHubStand({ remote: vi.fn(async () => ({ remotes: true, url: 'https://gitlab.com/owner/work.git', github: false, unsent: [] })) });
   await saveAll([doc(work.id, '.github/workflows/ci.yml', 'b', 'c')], 'save', tools());
   expect(shown.map(groups => groups[0].workflow)).toEqual([[], []]);
   expect(commits.map(([, paths]) => paths)).toEqual([['.github/workflows/ci.yml'], ['.github/workflows/ci.yml']]);

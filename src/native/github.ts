@@ -12,8 +12,9 @@ export type SignInEnd =
 export interface Listed { fullName: string; cloneUrl: string; private: boolean }
 export interface Step { phase: 'receiving' | 'writing'; done: number; total: number }
 export interface Cloned { folder: string; filtered: string[] }
-/** What Sync needs to know, as of the last fetch: any remote at all, the one Sync uses, and saves not yet there. */
-export interface RemoteState { remotes: boolean; url: string | null; github: boolean; ahead: number }
+/** What Sync needs to know, as of the last fetch: any remote at all, the one Sync uses, and the files whose saved
+ * changes aren't on it yet. */
+export interface RemoteState { remotes: boolean; url: string | null; github: boolean; unsent: string[] }
 export type Stop = 'detached' | 'busy' | 'signs' | 'filter' | 'changed' | 'identity';
 export type Fetched =
   | { kind: 'upToDate'; fetched: string; ahead: number }

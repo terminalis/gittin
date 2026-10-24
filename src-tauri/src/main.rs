@@ -190,6 +190,11 @@ fn git_remote(app: tauri::AppHandle, repository: String) -> Result<git::RemoteSt
     git::remote_state(&repository_in(&app, &repository)?).map_err(text)
 }
 
+#[tauri::command(async)]
+fn git_tracked(app: tauri::AppHandle, root: String, path: String) -> Result<bool, String> {
+    git::tracked(&repository_in(&app, &root)?, &path).map_err(text)
+}
+
 #[tauri::command]
 async fn git_fetch(
     app: tauri::AppHandle,
@@ -324,6 +329,7 @@ fn main() {
             git_clone,
             git_cancel_clone,
             git_remote,
+            git_tracked,
             git_fetch,
             git_sync,
             github_device_code,

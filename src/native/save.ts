@@ -16,7 +16,7 @@ export const useDialogs = (stand: typeof ask) => { ask = stand; };
 
 /** Files Gittin created for documents (images added beside them), committed with their repository's next save. */
 const created = new Map<string, Set<string>>();
-/** Told after each commit Gittin makes, so the status footer's count follows. */
+/** Told after each commit Gittin makes, so the footer's GitHub status and the Folder panel's count follow. */
 export const committed = new Set<() => unknown>();
 
 const authorKey = 'gittin-git-author';

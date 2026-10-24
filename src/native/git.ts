@@ -16,6 +16,8 @@ export interface Git {
   commit(root: string, paths: string[], message: string, author: Author | null): Promise<Outcome>;
   log(root: string, path: string, skip: number, take: number): Promise<LogEntry[]>;
   show(root: string, commit: string, path: string): Promise<Uint8Array>;
+  /** Whether the branch's last commit has the file. */
+  tracked(root: string, path: string): Promise<boolean>;
 }
 const tauri: Git = {
   repositories: folder => invoke('git_repositories', { folder }),
@@ -23,6 +25,7 @@ const tauri: Git = {
   commit: (root, paths, message, author) => invoke('git_commit', { root, paths, message, author }),
   log: (root, path, skip, take) => invoke('git_log', { root, path, skip, take }),
   show: async (root, commit, path) => new Uint8Array(await invoke<ArrayBuffer>('git_show', { root, commit, path })),
+  tracked: (root, path) => invoke('git_tracked', { root, path }),
 };
 export let git: Git = tauri;
 export const useGit = (stand: Git) => { git = stand; };

@@ -83,12 +83,11 @@
   align-items: center;
   gap: 8px;
 }
-/* The status footer's Sync, with the count of saves not yet on GitHub. */
-.sync-status:empty {
+/* The status footer's word on GitHub, and the Folder panel's count of edited files not there yet. */
+.github-status:empty {
   display: none;
 }
-.sync-status button {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+#repository-panel .unsent-count {
+  margin: 0 0 10px;
+  color: var(--muted);
 }

@@ -8,7 +8,7 @@ import { DesktopDirectoryHandle } from '../../src/native/files';
 import { useGit, type Git } from '../../src/native/git';
 import { repoOfFolder } from '../../src/native/repositories';
 import { committed, useDialogs } from '../../src/native/save';
-import { sync, syncFooter } from '../../src/native/sync';
+import { githubStatus, sync, syncInFolder } from '../../src/native/sync';
 import { buttonNamed, noticeText, openDialog, useDom, useGitHubStand } from './stand-ins';
 
 vi.mock('../../src/app', () => ({
@@ -37,20 +37,49 @@ beforeEach(async () => {
   } as unknown as Git);
 });
 
-test('the footer counts saves not yet on GitHub, offers Publish without a remote, and follows commits', async () => {
-  const stand = useGitHubStand({ remote: vi.fn(async () => ({ remotes: true, url: 'https://github.com/owner/work.git', github: true, ahead: 2 })) });
+const onGitHub = (unsent: string[]) => ({ remotes: true, url: 'https://github.com/owner/work.git', github: true, unsent });
+const commit = () => { for (const listener of [...committed]) void listener(); };
+
+test("the footer says whether the file is on GitHub, and nothing for a file git doesn't track or a repository elsewhere", async () => {
+  const stand = useGitHubStand({ remote: vi.fn(async () => onGitHub(['notes.md'])) });
+  const tracked = vi.fn(async () => true);
+  useGit({ repositories: async (folder: string) => (folder === '/work' ? [''] : []), tracked } as unknown as Git);
   // The workspace draws its footer before it joins the page.
   const footer = document.createElement('div');
-  syncFooter(doc('notes.md'), footer);
+  githubStatus(doc('notes.md'), footer);
   document.body.append(footer);
-  await vi.waitFor(() => expect(footer.querySelector('button')?.title).toBe('Sync: 2 saves not yet on GitHub'));
-  expect(footer.querySelector('button')!.textContent).toBe('2');
-  vi.mocked(stand.remote).mockResolvedValue({ remotes: false, url: null, github: false, ahead: 0 });
-  for (const listener of [...committed]) void listener();
-  await vi.waitFor(() => expect(footer.querySelector('button')?.title).toBe('Publish to GitHub'));
-  vi.mocked(stand.remote).mockResolvedValue({ remotes: true, url: 'https://gitlab.com/owner/work.git', github: false, ahead: 1 });
-  for (const listener of [...committed]) void listener();
-  await vi.waitFor(() => expect(footer.querySelector('button')).toBeNull());
+  await vi.waitFor(() => expect(footer.textContent).toBe('Not on GitHub yet'));
+  vi.mocked(stand.remote).mockResolvedValue(onGitHub([]));
+  commit();
+  await vi.waitFor(() => expect(footer.textContent).toBe('On GitHub'));
+  tracked.mockResolvedValue(false);
+  commit();
+  await vi.waitFor(() => expect(footer.textContent).toBe(''));
+  tracked.mockResolvedValue(true);
+  commit();
+  await vi.waitFor(() => expect(footer.textContent).toBe('On GitHub'));
+  vi.mocked(stand.remote).mockResolvedValue({ remotes: true, url: 'https://gitlab.com/owner/work.git', github: false, unsent: [] });
+  commit();
+  await vi.waitFor(() => expect(footer.textContent).toBe(''));
+  expect(footer.querySelector('button')).toBeNull();
+});
+
+test('the Folder panel counts the edited files not yet on GitHub under its buttons, following commits', async () => {
+  const stand = useGitHubStand({ remote: vi.fn(async () => onGitHub(['a.md', 'b.md', 'c.md'])) });
+  const panel = document.createElement('aside');
+  panel.innerHTML = '<div class="folder-header"><h2>Current Folder</h2><div class="folder-tools"></div></div>';
+  document.body.append(panel);
+  syncInFolder(work, panel);
+  const count = () => panel.querySelector('.unsent-count')?.textContent;
+  await vi.waitFor(() => expect(count()).toBe('3 edited files not on GitHub yet'));
+  expect(panel.querySelector('.folder-header')!.nextElementSibling!.className).toBe('unsent-count');
+  expect(buttonNamed('Sync', panel)).toBeTruthy();
+  vi.mocked(stand.remote).mockResolvedValue(onGitHub(['a.md']));
+  commit();
+  await vi.waitFor(() => expect(count()).toBe('1 edited file not on GitHub yet'));
+  vi.mocked(stand.remote).mockResolvedValue(onGitHub([]));
+  commit();
+  await vi.waitFor(() => expect(count()).toBe('All edited files on GitHub'));
 });
 
 test("Sync saves the repository's unsaved files first, and Cancel there stops it", async () => {
@@ -116,7 +145,7 @@ test('Sync says why it stopped', async () => {
 
 test("Publish to GitHub names the repository after the folder, keeps it private, and shows GitHub's refusal", async () => {
   const stand = useGitHubStand({
-    remote: vi.fn(async () => ({ remotes: false, url: null, github: false, ahead: 0 })),
+    remote: vi.fn(async () => ({ remotes: false, url: null, github: false, unsent: [] })),
     publish: vi.fn()
       .mockRejectedValueOnce({ kind: 'message', message: 'Repository creation failed: name already exists on this account' })
       .mockResolvedValueOnce({ kind: 'done', pushed: true, published: true, hooks: false }),

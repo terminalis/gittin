@@ -14,7 +14,7 @@ import { offerRepository } from './folder';
 import { openHistory } from './history';
 import { askBeforeQuitting } from './quit';
 import { changed, saveAll } from './save';
-import { syncCommand, syncFooter, syncInFolder } from './sync';
+import { githubStatus, syncCommand, syncInFolder } from './sync';
 
 installPickers();
 /** Opens the files handed to Gittin that are waiting. */
@@ -35,7 +35,7 @@ const extensions: Extensions = {
   save: saveAll, changed, history: openHistory,
   folder: (source, panel) => { offerRepository(source, panel); syncInFolder(source, panel); },
   home: (header, actions) => { accountButton(header, 'home'); cloneButton(actions); },
-  workspace: (doc, header, footer) => { accountButton(header, 'workspace'); syncFooter(doc, footer); },
+  workspace: (doc, header, footer) => { accountButton(header, 'workspace'); githubStatus(doc, footer); },
   commands: doc => [cloneCommand, syncCommand(doc)],
 };
 void start({ revive, extensions }).then(async () => {

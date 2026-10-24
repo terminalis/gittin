@@ -5,8 +5,7 @@ import { compareFile, reshow, saveTools, unsavedFiles } from '../app';
 import { decodeSource } from '../editor/source-projection';
 import type { OpenDocument } from '../screens/workspace';
 import type { FolderSource } from '../sources/folder';
-import { ask, button, el, iconButton, notice } from '../ui/dom';
-import { icon } from '../ui/icons';
+import { ask, el, iconButton, notice } from '../ui/dom';
 import type { Action } from '../ui/menus';
 import { conflictDialog } from './conflicts';
 import { git } from './git';
@@ -120,9 +119,27 @@ function run(repo: Repo) {
     .finally(() => syncing.delete(repo.root));
 }
 
-/** The Folder panel's Sync, for an opened folder that is itself a repository: Publish to GitHub without a remote. */
+const edited = (count: number) => !count ? 'All edited files on GitHub'
+  : `${count} edited ${count === 1 ? 'file' : 'files'} not on GitHub yet`;
+
+/** The Folder panel's line counting a repository's edited files not yet on GitHub, following commits until the panel is
+ * drawn again. */
+function unsentCount(repo: Repo, count: number) {
+  const line = el('p', { className: 'unsent-count', role: 'status', textContent: edited(count) });
+  const draw = async () => {
+    const state = await github.remote(repo.root);
+    if (line.isConnected) line.textContent = edited(state.unsent.length);
+  };
+  const follow = () => (line.isConnected ? draw().catch(() => {}) : committed.delete(follow));
+  committed.add(follow);
+  return line;
+}
+
+/** The Folder panel's Sync, for an opened folder that is itself a repository, and for one on GitHub a line under the
+ * buttons counting its edited files not yet there; Publish to GitHub without a remote. */
 export function syncInFolder(source: FolderSource, panel: HTMLElement) {
-  const repo = repoOfFolder(source), tools = panel.querySelector('.folder-tools');
+  const repo = repoOfFolder(source), header = panel.querySelector('.folder-header');
+  const tools = header?.querySelector('.folder-tools');
   void git.repositories(repo.root).then(async repositories => {
     if (!repositories.includes('')) return;
     const state = await github.remote(repo.root);
@@ -130,29 +147,31 @@ export function syncInFolder(source: FolderSource, panel: HTMLElement) {
     if (!tools?.isConnected) return;
     tools.append(state.remotes ? iconButton('arrows-up-down', 'Sync', () => run(repo))
       : iconButton('brand-github', 'Publish to GitHub', () => run(repo)));
+    if (state.github) header!.after(unsentCount(repo, state.unsent.length));
   }).catch(() => {});
 }
 
-/** The status footer's Sync for a file in a repository synced with GitHub, with the count of saves not yet there as
- * of the last Sync; Publish to GitHub without a remote; nothing when the remote isn't on GitHub. */
-export function syncFooter(doc: OpenDocument, footer: HTMLElement) {
-  const slot = el('span', { className: 'sync-status' });
+/** Whether a file's saved version is on GitHub, for a file the branch's last commit has in a repository on GitHub;
+ * empty otherwise. */
+async function fileOnGitHub(doc: OpenDocument) {
+  const place = await placeOfDocument(doc);
+  if (!place) return '';
+  const state = await github.remote(place.root);
+  if (!state.github) return '';
+  if (state.unsent.includes(place.path)) return 'Not on GitHub yet';
+  return (await git.tracked(place.root, place.path)) ? 'On GitHub' : '';
+}
+
+/** The status footer's word on whether the file is on GitHub, as plain status. */
+export function githubStatus(doc: OpenDocument, footer: HTMLElement) {
+  const slot = el('span', { className: 'github-status' });
   footer.append(slot);
   const draw = async () => {
-    const repo = await repoOfDocument(doc);
-    const state = repo && await github.remote(repo.root);
+    const text = await fileOnGitHub(doc);
     // The workspace may have gone meanwhile.
-    if (!slot.isConnected) return;
-    slot.replaceChildren();
-    if (!repo || !state || (state.remotes && !state.github)) return;
-    const label = !state.remotes ? 'Publish to GitHub' : !state.ahead ? 'Sync with GitHub'
-      : `Sync: ${state.ahead} ${state.ahead === 1 ? 'save' : 'saves'} not yet on GitHub`;
-    const sync = button(state.ahead ? String(state.ahead) : '', () => run(repo));
-    sync.prepend(icon(state.remotes ? 'arrows-up-down' : 'brand-github'));
-    Object.assign(sync, { title: label, ariaLabel: label });
-    slot.append(sync);
+    if (slot.isConnected) slot.textContent = text;
   };
-  // The workspace draws its footer before it joins the page, so the count follows commits until the slot leaves it.
+  // The workspace draws its footer before it joins the page, so the status follows commits until the slot leaves it.
   const follow = () => (slot.isConnected ? draw().catch(() => {}) : committed.delete(follow));
   committed.add(follow);
   void draw().catch(() => {});
