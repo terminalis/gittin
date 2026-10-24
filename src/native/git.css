@@ -12,6 +12,15 @@
   flex-basis: 100%;
   margin: 0;
 }
+/* Start a repository's list of the folder's entries, scrolling when it is long. */
+.start-entries {
+  max-height: 320px;
+  overflow: auto;
+}
+.start-entries .dialog-option {
+  min-height: 36px;
+  margin: 0;
+}
 .save-group h3 {
   margin: 12px 0 4px;
   font-size: 16px;

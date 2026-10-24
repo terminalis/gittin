@@ -138,6 +138,16 @@ async function commitNow(place: Place, paths: string[], message: string) {
   if (outcome.kind === 'refused') notice(`${message} wasn't committed to ${place.name}: ${reasons[outcome.reason]}.`);
 }
 
+/** Commits a repository's first files as it starts, naming what couldn't be committed. */
+export async function commitFirst(place: Place, paths: string[]) {
+  if (!paths.length) return;
+  const outcome = await commit(place, paths, 'Initial commit');
+  if (outcome.kind === 'refused')
+    return notice(`Started a repository in ${place.name}, but its files weren't committed: ${reasons[outcome.reason]}.`);
+  const left = outcome.leftOut.map(({ path, reason }) => `Not committed: ${path}, ${leftOutReasons[reason]}.`);
+  if (left.length) notice(`Started a repository in ${place.name}. ${left.join(' ')}`);
+}
+
 /** After Gittin changes a folder's files: an added image waits for its document's save; a file saved for the
  * first time, a rename, move or deletion in a repository commits at once, in each repository it touches. */
 export async function changed(source: FolderSource, change: FileChange) {

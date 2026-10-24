@@ -93,8 +93,13 @@ fn git_repositories(app: tauri::AppHandle, folder: String) -> Result<Vec<String>
 }
 
 #[tauri::command(async)]
-fn git_init(app: tauri::AppHandle, folder: String) -> Result<(), String> {
-    git::init(&reach_in(&app, &folder)?).map_err(text)
+fn git_init(app: tauri::AppHandle, folder: String, leave_out: Vec<String>) -> Result<(), String> {
+    git::init(&reach_in(&app, &folder)?, &leave_out).map_err(text)
+}
+
+#[tauri::command(async)]
+fn git_untracked(app: tauri::AppHandle, root: String) -> Result<Vec<String>, String> {
+    git::untracked(&repository_in(&app, &root)?).map_err(text)
 }
 
 #[tauri::command(async)]
@@ -329,6 +334,7 @@ fn main() {
             set_frame,
             git_repositories,
             git_init,
+            git_untracked,
             git_commit,
             git_log,
             git_show,

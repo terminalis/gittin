@@ -117,11 +117,49 @@ pub fn default_branch(config: &Config) -> String {
         .unwrap_or_else(|| "main".into())
 }
 
-/// Starts a repository in `folder`, writing only its `.git`.
-pub fn init(folder: &Path) -> Result<(), git2::Error> {
+/// Starts a repository in `folder`, writing its `.git`, and for `leave_out` (names directly inside the folder) lines in
+/// `.gitignore` that keep them out of commits.
+pub fn init(folder: &Path, leave_out: &[String]) -> Result<(), git2::Error> {
     let branch = default_branch(&Config::open_default()?);
     Repository::init_opts(folder, RepositoryInitOptions::new().initial_head(&branch))?;
-    Ok(())
+    if leave_out.is_empty() {
+        return Ok(());
+    }
+    let file = folder.join(".gitignore");
+    let mut text = std::fs::read_to_string(&file).unwrap_or_default();
+    if !text.is_empty() && !text.ends_with('\n') {
+        text.push('\n');
+    }
+    for name in leave_out {
+        text.push_str(&ignore_line(name));
+        text.push('\n');
+    }
+    std::fs::write(&file, text).map_err(|error| git2::Error::from_str(&error.to_string()))
+}
+
+/// A `.gitignore` line matching only the entry `name` directly inside the repository's folder, with the characters
+/// `.gitignore` reads specially escaped.
+fn ignore_line(name: &str) -> String {
+    let mut line = String::from("/");
+    for c in name.chars() {
+        if matches!(c, '\\' | '*' | '?' | '[' | ' ') {
+            line.push('\\');
+        }
+        line.push(c);
+    }
+    line
+}
+
+/// The files a first commit takes: everything in the repository's folder that git doesn't ignore.
+pub fn untracked(repo: &Repository) -> Result<Vec<String>, git2::Error> {
+    let mut options = git2::StatusOptions::new();
+    options.include_untracked(true).recurse_untracked_dirs(true);
+    Ok(repo
+        .statuses(Some(&mut options))?
+        .iter()
+        .filter(|entry| entry.status().contains(Status::WT_NEW))
+        .filter_map(|entry| entry.path().ok().map(str::to_string))
+        .collect())
 }
 
 /// Commits only `paths`, relative to the repository's folder, as they are on disk: a file that exists is
@@ -1226,7 +1264,7 @@ mod tests {
         let base = folder();
         let root = base.join("notes");
         fs::create_dir_all(&root).unwrap();
-        init(&root).unwrap();
+        init(&root, &[]).unwrap();
         assert!(open(&root, inside(&base)).is_some());
         assert!(open(&root, inside(&folder())).is_none());
     }
@@ -1287,7 +1325,7 @@ mod tests {
     #[test]
     fn starting_a_repository_writes_only_git_s_folder_on_main() {
         let root = folder();
-        init(&root).unwrap();
+        init(&root, &[]).unwrap();
         let repo = Repository::open(&root).unwrap();
         let head = repo.find_reference("HEAD").unwrap();
         assert_eq!(head.symbolic_target().unwrap(), Some("refs/heads/main"));
@@ -1296,6 +1334,31 @@ mod tests {
             .map(|entry| entry.unwrap().file_name())
             .collect();
         assert_eq!(names, vec![std::ffi::OsString::from(".git")]);
+    }
+
+    #[test]
+    fn starting_a_repository_leaves_out_the_names_given_and_finds_the_rest() {
+        let root = folder();
+        write(&root, ".gitignore", "*.tmp");
+        write(&root, "notes.md", "x");
+        write(&root, "scratch.tmp", "x");
+        write(&root, "Drafts [old]/a.md", "x");
+        write(&root, "big file.bin", "x");
+        init(
+            &root,
+            &["Drafts [old]".to_string(), "big file.bin".to_string()],
+        )
+        .unwrap();
+        assert_eq!(
+            fs::read_to_string(root.join(".gitignore")).unwrap(),
+            "*.tmp\n/Drafts\\ \\[old]\n/big\\ file.bin\n"
+        );
+        assert_eq!(
+            untracked(&opened(&root)).unwrap(),
+            vec![".gitignore", "notes.md"]
+        );
+        // Linux allows the rest of .gitignore's special characters in names.
+        assert_eq!(ignore_line("a*b?c\\d"), "/a\\*b\\?c\\\\d");
     }
 
     #[test]

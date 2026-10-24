@@ -11,7 +11,10 @@ export type Outcome =
 export interface Git {
   /** The repositories at a folder and directly inside it, relative to it ('' for the folder itself). */
   repositories(folder: string): Promise<string[]>;
-  init(folder: string): Promise<void>;
+  /** Starts a repository; `leaveOut` names entries directly inside the folder for its `.gitignore`. */
+  init(folder: string, leaveOut: string[]): Promise<void>;
+  /** The files a first commit takes: everything git doesn't ignore. */
+  untracked(root: string): Promise<string[]>;
   /** Commits paths relative to the repository's folder, as they are on disk. */
   commit(root: string, paths: string[], message: string, author: Author | null): Promise<Outcome>;
   log(root: string, path: string, skip: number, take: number): Promise<LogEntry[]>;
@@ -21,7 +24,8 @@ export interface Git {
 }
 const tauri: Git = {
   repositories: folder => invoke('git_repositories', { folder }),
-  init: folder => invoke('git_init', { folder }),
+  init: (folder, leaveOut) => invoke('git_init', { folder, leaveOut }),
+  untracked: root => invoke('git_untracked', { root }),
   commit: (root, paths, message, author) => invoke('git_commit', { root, paths, message, author }),
   log: (root, path, skip, take) => invoke('git_log', { root, path, skip, take }),
   show: async (root, commit, path) => new Uint8Array(await invoke<ArrayBuffer>('git_show', { root, commit, path })),
