@@ -212,6 +212,7 @@ test('Find in Preview stays on the right text after a rename changes the file ty
   const rename = page.getByRole('dialog', { name: 'Rename file' });
   await rename.getByLabel('File name').fill('find.txt');
   await rename.getByRole('button', { name: 'Rename', exact: true }).click();
+  await expect(rename).toHaveCount(0);
   await findField(page).press('Enter');
   await expect(page.locator('.find-bar output')).toHaveText('2 of 2');
   await expect(page.locator('mark[data-find]')).toHaveText(['alpha', 'alpha']);
