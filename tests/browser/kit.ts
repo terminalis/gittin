@@ -18,6 +18,13 @@ export const notice = (page: Page) => page.locator('.view-notice');
 export const findField = (page: Page) =>
   page.getByRole('searchbox', { name: 'Find in current document' });
 export const findResult = (page: Page) => page.locator('.find-bar output');
+/** Why Find shows no count: an invalid pattern, a search over one second, too many matches. */
+export const findMessage = (page: Page) => page.locator('.find-message');
+/** Ticks or unticks one of Find's options, from its options menu. */
+export async function findOption(page: Page, name: string) {
+  await page.getByRole('button', { name: 'Find options', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name, exact: true }).click();
+}
 
 /** Collects uncaught page errors; expect it to be empty at the end of a test. */
 export function pageErrors(page: Page) {

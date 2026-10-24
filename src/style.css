@@ -2048,68 +2048,114 @@ label.home-option {
 #file-status:empty {
   display: none;
 }
+/* Find floats as a card over the top centre of the text, under the view switch, without moving the text. */
 .find-bar {
   position: sticky;
   top: 0;
   z-index: 35;
-  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: center;
+  height: 0;
+}
+.find-card {
+  width: min(560px, calc(100% - 32px));
+  height: fit-content;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
   background: var(--surface);
-  padding: 12px 20px;
-  box-shadow: 0 3px 8px #0001;
+  box-shadow: var(--shadow-dialog);
 }
-.find-bar > div {
+.find-row {
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin: 4px 0;
+  gap: 4px;
 }
-.find-bar > div > input {
+.find-row + .find-row {
+  margin-top: 6px;
+}
+.find-field {
+  position: relative;
   flex: 1;
-  max-width: 320px;
+  min-width: 0;
 }
-.find-bar strong,
-.find-bar .search-scope,
-.find-bar output {
-  font-size: 13px;
+.find-field input {
+  width: 100%;
+  padding-right: 32px;
 }
-.search-scope {
+.find-field input::-webkit-search-cancel-button {
+  display: none;
+}
+.find-field .app-icon {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  --icon: 16px;
   color: var(--muted);
+  transform: translateY(-50%);
+  pointer-events: none;
 }
-.find-bar [data-action="close"] {
-  margin-left: auto;
+/* The Replace field lines up under the find field, past the chevron. */
+.find-replace input {
+  flex: 1;
+  min-width: 0;
+  margin-left: 36px;
 }
-.find-bar button {
+.find-count {
+  min-width: 64px;
+  color: var(--muted);
   font-size: 13px;
-  padding: 4px 8px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
-.find-options {
-  flex-wrap: wrap;
+.find-message {
+  margin: 6px 0 0 36px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 18px;
 }
-.find-options label {
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
+.find-message:empty {
+  display: none;
 }
-.find-options small {
-  font-size: 11px;
-}
-/* Find: one 32px control height; icon buttons are square. */
-.find-bar input:not([type=checkbox]),
-.find-bar button {
+/* Find: one 32px control height; icon buttons are square and plain until hovered. */
+.find-card input,
+.find-card button {
   box-sizing: border-box;
   height: 32px;
   min-height: 32px;
 }
-.find-bar input:not([type=checkbox]) {
+.find-card input {
   padding-block: 4px;
 }
-.find-bar button:has(> .app-icon) {
+.find-card button {
+  padding: 4px 10px;
+  font-size: 13px;
+}
+.find-card button:has(> .app-icon) {
+  display: grid;
+  place-items: center;
   width: 32px;
   padding: 0;
+  border-color: transparent;
+  background: transparent;
 }
-.find-bar output {
-  min-width: 95px;
+.find-card button:has(> .app-icon):hover:where(:not(:disabled)) {
+  background: var(--hover);
+}
+/* A dot on the options button while any option is on. */
+.find-card [data-action="options"].options-on {
+  position: relative;
+}
+.find-card [data-action="options"].options-on::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 .command-dialog {
   --dialog-width: 520px;
@@ -2537,22 +2583,12 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   #editor {
     padding: 25px 25px;
   }
-  .find-bar {
-    padding: 9px;
+  .find-card {
+    width: calc(100% - 16px);
   }
-  .find-bar > div {
-    flex-wrap: wrap;
-  }
-  /* The match count takes its own line so the search field has room for its placeholder. */
-  .find-bar output {
-    flex-basis: 100%;
+  .find-count {
+    min-width: 0;
     font-size: 12px;
-  }
-  .find-bar .search-scope {
-    font-size: 11px;
-  }
-  .find-options small {
-    width: 100%;
   }
   /* Phone: logo, title and Save share the first row; the menus take the whole second row. */
   .workspace-header {

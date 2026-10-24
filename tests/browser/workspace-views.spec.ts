@@ -111,8 +111,8 @@ test('Diff Find, Select all and Copy target displayed old/new text; all mutation
     find.open();
   });
   await findField(page).fill('old');
-  await expect(findResult(page)).toHaveText('1 of 1 matches');
-  await expect(page.getByRole('button', { name: 'Replace all', exact: true })).toBeDisabled();
+  await expect(findResult(page)).toHaveText('1 of 1');
+  await expect(page.getByRole('button', { name: 'Toggle Replace', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Close find' }).click();
   await readable(page).focus();
   await readable(page).press('ControlOrMeta+a');

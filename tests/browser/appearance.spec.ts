@@ -197,13 +197,16 @@ test('the Find bar and Home notes use the interface face; Find controls share on
   await newFile(page);
   await editor(page).click();
   await page.keyboard.press('ControlOrMeta+f');
-  const bar = page.locator('.find-bar');
+  const bar = page.locator('.find-card');
   await expect(bar).toBeVisible();
-  for (const selector of ['strong', '.find-options label', 'output'])
+  await bar.getByRole('button', { name: 'Toggle Replace', exact: true }).click();
+  for (const selector of ['input[type=search]', 'output', '[data-action="replace"]'])
     expect(await face(bar.locator(selector).first())).toContain('Source Sans 3');
   const controls = [
     'input[type=search]',
+    '[data-action="chevron"]',
     '[data-action="previous"]',
+    '[data-action="options"]',
     '[data-action="replace"]',
     '[data-action="close"]',
   ];
@@ -260,7 +263,7 @@ for (const scheme of ['light', 'dark'] as const)
     await expect(field).toBeFocused();
     const look = await field.evaluate((el) => ({
       edge: getComputedStyle(el).borderTopColor,
-      ground: getComputedStyle(el.closest('.find-bar')!).backgroundColor,
+      ground: getComputedStyle(el.closest('.find-card')!).backgroundColor,
       offset: getComputedStyle(el).outlineOffset,
     }));
     expect(contrast(look.edge, look.ground)).toBeGreaterThanOrEqual(3.5);
