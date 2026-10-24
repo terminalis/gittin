@@ -102,6 +102,7 @@ async function shot(page: Page, name: string, theme: Theme, size: Size, clip?: {
     if (status) status.textContent = '';
     (document.activeElement as HTMLElement | null)?.blur();
     await document.fonts.ready;
+    await new Promise(resolve => setTimeout(resolve, 200));
   });
   await page.mouse.move(sizes[size].width - 2, sizes[size].height / 2);
   const png = await page.screenshot({ clip, animations: 'disabled', caret: 'hide' });

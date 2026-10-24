@@ -389,6 +389,19 @@ test('the status footer shows the file on the left, its save state in the middle
   await expect(page.locator('.editor-footer button')).toHaveCount(1);
 });
 
+test('on a phone the status footer puts the file first, then its save state with Focus at the right', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 640 });
+  await openText(page, 'first\nsecond line\n');
+  await expectDraftSaved(page);
+  const footer = (await page.locator('.editor-footer').boundingBox())!;
+  const details = (await page.locator('.editor-status').boundingBox())!;
+  const state = (await page.locator('#save-state').boundingBox())!;
+  const focus = (await page.locator('#focus-toggle').boundingBox())!;
+  expect(state.y).toBeGreaterThanOrEqual(details.y + details.height);
+  expect(Math.abs(focus.y + focus.height / 2 - (state.y + state.height / 2))).toBeLessThan(2);
+  expect(Math.abs(focus.x + focus.width - (footer.x + footer.width))).toBeLessThan(1);
+});
+
 test('Focus mode keeps the typing line centred', async ({ page }) => {
   await openText(page, Array.from({ length: 80 }, (_, i) => 'line ' + (i + 1)).join('\n'));
   await expectDraftSaved(page);
