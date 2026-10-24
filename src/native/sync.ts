@@ -69,7 +69,10 @@ async function offerWorkflow(repo: Repo, message: string) {
 export async function sync(repo: Repo): Promise<void> {
   const state = await github.remote(repo.root);
   if (!state.remotes) {
-    if (await saveFirst(repo)) publishDialog(repo);
+    if (!(await saveFirst(repo))) return;
+    // A repository with nothing committed has nothing to publish: say so before asking for a name.
+    await github.publishable(repo.root);
+    publishDialog(repo);
     return;
   }
   if (!state.github)
@@ -146,7 +149,7 @@ export function syncInFolder(source: FolderSource, panel: HTMLElement) {
     // The panel may have been drawn again meanwhile.
     if (!tools?.isConnected) return;
     tools.append(state.remotes ? iconButton('arrows-up-down', 'Sync', () => run(repo))
-      : iconButton('brand-github', 'Publish to GitHub', () => run(repo)));
+      : iconButton('cloud-upload', 'Publish to GitHub', () => run(repo)));
     if (state.github) header!.after(unsentCount(repo, state.unsent.length));
   }).catch(() => {});
 }
@@ -177,15 +180,17 @@ export function githubStatus(doc: OpenDocument, footer: HTMLElement) {
   void draw().catch(() => {});
 }
 
-/** File › Sync for the current file's repository; Publish to GitHub when it has no remote. */
+/** File › Sync for the current file's repository; Publish to GitHub, with its cloud, when it has no remote. */
 export function syncCommand(doc: OpenDocument): Action {
-  let label = 'Sync', repo: Repo | null = null;
+  let publish = false, repo: Repo | null = null;
   void repoOfDocument(doc).then(async found => {
     repo = found;
-    if (found && !(await github.remote(found.root)).remotes) label = 'Publish to GitHub';
+    if (found) publish = !(await github.remote(found.root)).remotes;
   }).catch(() => {});
   return {
-    id: 'sync', menu: 'File', get label() { return label; },
+    id: 'sync', menu: 'File',
+    get label() { return publish ? 'Publish to GitHub' : 'Sync'; },
+    get icon() { return publish ? 'cloud-upload' as const : undefined; },
     run: () => { if (repo) run(repo); },
     state: () => ({ disabled: !repo }),
   };

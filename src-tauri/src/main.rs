@@ -195,6 +195,12 @@ fn git_tracked(app: tauri::AppHandle, root: String, path: String) -> Result<bool
     git::tracked(&repository_in(&app, &root)?, &path).map_err(text)
 }
 
+/// Refuses Publish before anything is committed, with the words Publish itself uses.
+#[tauri::command(async)]
+fn git_publishable(app: tauri::AppHandle, repository: String) -> Result<(), Failure> {
+    git::publishable(&repository_in(&app, &repository).map_err(git::message)?).map(|_| ())
+}
+
 #[tauri::command]
 async fn git_fetch(
     app: tauri::AppHandle,
@@ -330,6 +336,7 @@ fn main() {
             git_cancel_clone,
             git_remote,
             git_tracked,
+            git_publishable,
             git_fetch,
             git_sync,
             github_device_code,

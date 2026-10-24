@@ -61,9 +61,9 @@ export function actionIcon(key: string): IconName | undefined {
   return actionIcons[key];
 }
 
-export function menuIcon(key: string, options: { selected?: boolean; submenu?: boolean } = {}) {
+export function menuIcon(key: string, options: { selected?: boolean; submenu?: boolean; icon?: IconName } = {}) {
   const slot = el('span', { className: 'menu-icon', ariaHidden: 'true' });
-  const name = options.selected ? 'check' : options.submenu ? groupIcons[key] : actionIcon(key);
+  const name = options.selected ? 'check' : options.icon ?? (options.submenu ? groupIcons[key] : actionIcon(key));
   if (name) slot.append(icon(name));
   return slot;
 }

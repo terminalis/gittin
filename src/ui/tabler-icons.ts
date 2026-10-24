@@ -28,6 +28,7 @@ export const tablerIcons = {
   "chevron-right": "<path d=\"M9 6l6 6l-6 6\" />",
   "clear-formatting": "<path d=\"M17 15l4 4m0 -4l-4 4\" /><path d=\"M7 6v-1h11v1\" /><path d=\"M7 19l4 0\" /><path d=\"M13 5l-4 14\" />",
   "clipboard": "<path d=\"M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2\" /><path d=\"M9 5a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2\" />",
+  "cloud-upload": "<path d=\"M7 18a4.6 4.4 0 0 1 0 -9a5 4.5 0 0 1 11 2h1a3.5 3.5 0 0 1 0 7h-1\" /><path d=\"M9 15l3 -3l3 3\" /><path d=\"M12 12l0 9\" />",
   "code": "<path d=\"M7 8l-4 4l4 4\" /><path d=\"M17 8l4 4l-4 4\" /><path d=\"M14 4l-4 16\" />",
   "column-insert-left": "<path d=\"M14 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-14a1 1 0 0 1 1 -1\" /><path d=\"M5 12l4 0\" /><path d=\"M7 10l0 4\" />",
   "column-insert-right": "<path d=\"M6 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-14a1 1 0 0 1 1 -1\" /><path d=\"M15 12l4 0\" /><path d=\"M17 10l0 4\" />",

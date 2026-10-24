@@ -8,7 +8,7 @@ import { DesktopDirectoryHandle } from '../../src/native/files';
 import { useGit, type Git } from '../../src/native/git';
 import { repoOfFolder } from '../../src/native/repositories';
 import { committed, useDialogs } from '../../src/native/save';
-import { githubStatus, sync, syncInFolder } from '../../src/native/sync';
+import { githubStatus, sync, syncCommand, syncInFolder } from '../../src/native/sync';
 import { buttonNamed, noticeText, openDialog, useDom, useGitHubStand } from './stand-ins';
 
 vi.mock('../../src/app', () => ({
@@ -153,10 +153,34 @@ test("Publish to GitHub names the repository after the folder, keeps it private,
   await sync(repoOfFolder(work));
   expect(field('Name').value).toBe('work');
   expect(field('Private').checked).toBe(true);
+  expect(field('Private').closest('label')!.className).toBe('dialog-option');
   buttonNamed('Publish', openDialog()!)!.click();
   await vi.waitFor(() => expect(openDialog()!.textContent).toContain('name already exists on this account'));
   field('Name').value = 'notes';
   buttonNamed('Publish', openDialog()!)!.click();
   await vi.waitFor(() => expect(noticeText()).toBe('Published work to GitHub.'));
   expect(stand.publish).toHaveBeenLastCalledWith('/work', 'notes', true);
+});
+
+const nowhere = { remotes: false, url: null, github: false, unsent: [] as string[] };
+
+test('Publish has a cloud in the Folder panel and in File, and says there is nothing to publish before the first commit', async () => {
+  useGitHubStand({
+    remote: vi.fn(async () => nowhere),
+    publishable: vi.fn(async () => {
+      throw { kind: 'message', message: "There's nothing to publish yet: save a file in this repository first." };
+    }),
+  });
+  const panel = document.createElement('aside');
+  panel.innerHTML = '<div class="folder-header"><h2>Current Folder</h2><div class="folder-tools"></div></div>';
+  document.body.append(panel);
+  syncInFolder(work, panel);
+  await vi.waitFor(() => expect(buttonNamed('Publish to GitHub', panel)).toBeTruthy());
+  expect(buttonNamed('Publish to GitHub', panel)!.querySelector('[data-icon="cloud-upload"]')).toBeTruthy();
+  buttonNamed('Publish to GitHub', panel)!.click();
+  await vi.waitFor(() => expect(noticeText()).toBe("There's nothing to publish yet: save a file in this repository first."));
+  expect(openDialog()).toBeNull();
+  const command = syncCommand(doc('notes.md'));
+  await vi.waitFor(() => expect(command.label).toBe('Publish to GitHub'));
+  expect(command.icon).toBe('cloud-upload');
 });

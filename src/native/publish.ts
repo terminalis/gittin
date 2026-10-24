@@ -9,7 +9,7 @@ import { failureText, signedIn } from './sign-in';
 export function publishDialog(repo: Repo) {
   fileDialog('Publish to GitHub', (body, close, footer) => {
     const name = textField(body, 'Name', { value: repo.name, required: true, autocomplete: 'off' });
-    const keepPrivate = checkbox('Private', true);
+    const keepPrivate = checkbox('Private', true, 'dialog-option');
     const status = el('p', { role: 'status' });
     body.append(keepPrivate.parentElement!, status);
     const go = button('Publish', () => void publish(), 'primary');

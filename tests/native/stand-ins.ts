@@ -34,6 +34,7 @@ export function useGitHubStand(overrides: Partial<GitHub> = {}) {
     fetch: vi.fn(async () => ({ kind: 'upToDate' as const, fetched: 'abc123', ahead: 0 })),
     sync: vi.fn(async () => ({ kind: 'done' as const, pushed: false, published: false, hooks: false })),
     publish: vi.fn(async () => ({ kind: 'done' as const, pushed: true, published: true, hooks: false })),
+    publishable: vi.fn(async () => {}),
     ...overrides,
   };
   useGitHub(stand);

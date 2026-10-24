@@ -53,6 +53,8 @@ export interface GitHub {
   /** Brings in `fetched` with a side picked for each conflicting path, and pushes; with no `fetched`, publishes the branch. */
   sync(repository: string, fetched: string | null, choices: Record<string, Choice>, author: Author | null): Promise<Synced>;
   publish(repository: string, name: string, isPrivate: boolean): Promise<Synced>;
+  /** Rejects, saying why, when the repository has nothing to publish yet. */
+  publishable(repository: string): Promise<void>;
 }
 const tauri: GitHub = {
   deviceCode: workflow => invoke('github_device_code', { workflow }),
@@ -71,6 +73,7 @@ const tauri: GitHub = {
   fetch: repository => invoke('git_fetch', { repository }),
   sync: (repository, fetched, choices, author) => invoke('git_sync', { repository, fetched, choices, author }),
   publish: (repository, name, isPrivate) => invoke('github_publish', { repository, name, private: isPrivate }),
+  publishable: repository => invoke('git_publishable', { repository }),
 };
 export let github: GitHub = tauri;
 export const useGitHub = (stand: GitHub) => { github = stand; };

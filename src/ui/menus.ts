@@ -3,6 +3,7 @@ import type { GittinController } from '../editor/controller';
 import { commandRegistry, type CommandId } from '../editor/commands';
 import type { EditorControls } from '../editor/controls/controls';
 import { button, el, field, fileDialog, narrow, onDocumentClick } from './dom';
+import type { IconName } from './icons';
 import { menuIcon } from './menu-icons';
 import { arrangeMenu, submenuOf } from './menu-layout';
 import { keysFor, shortcutHint } from './shortcuts';
@@ -12,6 +13,8 @@ export interface Action {
   /** Its menu and any submenus: "Format/Text" is Format › Text. */
   menu: string;
   separatorBefore?: boolean;
+  /** An icon other than the one its id gives it. */
+  icon?: IconName;
   run(): void;
   state?(): { disabled?: boolean; selected?: boolean };
 }
@@ -84,7 +87,7 @@ function actionButton(action: Action, run: () => void) {
   const b = button('', () => { if (!action.state?.().disabled) run(); });
   b.setAttribute('aria-label', action.label);
   const state = action.state?.();
-  b.append(menuIcon(action.id, { selected: state?.selected }),
+  b.append(menuIcon(action.id, { selected: state?.selected, icon: action.icon }),
     el('span', { className: 'menu-label', textContent: action.label }));
   const keys = keysFor(action.id);
   if (keys) b.append(el('kbd', { textContent: shortcutHint(keys) }));
