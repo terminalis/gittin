@@ -499,7 +499,8 @@ export class Workspace {
     else renderPanel(false);
     // Left unset outside a folder, which disables Insert › Image › From folder….
     this.controls.onFolderImage = folder ? () => imageFromFolderDialog(folder, this.path(),
-      path => { this.controller.insertElement({ kind: 'image', url: path, text: '' }); }, relativePath)
+      path => { this.controller.insertElement({ kind: 'image', url: path, text: '' }); }, relativePath,
+      reference => this.folderLinks?.image(reference) ?? Promise.resolve(null))
       : undefined;
     this.controller.setImageSaver(managed ? async files => {
       const directory = dirname(this.path()), paths: string[] = [];

@@ -484,8 +484,30 @@ test.describe('writable folders', () => {
     await page.locator('.submenu > summary').filter({ hasText: /^Image$/ }).click();
     await page.getByRole('button', { name: 'From folder…', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Image from folder', exact: true });
-    await dialog.getByRole('button', { name: 'img/dot.png', exact: true }).click();
+    const choice = dialog.getByRole('button', { name: 'img/dot.png', exact: true });
+    await expect(dialog.getByRole('heading', { name: 'docs/img', exact: true })).toBeVisible();
+    await expect(choice.locator('img')).toHaveAttribute('src', /^blob:/);
+    await expect(choice).toHaveText('dot.png');
+    await choice.click();
     await expect(editor(page)).toContainText('![](<img/dot.png>)');
+  });
+
+  test('Image from folder offers a search once there are many images', async ({ page }) => {
+    const png = [...Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64')];
+    const files: Record<string, string | number[]> = { 'notes.md': '' };
+    for (let n = 0; n < 25; n++) files[`pics/p${n}.png`] = png;
+    await useFolder(page, files);
+    await openFromFolder(page, 'notes.md');
+    await editor(page).click();
+    await page.locator('.menus > details > summary').filter({ hasText: /^Insert$/ }).click();
+    await page.locator('.submenu > summary').filter({ hasText: /^Image$/ }).click();
+    await page.getByRole('button', { name: 'From folder…', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Image from folder', exact: true });
+    await expect(dialog.locator('.image-choice')).toHaveCount(25);
+    await dialog.getByRole('searchbox', { name: 'Find an image' }).fill('p7.');
+    await expect(dialog.locator('.image-choice')).toHaveCount(1);
+    await dialog.getByRole('button', { name: 'pics/p7.png', exact: true }).click();
+    await expect(editor(page)).toContainText('![](<pics/p7.png>)');
   });
 
   test('Linked resources opens relative links and images from the folder', async ({ page }) => {

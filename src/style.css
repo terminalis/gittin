@@ -2581,6 +2581,44 @@ label.home-option {
 .folder-tree ul:empty {
   display: none;
 }
+/* Image from folder: thumbnails under their folders' names. */
+.image-dialog {
+  --dialog-width: 640px;
+}
+.image-groups h3 {
+  margin: 16px 0 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.image-groups h3:first-child {
+  margin-top: 0;
+}
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 8px;
+}
+.workspace-dialog .image-choice {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px;
+  text-align: center;
+}
+.image-choice img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: var(--code);
+  object-fit: contain;
+}
+.image-choice span {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .folder-tree p {
   font-size: 13px;
   color: var(--muted);
