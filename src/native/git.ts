@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 export interface Author { name: string; email: string }
 export interface LogEntry { id: string; message: string; author: string; time: number }
-export interface LeftOut { path: string; reason: 'lfs' | 'filter' | 'ignored' }
+export interface LeftOut { path: string; reason: 'lfs' | 'filter' | 'ignored' | 'workflow' }
 export type Outcome =
   | { kind: 'committed'; hooks: boolean; leftOut: LeftOut[] }
   | { kind: 'unchanged'; leftOut: LeftOut[] }

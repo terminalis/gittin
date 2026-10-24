@@ -4,9 +4,16 @@ import { button, el, field, fileDialog, textField } from '../ui/dom';
 import type { OpenDocument } from '../screens/workspace';
 import type { Author } from './git';
 import type { Place } from './repositories';
+import { signIn } from './sign-in';
 
 /** Documents saved together: one repository's (with their described message), or files outside any. */
-export interface SaveGroup { place: Place | null; docs: { doc: OpenDocument; path: string }[]; message: string }
+export interface SaveGroup {
+  place: Place | null;
+  docs: { doc: OpenDocument; path: string }[];
+  message: string;
+  /** Workflow files the save leaves out of the commit: GitHub would refuse them from this sign-in. */
+  workflow: string[];
+}
 export type SaveAnswer = Map<string, string> | 'discard' | 'cancel';
 const titles = {
   save: 'Save and commit', close: 'Close with unsaved changes?', quit: 'Save before quitting?', sync: 'Save before syncing?',
@@ -33,6 +40,19 @@ export function saveDialog(groups: SaveGroup[], reason: 'save' | 'close' | 'quit
           });
           section.append(field('Commit message', message));
           messages.set(group.place.root, message);
+          if (group.workflow.length) {
+            const files = group.workflow.join(', ');
+            const note = el('div', { className: 'workflow-note', role: 'note' },
+              el('p', { textContent: 'GitHub accepts changes to workflow files only from a sign-in that allows them, so '
+                + `${files} ${group.workflow.length === 1 ? 'is' : 'are'} saved but left out of the commit.` }),
+              button('Allow workflow changes…', () => void signIn({ workflow: true }).then(account => {
+                if (!account?.scopes.includes('workflow')) return;
+                group.workflow = [];
+                message.focus();
+                note.remove();
+              })));
+            section.append(note);
+          }
         }
         body.append(section);
       }

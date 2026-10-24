@@ -23,6 +23,12 @@
 .save-group input {
   width: 100%;
 }
+.workflow-note {
+  margin: 0 0 8px;
+}
+.workflow-note p {
+  margin: 0 0 4px;
+}
 /* The account button: GitHub's mark signed out, the avatar in a circle signed in. */
 .account {
   display: flex;

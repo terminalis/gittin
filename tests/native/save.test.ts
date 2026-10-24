@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { OpenDocument } from '../../src/screens/workspace';
 import { addFile, addFolder } from '../../src/sources/registry';
@@ -6,6 +7,7 @@ import { DesktopDirectoryHandle, DesktopFileHandle } from '../../src/native/file
 import { useGit, type Git, type Outcome } from '../../src/native/git';
 import { changed, outcomeText, saveAll, useDialogs } from '../../src/native/save';
 import type { SaveAnswer, SaveGroup } from '../../src/native/save-dialog';
+import { noticeText, octocat, useDom, useGitHubStand } from './stand-ins';
 
 let work: FolderSource, loose: string;
 const commits: [string, string[], string][] = [];
@@ -20,6 +22,7 @@ const answer = (value: (groups: SaveGroup[]) => SaveAnswer) =>
   useDialogs({ save: async groups => { shown.push(groups); return value(groups); }, author: async () => ({ name: 'Asked', email: 'asked@example.com' }) });
 
 beforeEach(async () => {
+  useDom();
   work = await addFolder(new DesktopDirectoryHandle('/work'));
   loose = (await addFile({ handle: new DesktopFileHandle('/loose/b.md') })).id;
   commits.length = 0;
@@ -32,6 +35,7 @@ beforeEach(async () => {
       return outcomes.shift() ?? { kind: 'committed', hooks: false, leftOut: [] };
     },
   } as unknown as Git);
+  useGitHubStand();
 });
 
 test('saving a file outside any repository is left to Gittin', async () => {
@@ -76,6 +80,38 @@ test('quitting asks about repository and other files together; Don\'t save write
   expect(t.write).not.toHaveBeenCalled();
 });
 
+test("a workflow file this sign-in can't change is written but left out of the commit, saying why", async () => {
+  answer(groups => new Map([[groups[0].place!.root, 'Edit']]));
+  const t = tools();
+  const workflow = doc(work.id, '.github/workflows/ci.yml', 'a', 'b'), notes = doc(work.id, 'notes.md', 'x', 'y');
+  await saveAll([workflow, notes], 'save', t);
+  expect(shown[0][0].workflow).toEqual(['.github/workflows/ci.yml']);
+  expect(t.write).toHaveBeenCalledWith(workflow);
+  expect(commits).toEqual([['/work', ['notes.md'], 'Edit']]);
+  expect(t.report).toHaveBeenCalledWith(workflow, 'Saved and committed to work. Not committed: '
+    + '.github/workflows/ci.yml, a workflow file, which GitHub takes only from a sign-in that allows workflow changes.');
+});
+
+test('a save of only workflow files left out makes no commit', async () => {
+  answer(groups => new Map([[groups[0].place!.root, 'Edit']]));
+  const t = tools();
+  const workflow = doc(work.id, '.github/workflows/ci.yml', 'a', 'b');
+  await saveAll([workflow], 'save', t);
+  expect(commits).toEqual([]);
+  expect(t.report).toHaveBeenCalledWith(workflow, 'Saved. Nothing new to commit. Not committed: '
+    + '.github/workflows/ci.yml, a workflow file, which GitHub takes only from a sign-in that allows workflow changes.');
+});
+
+test('workflow files are committed with a sign-in that allows them, or when the remote is elsewhere', async () => {
+  answer(groups => new Map([[groups[0].place!.root, 'Edit']]));
+  useGitHubStand({ account: vi.fn(async () => ({ ...octocat, scopes: ['repo', 'workflow'] })) });
+  await saveAll([doc(work.id, '.github/workflows/ci.yml', 'a', 'b')], 'save', tools());
+  useGitHubStand({ remote: vi.fn(async () => ({ remotes: true, url: 'https://gitlab.com/owner/work.git', github: false, ahead: 0 })) });
+  await saveAll([doc(work.id, '.github/workflows/ci.yml', 'b', 'c')], 'save', tools());
+  expect(shown.map(groups => groups[0].workflow)).toEqual([[], []]);
+  expect(commits.map(([, paths]) => paths)).toEqual([['.github/workflows/ci.yml'], ['.github/workflows/ci.yml']]);
+});
+
 test('a file that could not be written is not committed, and the save counts as cancelled', async () => {
   answer(groups => new Map([[groups[0].place!.root, 'Edit']]));
   expect(await saveAll([doc(work.id, 'notes.md', 'x', 'y')], 'save', tools(false))).toBe('cancelled');
@@ -91,6 +127,16 @@ test('renames and deletions in a repository commit at once', async () => {
     ['/work', ['b.md', 'old/b.md'], 'Move b.md to old/b.md'],
     ['/work', ['old/b.md'], 'Delete old/b.md'],
   ]);
+});
+
+test('a move into the workflow folder commits only with a sign-in that allows workflow changes', async () => {
+  await changed(work, { kind: 'move', from: 'a.yml', to: '.github/workflows/a.yml' });
+  expect(commits).toEqual([]);
+  expect(noticeText()).toBe("Move a.yml to .github/workflows/a.yml wasn't committed to work: "
+    + 'GitHub takes changes to workflow files only from a sign-in that allows them.');
+  useGitHubStand({ account: vi.fn(async () => ({ ...octocat, scopes: ['repo', 'workflow'] })) });
+  await changed(work, { kind: 'move', from: 'a.yml', to: '.github/workflows/a.yml' });
+  expect(commits).toEqual([['/work', ['a.yml', '.github/workflows/a.yml'], 'Move a.yml to .github/workflows/a.yml']]);
 });
 
 test('a file saved for the first time commits at once', async () => {

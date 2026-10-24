@@ -6,6 +6,7 @@ import type { FolderSource } from '../sources/folder';
 import { basename, dirname } from '../sources/paths';
 import { notice } from '../ui/dom';
 import { git, type Author, type Outcome } from './git';
+import { github } from './github';
 import { commitMessage } from './messages';
 import { placeOf, placeOfDocument, type Place } from './repositories';
 import { askAuthor, saveDialog, type SaveGroup } from './save-dialog';
@@ -36,6 +37,7 @@ const leftOutReasons = {
   lfs: 'stored in Git LFS; commit it with git',
   filter: 'which git converts as it commits; commit it with git',
   ignored: 'ignored by the repository',
+  workflow: 'a workflow file, which GitHub takes only from a sign-in that allows workflow changes',
 };
 export function outcomeText(place: Place, outcome: Outcome): string {
   if (outcome.kind === 'refused') return `Saved, but not committed to ${place.name}: ${reasons[outcome.reason]}.`;
@@ -64,6 +66,14 @@ async function commit(place: Place, paths: string[], message: string): Promise<O
   return outcome;
 }
 
+const isWorkflow = (path: string) => path.startsWith('.github/workflows/');
+/** Whether GitHub would take a commit of workflow files from here: the remote isn't on GitHub, or the sign-in allows
+ * workflow changes. Signed out counts as not allowing them. */
+async function workflowAllowed(root: string) {
+  const [state, account] = await Promise.all([github.remote(root), github.account()]);
+  return !state.github || !!account?.scopes.includes('workflow');
+}
+
 /** The documents by repository, repositories first by name, files outside any last, each repository's
  * message described from what changed. */
 async function group(docs: OpenDocument[]): Promise<SaveGroup[]> {
@@ -72,7 +82,7 @@ async function group(docs: OpenDocument[]): Promise<SaveGroup[]> {
     const place = await placeOfDocument(doc), identity = doc.session.identity;
     const path = place?.path ?? (identity.kind === 'source' ? identity.path : doc.title);
     let group = groups.get(place?.root ?? '');
-    if (!group) groups.set(place?.root ?? '', group = { place, docs: [], message: '' });
+    if (!group) groups.set(place?.root ?? '', group = { place, docs: [], message: '', workflow: [] });
     group.docs.push({ doc, path });
   }
   for (const group of groups.values()) {
@@ -83,6 +93,8 @@ async function group(docs: OpenDocument[]): Promise<SaveGroup[]> {
         ({ path, before: doc.localBaseline?.source ?? null, after: doc.session.current.source })),
       ...added.map(path => ({ path, before: null, after: '' })),
     ]);
+    const workflows = group.docs.map(item => item.path).filter(isWorkflow);
+    if (workflows.length && !(await workflowAllowed(group.place.root))) group.workflow = workflows;
   }
   return [...groups.values()].sort((a, b) =>
     Number(!a.place) - Number(!b.place) || (a.place?.name ?? '').localeCompare(b.place?.name ?? ''));
@@ -103,10 +115,15 @@ export async function saveAll(docs: OpenDocument[], reason: 'save' | 'close' | '
     for (const item of group.docs) if (await tools.write(item.doc)) written.push(item); else saved = false;
     if (!group.place || !written.length) continue;
     const root = group.place.root;
-    const paths = [...new Set([...written.map(item => item.path), ...(created.get(root) ?? [])])];
-    const outcome = await commit(group.place, paths, answer.get(root) || group.message);
+    const leftOut = group.workflow.filter(path => written.some(item => item.path === path))
+      .map(path => ({ path, reason: 'workflow' as const }));
+    const paths = [...new Set([...written.map(item => item.path), ...(created.get(root) ?? [])])]
+      .filter(path => !group.workflow.includes(path));
+    const outcome: Outcome = paths.length
+      ? await commit(group.place, paths, answer.get(root) || group.message) : { kind: 'unchanged', leftOut: [] };
     if (outcome.kind !== 'refused') created.delete(root);
-    const text = outcomeText(group.place, outcome);
+    const text = outcomeText(group.place,
+      outcome.kind === 'refused' ? outcome : { ...outcome, leftOut: [...outcome.leftOut, ...leftOut] });
     for (const { doc } of written) tools.report(doc, text);
     // Closing removes the file status, so a commit that couldn't be made says why here.
     if (reason === 'close' && outcome.kind === 'refused') notice(text);
@@ -116,6 +133,8 @@ export async function saveAll(docs: OpenDocument[], reason: 'save' | 'close' | '
 
 /** Commits a file operation at once, saying so if it can't be. */
 async function commitNow(place: Place, paths: string[], message: string) {
+  if (paths.some(isWorkflow) && !(await workflowAllowed(place.root))) return notice(`${message} wasn't committed to `
+    + `${place.name}: GitHub takes changes to workflow files only from a sign-in that allows them.`);
   const outcome = await commit(place, paths, message);
   if (outcome.kind === 'refused') notice(`${message} wasn't committed to ${place.name}: ${reasons[outcome.reason]}.`);
 }
