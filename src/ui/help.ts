@@ -17,6 +17,17 @@ const topics: Record<string, string> = {
       : 'disk. Save as writes a new file; in browsers that cannot write files it downloads one. '
         + 'Unsaved changes are kept in this browser, which you or the browser can clear. ')
     + `Version history keeps up to 20 saves per file in ${place}.`,
+  ...(desktop ? {
+    'GitHub': 'Sign in with the GitHub button on Home: Gittin shows a code and copies it; choose Open GitHub and '
+      + 'paste it there. Only ever enter a code Gittin showed you, never one someone else gives you: anyone can '
+      + 'start a sign-in that GitHub shows as Gittin\'s. Clone repository, on Home and in File › Open, copies a '
+      + 'repository into a new folder. Sync, in the Folder panel, File › Sync and the status footer, saves first, '
+      + 'then brings in GitHub\'s commits and sends yours; where both changed the same lines of a file, you keep one '
+      + 'version, and the other stays in Version history. A repository with no remote offers Publish to GitHub '
+      + 'instead. In a repository on GitHub, changes to workflow files are saved but left out of commits unless you '
+      + 'choose Allow workflow changes…. Disconnect GitHub, in the account menu, forgets the sign-in on this '
+      + 'computer; to revoke it, go to Settings › Applications on GitHub.',
+  } : {}),
   'Markdown syntax': 'Common Markdown with tables, task lists, alerts and footnotes. Insert provides '
     + 'source templates, symbols, heading links, footnotes, alerts and more.',
 };

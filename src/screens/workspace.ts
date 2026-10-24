@@ -278,7 +278,8 @@ export class Workspace {
         () => void prefs.save({ toolbarItems: { ...items(), [id]: items()[id] === false } }),
         selected(() => items()[id] !== false)]),
     ]);
-    const about = 'Gittin has no accounts. Your files stay on your device. '
+    const about = (desktop ? 'Your files stay on your device, and go to GitHub only when you sync or publish a repository. '
+      : 'Gittin has no accounts. Your files stay on your device. ')
       + 'Save writes back to the file you opened; Save as writes a new file. '
       + (desktop ? 'Unsaved changes are kept in this app. In a git repository, Save also commits.'
         : 'Unsaved changes are kept in this browser, which you or the browser can clear. '
