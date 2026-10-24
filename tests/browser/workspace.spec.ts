@@ -226,11 +226,9 @@ test('backs up all drafts to a zip and restores it, or a JSON backup, in an empt
   const other = await context.newPage();
   await other.goto(new URL(page.url()).origin + '/#/home');
   const restore = async (name: string, mimeType: string, buffer: Buffer) => {
+    const chooser = other.waitForEvent('filechooser');
     await homeMenu(other, 'Restore drafts');
-    await other
-      .getByRole('dialog', { name: 'Restore drafts' })
-      .getByLabel('Backup file')
-      .setInputFiles({ name, mimeType, buffer });
+    await (await chooser).setFiles({ name, mimeType, buffer });
   };
   await restore('backup.zip', 'application/zip', backup.bytes);
   await expect(other.locator('#notice')).toContainText(

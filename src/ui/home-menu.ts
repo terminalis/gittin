@@ -2,7 +2,7 @@ import type { DevicePreferences, Preferences } from '../preferences';
 import { exportDraftsArchive, importDrafts, readBackup } from '../documents/drafts';
 import { exportFile } from '../documents/files';
 import {
-  button, el, errorText, field, fileDialog, iconButton, legalPages, legalRel, notice, segmented,
+  button, el, errorText, fileDialog, iconButton, legalPages, legalRel, notice, segmented,
 } from './dom';
 import { helpDialog, keyboardShortcuts } from './help';
 import { icon, type IconName } from './icons';
@@ -41,9 +41,10 @@ export function homeMenu(
     nav.append(section);
     return section;
   };
-  const add = (to: HTMLElement, label: string, name: IconName, open: () => void) => {
+  const add = (to: HTMLElement, label: string, name: IconName, open: () => void, tip = '') => {
     const item = button(label, () => { close(); open(); }, 'home-drawer-item');
     item.prepend(icon(name));
+    if (tip) item.title = tip;
     to.append(item);
   };
   // Settings that belong to Home: what it lists. Editor settings stay in the editor.
@@ -65,8 +66,8 @@ export function homeMenu(
     el('span', { id: 'home-menu-recent-limit', textContent: 'Recent files shown' }), limits));
   const drafts = group('Drafts');
   add(drafts, 'Export drafts', 'download', () => fileDialog('Export drafts', (body, close, footer) => {
-    const text = el('p', { textContent: `Export every draft in ${place} as one .zip file,`
-      + ' with each draft in it as its own file.' + (desktop ? '' : ' Keep it somewhere safe: browser storage can be cleared.') });
+    const text = el('p', { textContent: `Every draft in ${place}, saved as one .zip file.`
+      + (desktop ? '' : ' Keep it somewhere safe: browser storage can be cleared.') });
     body.append(text);
     footer.append(button('Export backup', () => {
       const name = `gittin-drafts-${new Date().toISOString().slice(0, 10)}.zip`;
@@ -75,25 +76,22 @@ export function homeMenu(
         .catch(error => { text.textContent = 'The backup could not be made. ' + errorText(error); });
     }, 'primary'));
   }));
-  add(drafts, 'Restore drafts', 'history', () => fileDialog('Restore drafts', (body, closeRestore) => {
+  add(drafts, 'Restore drafts', 'history', () => {
     const input = el('input', { type: 'file', accept: '.zip,.json,application/zip,application/json' });
-    const text = el('p', { textContent: 'Drafts already on this device are kept unchanged.' });
-    body.append(text, field('Backup file', input));
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return;
       try {
         const { restored, kept } = await importDrafts(await readBackup(file));
-        closeRestore();
         notice(`Restored ${restored} draft${restored === 1 ? '' : 's'}. `
           + `${kept} already on this device ${kept === 1 ? 'was' : 'were'} kept unchanged.`);
         actions.refresh();
       } catch (error) {
-        text.textContent = errorText(error);
-        input.value = '';
+        notice(errorText(error));
       }
     };
-  }));
+    input.click();
+  }, 'Restore drafts from a backup file. Drafts already on this device are kept unchanged.');
   const help = group('Help');
   add(help, 'Help', 'help', helpDialog);
   add(help, 'Shortcuts', 'keyboard', () => keyboardShortcuts());

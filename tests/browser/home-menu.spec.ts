@@ -27,6 +27,8 @@ test('drawer order, focus, Escape and backdrop at 1280px and 390px', async ({ pa
     const nav = drawer(page).getByRole('navigation');
     await expect(nav.locator('.home-drawer-label')).toHaveText(['Settings', 'Drafts', 'Help']);
     await expect(nav.getByRole('group', { name: 'Drafts', exact: true }).getByRole('button')).toHaveText(['Export drafts', 'Restore drafts']);
+    await expect(nav.getByRole('button', { name: 'Restore drafts', exact: true })).toHaveAttribute(
+      'title', 'Restore drafts from a backup file. Drafts already on this device are kept unchanged.');
     const settings = nav.getByRole('group', { name: 'Settings', exact: true });
     await expect(settings.getByRole('button')).toHaveText(['10', '25', 'All']);
     await expect(settings.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true');
