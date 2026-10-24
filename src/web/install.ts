@@ -25,9 +25,11 @@ export function install() {
   fileDialog('Install Gittin', body => {
     const linux = row('Linux', 'The desktop app', newTab('Download Flatpak', flatpakref));
     const copy = iconButton('copy', 'Copy command', () => copyText(command, 'Command copied.', manual));
-    // The command wraps inside its box, the copy button in the box's top corner.
+    // The command wraps inside its box, after a slash of the address rather than inside a name, the copy button in
+    // the box's top corner.
+    const parts = command.split(/(?<=[^/]\/)(?=[^/])/).flatMap((part, i) => i ? [el('wbr'), part] : [part]);
     linux.append(el('div', { className: 'install-terminal' }, el('small', { textContent: 'Or in a terminal:' }),
-      el('div', { className: 'install-command' }, el('code', { textContent: command, tabIndex: 0 }), copy)));
+      el('div', { className: 'install-command' }, el('code', { tabIndex: 0 }, ...parts), copy)));
     const list = el('ul', { className: 'version-list' },
       row('Windows', 'The desktop app', newTab('Open Microsoft Store', 'https://apps.microsoft.com/detail/9NDJ4HR0FF1H')),
       linux);

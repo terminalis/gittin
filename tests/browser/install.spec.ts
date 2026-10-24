@@ -61,6 +61,15 @@ test('the dialog links to the Microsoft Store and the Flatpak, with the command 
   const copy = (await dialog(page).getByRole('button', { name: 'Copy command', exact: true }).boundingBox())!;
   expect(box.x + box.width - (copy.x + copy.width)).toBeLessThan(8);
   expect(copy.y - box.y).toBeLessThan(8);
+  // The address breaks after a slash, not inside the file's name.
+  expect(await code.evaluate(code => {
+    const name = 'gittin.flatpakref';
+    const text = [...code.childNodes].find(node => node.textContent!.includes(name))!;
+    const range = document.createRange(), at = text.textContent!.indexOf(name);
+    range.setStart(text, at);
+    range.setEnd(text, at + name.length);
+    return range.getClientRects().length;
+  })).toBe(1);
   await expect(browserRow(page)).toHaveCount(0);
 });
 
