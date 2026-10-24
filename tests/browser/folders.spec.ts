@@ -780,7 +780,7 @@ test('no Git or GitHub wording appears in the web app', async ({ page }) => {
   const texts = await page.evaluate(() => [...document.querySelectorAll('#workspace button, #workspace summary, #workspace [title], #workspace [aria-label]')]
     .map(el => [el.textContent, el.getAttribute('title'), el.getAttribute('aria-label')].join(' ')));
   expect(texts.filter(text => banned.test(text))).toEqual([]);
-  for (const topic of ['Gittin Help', 'About drafts and files', 'Getting Started', "What's new"]) {
+  for (const topic of ['Gittin Help', 'Getting Started', "What's new"]) {
     await command(page, topic);
     expect(await page.locator('body').innerText()).not.toMatch(banned);
     await page.keyboard.press('Escape');

@@ -37,7 +37,7 @@ const actionIcons: Record<string, IconName> = {
   preferences: 'settings',
   commands: 'search', 'gittin-help': 'help', 'getting-started': 'school', 'whats-new': 'broadcast',
   feedback: 'message-report', privacy: 'shield-lock', terms: 'file-description',
-  notices: 'file-description', about: 'info-circle', shortcuts: 'keyboard',
+  notices: 'file-description', shortcuts: 'keyboard',
   'reset-toolbar': 'restore', 'submenu-arrow': 'chevron-right', heading: 'pilcrow',
 };
 const groupIcons: Record<string, IconName> = {

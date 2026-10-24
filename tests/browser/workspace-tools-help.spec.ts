@@ -10,6 +10,7 @@ import {
   mountWorkspace,
   newFile,
   noSidewaysScroll,
+  openMenu,
   openText,
   palette,
   readable,
@@ -316,7 +317,7 @@ test('Help opens as a dialog, guides separate, shortcuts assigned/platform-speci
   await page.keyboard.press('Escape');
   await expect(panel).toHaveCount(0);
   await command(page, 'Getting Started');
-  await expect(dialog(page, 'Getting Started').locator('li')).toHaveCount(5);
+  await expect(dialog(page, 'Getting Started').locator('.start-steps li')).toHaveCount(5);
   await close(page, 'Getting Started');
   await command(page, "What's new");
   await expect(dialog(page, "What's new")).toContainText('27 September 2026');
@@ -463,22 +464,34 @@ test('Help lists its topics on the left and the chosen topic as headed points, o
   await expect(help.locator('details')).toHaveCount(0);
 });
 
-test('About drafts and files can be dismissed and reopened without changing the document', async ({
+test('Getting Started lists its steps with icons, then how your files are kept, and heads the Help menu', async ({
   page,
 }) => {
   await createFile(page);
   await editor(page).fill('Keep this draft.');
-  for (const dismiss of ['click', 'keyboard']) {
-    await command(page, 'About drafts and files');
-    const notice = page.locator('#notice');
-    await expect(notice).toContainText('Gittin has no accounts');
-    const closeButton = notice.getByRole('button', { name: 'Dismiss notice' });
-    if (dismiss === 'click') await closeButton.click();
-    else await closeButton.press('Enter');
-    await expect(notice).toBeHidden();
-    await expect(editor(page)).toHaveText('Keep this draft.');
-    await expect(editor(page)).toBeFocused();
-  }
+  await openMenu(page, 'Help');
+  await expect(page.locator('.menus .menu-items > button .menu-label')).toContainText([
+    'Search the menus',
+    'Getting Started',
+    'Gittin Help',
+    "What's new",
+  ]);
+  await expect(page.locator('.menus .menu-items').getByRole('button', { name: 'About drafts and files' })).toHaveCount(0);
+  await page.locator('.menus').getByRole('button', { name: 'Getting Started', exact: true }).click();
+  const d = dialog(page, 'Getting Started');
+  await expect(d.locator('.start-steps strong')).toHaveText([
+    'Start a file',
+    'Write',
+    'Check it',
+    'Work in a folder',
+    'Look things up',
+  ]);
+  await expect(d.locator('.start-steps li > svg')).toHaveCount(5);
+  await expect(d.locator('.start-files dt')).toHaveText(['Your files', 'Saving', 'Unsaved changes']);
+  await expect(d.locator('.start-files')).toContainText('Gittin has no accounts.');
+  await close(page, 'Getting Started');
+  await expect(editor(page)).toHaveText('Keep this draft.');
+  await expect(editor(page)).toBeFocused();
 });
 
 test('attribution application rejects a changed source or read-only mode', async ({ page }) => {

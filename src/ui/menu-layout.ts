@@ -31,8 +31,8 @@ const sections: Record<string, readonly (readonly string[])[]> = {
     ['preferences'],
   ],
   Help: [
-    ['commands'], ['gittin-help', 'getting-started', 'whats-new'], ['feedback'],
-    ['privacy', 'terms', 'notices', 'about'], ['shortcuts'],
+    ['commands'], ['getting-started', 'gittin-help', 'whats-new'], ['feedback'],
+    ['privacy', 'terms', 'notices'], ['shortcuts'],
   ],
   'Edit/Lines': [['duplicateLines'], ['moveLinesUp', 'moveLinesDown'], ['deleteLines']],
   'Format/Text': [['bold', 'italic', 'strike', 'code', 'ins', 'sup', 'sub', 'mark']],

@@ -714,6 +714,45 @@ a:has(> .app-icon) {
 .help-topic p {
   margin: 0;
 }
+/* Getting Started: icon rows, then how your files are kept as labelled rows. */
+.start-steps {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.start-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.start-steps li > .app-icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent);
+}
+.start-steps p {
+  margin: 2px 0 0;
+  color: var(--muted);
+}
+.start-dialog h3 {
+  margin: 24px 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.start-files {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 0;
+}
+.start-files dt {
+  font-weight: 600;
+}
+.start-files dd {
+  margin: 0;
+}
 @media (max-width: 600px) {
   .help-topics {
     grid-template-columns: minmax(0, 1fr);

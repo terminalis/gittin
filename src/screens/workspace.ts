@@ -29,7 +29,7 @@ import {
 } from '../ui/file-actions';
 import { versionHistoryButton, openVersionHistory } from '../ui/version-history';
 import { basename, dirname, fragment, join, relativePath, resolvePath, imageType, suffixed } from '../sources/paths';
-import { desktop, place } from '../platform';
+import { place } from '../platform';
 import { FindBar } from '../ui/find-bar';
 import { Menus, editorActions, type Action } from '../ui/menus';
 import {
@@ -281,12 +281,6 @@ export class Workspace {
         () => void prefs.save({ toolbarItems: { ...items(), [id]: items()[id] === false } }),
         selected(() => items()[id] !== false)]),
     ]);
-    const about = (desktop ? 'Your files stay on your device, and go to GitHub only when you sync or publish a repository. '
-      : 'Gittin has no accounts. Your files stay on your device. ')
-      + 'Save writes back to the file you opened; Save as writes a new file. '
-      + (desktop ? 'Unsaved changes are kept in this app. In a git repository, Save also commits.'
-        : 'Unsaved changes are kept in this browser, which you or the browser can clear. '
-          + 'After its first visit, Gittin can start offline on this device.');
     const rows: Row[] = [
       ['File', 'home', 'Home', actions.home],
       ['File/New', 'new', 'File', () => actions.new()],
@@ -345,15 +339,14 @@ export class Workspace {
       ...toolbar,
       ['View/Toolbar', 'reset-toolbar', 'Reset toolbar',
         () => void prefs.save({ toolbarGroups: {}, toolbarItems: {} })],
+      ['Help', 'getting-started', 'Getting Started', gettingStarted],
       ['Help', 'gittin-help', 'Gittin Help',
         () => workspaceHelpDialog(this.part('.workspace-body'), this.abort.signal)],
-      ['Help', 'getting-started', 'Getting Started', gettingStarted],
       ['Help', 'whats-new', "What's new", whatsNew],
       page('feedback', ['Send feedback…', 'https://github.com/terminalis/gittin/issues/new']),
       page('privacy', privacy),
       page('terms', terms),
       ['Help', 'shortcuts', 'Keyboard shortcuts', () => keyboardShortcuts()],
-      ['Help', 'about', 'About drafts and files', () => notice(about)],
       page('notices', notices),
     ];
     return rows.map(([menu, id, label, run, more]) => ({ id, label, menu, run, ...more }));

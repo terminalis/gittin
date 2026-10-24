@@ -1,4 +1,5 @@
 import { button, closeButton, dialogShell, el, field, fileDialog } from './dom';
+import { icon, type IconName } from './icons';
 import { keyCaps, shortcuts } from './shortcuts';
 import { desktop, place } from '../platform';
 /** A point of a Help topic: its heading, then a sentence or two. */
@@ -179,18 +180,32 @@ export function workspaceHelpDialog(host: HTMLElement, signal: AbortSignal) {
   heading.focus({ preventScroll: true });
   return dialog;
 }
-const steps = [
-  'Create a new file or open a UTF-8 file. Every file opens in Edit.',
-  'Write source and use the formatting toolbar or menus. Undo shares one history.',
-  'Check Preview or Diff without changing source.',
-  'Save to write back to your file, or Save as to choose a new one. '
-    + 'Open a folder to browse and edit its files.',
-  'Use Help topics and Keyboard shortcuts for reference.'
-    + (desktop ? '' : ' After its first visit, Gittin can start offline on this device.'),
+/** Getting Started's steps: an icon, a short title and one line each. */
+const steps: [name: IconName, title: string, text: string][] = [
+  ['file-plus', 'Start a file', 'Create a new file, or open one from your device. Every file opens in Edit.'],
+  ['pencil', 'Write', 'Type, or use the toolbar and menus. Undo covers every change.'],
+  ['file-text', 'Check it', 'Preview shows the page and Diff what changed. Neither changes the file.'],
+  ['folder', 'Work in a folder', 'Open a folder to browse and edit its files.'],
+  ['help', 'Look things up', 'Gittin Help and Keyboard shortcuts are in the Help menu.'
+    + (desktop ? '' : ' After its first visit, Gittin can start offline on this device.')],
+];
+/** How Gittin keeps your files, under Getting Started's steps. */
+const yourFiles: [label: string, text: string][] = [
+  ['Your files', desktop ? 'Stay on your device, and go to GitHub only when you sync or publish a repository.'
+    : 'Stay on your device. Gittin has no accounts.'],
+  ['Saving', 'Save writes back to the file you opened; Save as writes a new file.'
+    + (desktop ? ' In a git repository, Save also commits.' : '')],
+  ['Unsaved changes', desktop ? 'Kept in this app until you save.'
+    : 'Kept in this browser, which you or the browser can clear.'],
 ];
 export function gettingStarted() {
-  fileDialog('Getting Started', body =>
-    body.append(el('ol', {}, ...steps.map(text => el('li', { textContent: text })))), { info: true });
+  fileDialog('Getting Started', body => body.append(
+    el('ul', { className: 'start-steps' }, ...steps.map(([name, title, text]) =>
+      el('li', {}, icon(name), el('div', {}, el('strong', { textContent: title }), el('p', { textContent: text }))))),
+    el('h3', { textContent: 'Your files' }),
+    el('dl', { className: 'start-files' }, ...yourFiles.flatMap(([label, text]) =>
+      [el('dt', { textContent: label }), el('dd', { textContent: text })]))),
+  { className: 'start-dialog', info: true });
 }
 const releases = [
   ...desktop ? ['Git in the desktop apps — 23 October 2026: in a folder that is a git repository, saving also '
