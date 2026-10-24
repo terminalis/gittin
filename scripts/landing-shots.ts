@@ -48,7 +48,8 @@ async function start(page: Page, theme: Theme, size: Size, changes: Record<strin
 /** Opens a top-level file of the sample folder from Home. */
 async function openFromHome(page: Page, name: string) {
   await page.getByRole('button', { name: 'Open folder', exact: true }).click();
-  await page.getByRole('dialog', { name: 'field-notes', exact: true }).getByRole('button', { name, exact: true }).click();
+  await page.getByRole('dialog', { name: 'Open a file in field-notes', exact: true })
+    .getByRole('button', { name, exact: true }).click();
   await expect(page.locator('#document-title')).toHaveText(name);
 }
 
