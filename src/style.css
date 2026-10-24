@@ -876,6 +876,17 @@ a:has(> .app-icon) {
   border-color: var(--accent);
   color: var(--accent);
 }
+/* File changed on disk: Compare beside the message. */
+.disk-change-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.disk-change-message p {
+  flex: 1;
+  margin: 0;
+}
 /* Linked resources reuses those rows: the kind's icon, the target and its line, then its actions; a long target
    wraps. */
 .resource-list .version-row {

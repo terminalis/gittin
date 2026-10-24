@@ -114,6 +114,14 @@ test.describe('writable folders', () => {
     await save(page);
     const dialog = page.getByRole('dialog', { name: 'File changed on disk', exact: true });
     await expect(dialog).toContainText('a.md changed on disk since you opened it. Your unsaved changes are safe in this browser.');
+    await expect(dialog.locator('.choice-row small')).toHaveText([
+      'Replaces your text; Undo brings it back.',
+      'Your text goes to a new file.',
+      'Your text replaces the version on disk.',
+    ]);
+    await expect(dialog.getByRole('button', { name: 'Overwrite', exact: true })).toHaveClass(/danger/);
+    await expect(dialog.locator('.disk-change-message').getByRole('button', { name: 'Compare', exact: true })).toBeVisible();
+    await expect(dialog.locator('.dialog-actions > button')).toHaveText(['Cancel']);
     await dialog.getByRole('button', { name: 'Compare', exact: true }).click();
     await expect(page.locator('.view-notice')).toContainText('Temporary comparison: Version on disk');
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
