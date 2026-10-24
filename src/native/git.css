@@ -57,8 +57,12 @@
   border-radius: 50%;
   background: none;
 }
-.home-header .account > button:hover {
+.account > button:hover {
   background: color-mix(in srgb, var(--surface) 55%, transparent);
+}
+/* In the workspace the mark is the size of Version history's clock beside it. */
+.workspace-header-actions .account .app-icon {
+  --icon: 24px;
 }
 .account-trigger img {
   display: block;

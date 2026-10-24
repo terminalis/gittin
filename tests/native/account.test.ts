@@ -11,20 +11,20 @@ beforeEach(() => {
   document.body.append(home, workspace);
 });
 
-test("signed out, Home shows GitHub's mark, which opens the sign-in, and the workspace shows nothing", async () => {
+test("signed out, Home and the workspace show GitHub's mark, which opens the sign-in", async () => {
   useGitHubStand({ deviceWait: vi.fn(() => new Promise<never>(() => {})) });
-  accountButton(home, 'home');
-  accountButton(workspace, 'workspace');
+  accountButton(home);
+  accountButton(workspace);
   await vi.waitFor(() => expect(buttonNamed('Sign in to GitHub…', home)).toBeTruthy());
-  expect(workspace.querySelector('button')).toBeNull();
-  buttonNamed('Sign in to GitHub…', home)!.click();
+  await vi.waitFor(() => expect(buttonNamed('Sign in to GitHub…', workspace)).toBeTruthy());
+  buttonNamed('Sign in to GitHub…', workspace)!.click();
   await vi.waitFor(() => expect(openDialog()?.querySelector('h2')?.textContent).toBe('Sign in to GitHub'));
 });
 
 test('signed in, both show the avatar, whose menu names the account and disconnects it', async () => {
   const stand = useGitHubStand({ account: vi.fn(async () => octocat) });
-  accountButton(home, 'home');
-  accountButton(workspace, 'workspace');
+  accountButton(home);
+  accountButton(workspace);
   await vi.waitFor(() => expect(home.querySelector('img')?.getAttribute('src')).toBe(octocat.avatar));
   await vi.waitFor(() => expect(workspace.querySelector('img')).toBeTruthy());
   buttonNamed('GitHub account: octocat', home)!.click();
@@ -37,4 +37,5 @@ test('signed in, both show the avatar, whose menu names the account and disconne
   expect(stand.signOut).toHaveBeenCalled();
   expect(buttonNamed('Sign in to GitHub…', home)).toBeTruthy();
   expect(workspace.querySelector('img')).toBeNull();
+  expect(buttonNamed('Sign in to GitHub…', workspace)).toBeTruthy();
 });

@@ -1,5 +1,5 @@
-// The account button, at the right end of Home's header always and of the workspace's once signed in: GitHub's mark
-// while signed out, which opens the sign-in; the account's avatar once signed in, with Switch account and Disconnect
+// The account button, at the right end of Home's header and the workspace's: GitHub's mark while signed out, which
+// opens the sign-in; the account's avatar once signed in, with Switch account and Disconnect
 // GitHub in its menu. The avatar is GitHub's public image; no token is involved in loading it.
 import { button, el, fileDialog, iconButton, notice } from '../ui/dom';
 import { icon } from '../ui/icons';
@@ -7,7 +7,7 @@ import { PopupMenu } from '../ui/popup-menu';
 import { github, type Account } from './github';
 import { accountChanged, onAccountChange, signIn } from './sign-in';
 
-export function accountButton(host: HTMLElement, where: 'home' | 'workspace') {
+export function accountButton(host: HTMLElement) {
   const slot = el('div', { className: 'account' });
   host.append(slot);
   let menu: PopupMenu | undefined;
@@ -17,8 +17,7 @@ export function accountButton(host: HTMLElement, where: 'home' | 'workspace') {
     menu?.dispose();
     slot.replaceChildren();
     if (!account) {
-      if (where === 'home')
-        slot.append(Object.assign(iconButton('brand-github', 'Sign in to GitHub…', () => void signIn()), { id }));
+      slot.append(Object.assign(iconButton('brand-github', 'Sign in to GitHub…', () => void signIn()), { id }));
       return;
     }
     const name = `GitHub account: ${account.login}`;

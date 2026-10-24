@@ -35,8 +35,8 @@ const colourFrame = () => {
 const extensions: Extensions = {
   save: saveAll, changed, history: openHistory,
   folder: (source, panel) => { offerRepository(source, panel); syncInFolder(source, panel); },
-  home: (header, actions) => { accountButton(header, 'home'); cloneButton(actions); },
-  workspace: (doc, header, footer) => { accountButton(header, 'workspace'); githubStatus(doc, footer); },
+  home: (header, actions) => { accountButton(header); cloneButton(actions); },
+  workspace: (doc, header, footer) => { accountButton(header); githubStatus(doc, footer); },
   commands: doc => [cloneCommand, syncCommand(doc)],
   preferences: gitPreferences,
 };
