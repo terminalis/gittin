@@ -131,20 +131,24 @@ test('resources list links and images, preserve relative references and navigate
   await openFile(page, original);
   await command(page, 'Linked resources…');
   let d = dialog(page, 'Linked resources');
-  await expect(d.getByRole('button', { name: 'Jump to reference' })).toHaveCount(5);
-  await expect(d.getByRole('link', { name: 'Open target' })).toHaveCount(2);
+  await expect(d.locator('p').first()).toHaveText('The links and images in this file, in order.');
+  await expect(d.locator('.resource-kind').first()).toHaveAttribute('aria-label', 'Link');
+  await expect(d.locator('.resource-kind').nth(3)).toHaveAttribute('aria-label', 'Image');
+  await expect(d.locator('.version-label small').first()).toHaveText('Line 3');
+  await expect(d.getByRole('button', { name: 'Go to line', exact: true })).toHaveCount(5);
+  await expect(d.getByRole('link', { name: 'Open', exact: true })).toHaveCount(2);
   await expect(d).toContainText('Target unavailable without a file opened from a folder.');
   await expect(d).toContainText('Unsafe or unsupported target.');
-  await expect(d.getByRole('link', { name: 'Open target' }).first()).toHaveAttribute(
+  await expect(d.getByRole('link', { name: 'Open', exact: true }).first()).toHaveAttribute(
     'rel',
     'noopener noreferrer',
   );
-  await d.getByRole('button', { name: 'Jump to reference' }).nth(1).click();
+  await d.getByRole('button', { name: 'Go to line', exact: true }).nth(1).click();
   await expect(editor(page)).toBeFocused();
   expect(await bytes(page)).toEqual(Buffer.from(original));
   await command(page, 'Linked resources…');
   d = dialog(page, 'Linked resources');
-  await d.getByRole('button', { name: 'Open target' }).click();
+  await d.getByRole('button', { name: 'Open', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Preview', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -162,8 +166,8 @@ test('resources list links and images, preserve relative references and navigate
   });
   await command(page, 'Linked resources…');
   d = dialog(page, 'Linked resources');
-  await expect(d.getByRole('button', { name: 'Jump to reference' })).toHaveCount(2);
-  await expect(d.getByRole('link', { name: 'Open target' }).first()).toHaveAttribute(
+  await expect(d.getByRole('button', { name: 'Go to line', exact: true })).toHaveCount(2);
+  await expect(d.getByRole('link', { name: 'Open', exact: true }).first()).toHaveAttribute(
     'href',
     'https://example.com/?a=1&b=2',
   );

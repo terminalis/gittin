@@ -470,14 +470,13 @@ test.describe('writable folders', () => {
     await openFromFolder(page, 'docs/guide.md');
     await command(page, 'Linked resources…');
     const dialog = page.getByRole('dialog', { name: 'Linked resources', exact: true });
-    await expect(dialog).toContainText('Relative targets open from this file’s folder.');
     await expect(dialog).toContainText('Target is outside this folder.');
-    await expect(dialog.getByRole('link', { name: 'Open target' })).toHaveAttribute('href', /^blob:/);
+    await expect(dialog.getByRole('link', { name: 'Open', exact: true })).toHaveAttribute('href', /^blob:/);
     // A missing file keeps the dialog open and says so; the other links still open.
-    await dialog.getByRole('button', { name: 'Open target' }).nth(2).click();
+    await dialog.getByRole('button', { name: 'Open', exact: true }).nth(2).click();
     await expect(dialog).toContainText('docs/gone.md is not in project.');
-    await expect(dialog.getByRole('button', { name: 'Jump to reference' }).nth(2)).toBeFocused();
-    await dialog.getByRole('button', { name: 'Open target' }).nth(1).click();
+    await expect(dialog.getByRole('button', { name: 'Go to line', exact: true }).nth(2)).toBeFocused();
+    await dialog.getByRole('button', { name: 'Open', exact: true }).nth(1).click();
     await expect(dialog).toHaveCount(0);
     await expect(page.locator('#document-title')).toHaveText('readme.md');
     await expect(editor(page)).toContainText('# Readme');
@@ -492,7 +491,7 @@ test.describe('writable folders', () => {
     await openFromFolder(page, 'docs/note.md');
     await command(page, 'Linked resources…');
     const dialog = page.getByRole('dialog', { name: 'Linked resources', exact: true });
-    const targets = dialog.getByRole('link', { name: 'Open target' });
+    const targets = dialog.getByRole('link', { name: 'Open', exact: true });
     await expect(targets).toHaveCount(2);
     for (const index of [0, 1]) {
       const opened = page.context().waitForEvent('page');
@@ -533,7 +532,7 @@ test.describe('writable folders', () => {
     await expect(readable(page).locator('img[alt="page"]')).toHaveAttribute('src', /^data:/);
     await command(page, 'Linked resources…');
     const opened = page.context().waitForEvent('page');
-    await page.getByRole('dialog', { name: 'Linked resources', exact: true }).getByRole('link', { name: 'Open target' }).first().click();
+    await page.getByRole('dialog', { name: 'Linked resources', exact: true }).getByRole('link', { name: 'Open', exact: true }).first().click();
     const tab = await opened;
     await expect(tab.locator('img')).toHaveAttribute('src', /^data:image\/svg\+xml/);
     expect(await originOf((await tab.locator('img').getAttribute('src'))!)).toBe('null');

@@ -876,11 +876,21 @@ a:has(> .app-icon) {
   border-color: var(--accent);
   color: var(--accent);
 }
-/* Linked resources reuses those rows with its two actions under the address, which wraps when long. */
+/* Linked resources reuses those rows: the kind's icon, the target and its line, then its actions; a long target
+   wraps. */
 .resource-list .version-row {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
+  align-items: flex-start;
+}
+.resource-kind {
+  flex: none;
+  margin-top: 2px;
+  color: var(--muted);
+}
+.resource-list .version-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  max-width: 50%;
 }
 .resource-list .version-label {
   gap: 2px;
@@ -891,6 +901,7 @@ a:has(> .app-icon) {
 }
 .resource-note {
   color: var(--muted);
+  text-align: right;
 }
 /* A footer button set apart at the left, such as Version history's Clear, its icon before its name. */
 .workspace-dialog .dialog-actions > button.apart {

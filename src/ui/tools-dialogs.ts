@@ -8,6 +8,7 @@ import { safeURL } from '../editor/safe-url';
 import { syntaxSpans } from '../editor/source-language';
 import { headingAnchors } from '../editor/heading-anchors';
 import { fragment } from '../sources/paths';
+import { icon } from './icons';
 import {
   button, checkbox, choiceRow, copyText, dropDown, el, errorText, fileDialog, listRow, notice, textField,
 } from './dom';
@@ -79,22 +80,25 @@ export type FolderLinks = {
   image(url: string): Promise<string | null>;
 };
 const newTab = (href: string) => el('a', {
-  className: 'action', href, target: '_blank', rel: 'noopener noreferrer', textContent: 'Open target',
+  className: 'action', href, target: '_blank', rel: 'noopener noreferrer', textContent: 'Open',
 });
 // A page of its own that shows one image. src is a blob: or data: URL Gittin made, with no quote;
 // no file name goes in.
 const imagePage = (src: string) =>
   URL.createObjectURL(new Blob([`<!doctype html><img src="${src}" alt="">`], { type: 'text/html' }));
-// One row per resource, laid out like Version history: what and where on the left, the actions on
-// the right, and any reason a target cannot open under its address.
-function resourceRow(kind: string, url: string) {
+/** The line of `source` that holds offset `from`, counting from 1. */
+const lineOf = (source: string, from: number) => source.slice(0, from).split(/\r\n|\r|\n/).length;
+// One row per resource: a link or image icon, the target and its line, then Go to line and Open, or the reason a
+// target can't open in place of Open.
+function resourceRow(kind: string, url: string, line: number) {
+  const image = kind === 'image';
+  const mark = el('span', { className: 'resource-kind', role: 'img', ariaLabel: image ? 'Image' : 'Link' },
+    icon(image ? 'photo' : 'link'));
   const label = el('span', { className: 'version-label' },
-    el('strong', { textContent: kind === 'image' ? 'Image' : 'Link' }),
-    el('small', { className: 'resource-url', textContent: url }));
+    el('span', { className: 'resource-url', textContent: url }), el('small', { textContent: 'Line ' + line }));
   const actions = el('span', { className: 'version-actions' });
-  const note = (text: string) =>
-    label.append(el('small', { className: 'resource-note', textContent: text }));
-  return { item: listRow(label, actions), actions, note };
+  const note = (text: string) => actions.append(el('small', { className: 'resource-note', textContent: text }));
+  return { item: listRow(mark, label, actions), actions, note };
 }
 type Resource = { kind: string; url: string; from: number };
 /** The links and images in Markdown or HTML source, in source order. */
@@ -114,10 +118,7 @@ function linkedResources(source: string, type: FileType) {
 }
 export function openResources(controller: GittinController, source: string, folder?: FolderLinks) {
   fileDialog('Linked resources', (body, close) => {
-    body.append(paragraph('Current Markdown and HTML links and images only. '
-      + 'No background fetching or code import scan. '
-      + (folder ? 'Relative targets open from this file’s folder.'
-        : 'Relative targets can be opened only for a file opened from a folder.')));
+    body.append(paragraph('The links and images in this file, in order.'));
     const type = controller.getFileType();
     if (!['markdown', 'html'].includes(type)) {
       body.append(paragraph('This file type has no supported document link or image syntax.'));
@@ -126,14 +127,14 @@ export function openResources(controller: GittinController, source: string, fold
     const resources = linkedResources(source, type);
     const list = el('ul', { className: 'version-list resource-list' });
     for (const { kind, url, from } of resources) {
-      const { item, actions, note } = resourceRow(kind, url);
+      const { item, actions, note } = resourceRow(kind, url, lineOf(source, from));
       list.append(item);
-      actions.append(button('Jump to reference', () => { close(); controller.goToSource(from); }));
+      actions.append(button('Go to line', () => { close(); controller.goToSource(from); }));
       const safe = safeURL(url, kind === 'image');
       const heading = type === 'markdown' && url.startsWith('#')
         ? headingAnchors(source).find(h => '#' + h.id === url || '#' + encodeURIComponent(h.id) === url)
         : undefined;
-      if (heading) actions.append(button('Open target', () => {
+      if (heading) actions.append(button('Open', () => {
         close();
         controller.setMode('preview');
         controller.goToSource(heading.from);
@@ -151,7 +152,7 @@ export function openResources(controller: GittinController, source: string, fold
           ? actions.append(newTab(imagePage(found)))
           : note(`Could not read ${path} from this folder.`));
         else {
-          const open = button('Open target', async () => {
+          const open = button('Open', async () => {
             open.disabled = true;
             const failure = await folder.open(path, fragment(url));
             if (failure === null) return close();
