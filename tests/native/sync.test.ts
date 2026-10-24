@@ -96,12 +96,31 @@ test("Sync saves the repository's unsaved files first, and Cancel there stops it
   expect(noticeText()).toBe('work is up to date with GitHub.');
 });
 
-test('each conflicting file keeps the side picked, and Sync sends the picks', async () => {
-  const stand = useGitHubStand({ fetch: vi.fn(async () => ({ kind: 'merge' as const, fetched: 'f1', conflicts: ['a.md', 'b.md'] })) });
+test("Sync lists GitHub's changes before bringing them in, and Cancel there changes nothing", async () => {
+  const stand = useGitHubStand({ fetch: vi.fn(async () => ({ kind: 'fastForward' as const, fetched: 'f1', incoming: ['b.md', 'c.md'] })) });
   const syncing = sync(repoOfFolder(work));
-  await vi.waitFor(() => expect(openDialog()?.textContent).toContain('b.md'));
-  const go = buttonNamed('Sync', openDialog()!)!;
+  await vi.waitFor(() => expect(openDialog()?.textContent).toContain('GitHub has changes to 2 files. Sync brings them into work.'));
+  expect([...openDialog()!.querySelectorAll('.version-row strong')].map(item => item.textContent)).toEqual(['b.md', 'c.md']);
+  buttonNamed('Cancel', openDialog()!)!.click();
+  await syncing;
+  expect(stand.sync).not.toHaveBeenCalled();
+  const again = sync(repoOfFolder(work));
+  await vi.waitFor(() => expect(openDialog()).not.toBeNull());
+  buttonNamed('Sync', openDialog()!)!.click();
+  await again;
+  expect(stand.sync).toHaveBeenCalledWith('/work', 'f1', {}, null);
+});
+
+test('conflicting files come first, each keeps the side picked, and Sync sends the picks', async () => {
+  const stand = useGitHubStand({
+    fetch: vi.fn(async () => ({ kind: 'merge' as const, fetched: 'f1', incoming: ['a.md', 'b.md', 'c.md'], conflicts: ['b.md', 'c.md'] })),
+  });
+  const syncing = sync(repoOfFolder(work));
+  await vi.waitFor(() => expect(openDialog()?.textContent).toContain('both changed the same lines of 2 of them'));
   const rows = openDialog()!.querySelectorAll('.version-row');
+  expect([...rows].map(row => row.querySelector('strong')!.textContent)).toEqual(['b.md', 'c.md', 'a.md']);
+  expect(buttonNamed('Keep mine', rows[2])).toBeUndefined();
+  const go = buttonNamed('Sync', openDialog()!)!;
   expect(go.disabled).toBe(true);
   buttonNamed('Keep mine', rows[0])!.click();
   expect(go.disabled).toBe(true);
@@ -109,27 +128,20 @@ test('each conflicting file keeps the side picked, and Sync sends the picks', as
   expect(go.disabled).toBe(false);
   go.click();
   await syncing;
-  expect(stand.sync).toHaveBeenCalledWith('/work', 'f1', { 'a.md': 'mine', 'b.md': 'theirs' }, null);
+  expect(stand.sync).toHaveBeenCalledWith('/work', 'f1', { 'b.md': 'mine', 'c.md': 'theirs' }, null);
   expect(reshow).toHaveBeenCalled();
   expect(noticeText()).toBe('Synced work with GitHub.');
 });
 
-test('Cancel in the conflict dialog leaves everything as it was', async () => {
-  const stand = useGitHubStand({ fetch: vi.fn(async () => ({ kind: 'merge' as const, fetched: 'f1', conflicts: ['a.md'] })) });
-  const syncing = sync(repoOfFolder(work));
-  await vi.waitFor(() => expect(openDialog()?.textContent).toContain('a.md'));
-  buttonNamed('Cancel', openDialog()!)!.click();
-  await syncing;
-  expect(stand.sync).not.toHaveBeenCalled();
-});
-
 test("when the push doesn't happen, the screen still shows GitHub's changes", async () => {
   useGitHubStand({
-    fetch: vi.fn(async () => ({ kind: 'merge' as const, fetched: 'f1', conflicts: [] })),
+    fetch: vi.fn(async () => ({ kind: 'merge' as const, fetched: 'f1', incoming: ['b.md'], conflicts: [] })),
     sync: vi.fn().mockRejectedValueOnce({ kind: 'signIn' }),
   });
   const syncing = sync(repoOfFolder(work));
-  await vi.waitFor(() => expect(openDialog()).not.toBeNull());
+  await vi.waitFor(() => expect(openDialog()?.textContent).toContain('GitHub has changes'));
+  buttonNamed('Sync', openDialog()!)!.click();
+  await vi.waitFor(() => expect(openDialog()?.textContent).not.toContain('GitHub has changes'));
   buttonNamed('Cancel', openDialog()!)!.click();
   await syncing;
   expect(reshow).toHaveBeenCalled();

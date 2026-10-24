@@ -7,7 +7,7 @@ import type { OpenDocument } from '../screens/workspace';
 import type { FolderSource } from '../sources/folder';
 import { ask, el, iconButton, notice } from '../ui/dom';
 import type { Action } from '../ui/menus';
-import { conflictDialog } from './conflicts';
+import { incomingDialog } from './conflicts';
 import { git } from './git';
 import { github, isFailure, type Choice, type Fetched, type Stop, type Synced } from './github';
 import { publishDialog } from './publish';
@@ -83,8 +83,8 @@ export async function sync(repo: Repo): Promise<void> {
   if (fetched.kind === 'stopped') return notice(stopText(repo, fetched.reason, fetched.paths));
   const id = fetched.kind === 'publish' ? null : fetched.fetched;
   let choices: Record<string, Choice> = {};
-  if (fetched.kind === 'merge' && fetched.conflicts.length) {
-    const picked = await conflictDialog(repo.name, fetched.conflicts,
+  if (fetched.kind === 'fastForward' || fetched.kind === 'merge') {
+    const picked = await incomingDialog(repo.name, fetched.incoming, fetched.kind === 'merge' ? fetched.conflicts : [],
       path => void compareWithGitHub(repo, fetched.fetched, path).catch(notice));
     if (!picked) return;
     choices = picked;

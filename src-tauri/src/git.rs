@@ -587,12 +587,15 @@ pub enum Fetched {
         fetched: String,
         ahead: usize,
     },
+    /// Only GitHub moved; `incoming` are the paths its changes touch.
     FastForward {
         fetched: String,
+        incoming: Vec<String>,
     },
-    /// Both moved; `conflicts` are the paths both changed on the same lines.
+    /// Both moved; `incoming` are the paths GitHub's changes touch, `conflicts` those both changed on the same lines.
     Merge {
         fetched: String,
+        incoming: Vec<String>,
         conflicts: Vec<String>,
     },
     /// The branch has no upstream, or GitHub doesn't have it: Sync publishes it to `origin`.
@@ -722,11 +725,12 @@ pub fn tracked(repo: &Repository, path: &str) -> Result<bool, git2::Error> {
 /// What bringing `fetched` into the checked-out branch would do, refusing what Sync can't do safely.
 enum Plan<'r> {
     UpToDate(usize),
-    FastForward(Commit<'r>),
+    FastForward(Commit<'r>, Vec<String>),
     Merge {
         head: Commit<'r>,
         theirs: Commit<'r>,
         index: git2::Index,
+        incoming: Vec<String>,
     },
     Stopped(Stop, Vec<String>),
 }
@@ -760,17 +764,18 @@ fn plan(repo: &Repository, fetched: Oid) -> Result<Plan<'_>, git2::Error> {
         return Ok(Plan::Stopped(Stop::Filter, filtered));
     }
     let changed: Vec<String> = incoming
-        .into_iter()
+        .iter()
         .filter(|path| {
             repo.status_file(Path::new(path))
                 .is_ok_and(|status| !(status - Status::IGNORED).is_empty())
         })
+        .cloned()
         .collect();
     if !changed.is_empty() {
         return Ok(Plan::Stopped(Stop::Changed, changed));
     }
     if forward {
-        return Ok(Plan::FastForward(theirs));
+        return Ok(Plan::FastForward(theirs, incoming));
     }
     if repo.config()?.get_bool("commit.gpgsign").unwrap_or(false) {
         return Ok(Plan::Stopped(Stop::Signs, vec![]));
@@ -780,6 +785,7 @@ fn plan(repo: &Repository, fetched: Oid) -> Result<Plan<'_>, git2::Error> {
         head,
         theirs,
         index,
+        incoming,
     })
 }
 
@@ -855,9 +861,15 @@ pub fn fetch(repo: &Repository, login: Option<&Login>) -> Result<Fetched, Failur
     let id = fetched.to_string();
     Ok(match plan(repo, fetched)? {
         Plan::UpToDate(ahead) => Fetched::UpToDate { fetched: id, ahead },
-        Plan::FastForward(_) => Fetched::FastForward { fetched: id },
-        Plan::Merge { index, .. } => Fetched::Merge {
+        Plan::FastForward(_, incoming) => Fetched::FastForward {
             fetched: id,
+            incoming,
+        },
+        Plan::Merge {
+            index, incoming, ..
+        } => Fetched::Merge {
+            fetched: id,
+            incoming,
             conflicts: conflicts(&index)?,
         },
         Plan::Stopped(reason, paths) => Fetched::Stopped { reason, paths },
@@ -990,7 +1002,7 @@ pub fn sync(
     let advanced = match plan(repo, fetched)? {
         Plan::Stopped(reason, paths) => return Ok(Synced::Stopped { reason, paths }),
         Plan::UpToDate(_) => false,
-        Plan::FastForward(theirs) => {
+        Plan::FastForward(theirs, _) => {
             advance(repo, &branch, &theirs.tree()?, fetched)?;
             true
         }
@@ -998,6 +1010,7 @@ pub fn sync(
             head,
             theirs,
             mut index,
+            ..
         } => {
             let signature = match (repo.signature(), author) {
                 (Ok(signature), _) => signature,
@@ -1803,7 +1816,7 @@ mod tests {
     fn fetched_id(fetched: &Fetched) -> String {
         match fetched {
             Fetched::UpToDate { fetched, .. }
-            | Fetched::FastForward { fetched }
+            | Fetched::FastForward { fetched, .. }
             | Fetched::Merge { fetched, .. } => fetched.clone(),
             other => panic!("nothing fetched: {other:?}"),
         }
@@ -1888,7 +1901,7 @@ mod tests {
         on_github(&origin, "b.md", "# B\ntwo\n");
         let fetched = fetch(&opened(&root), None).unwrap();
         assert!(
-            matches!(fetched, Fetched::FastForward { .. }),
+            matches!(&fetched, Fetched::FastForward { incoming, .. } if *incoming == ["b.md"]),
             "{fetched:?}"
         );
         assert_eq!(sync_now(&root, &fetched, &HashMap::new()), synced(false));
@@ -1935,7 +1948,8 @@ mod tests {
         save(&root, &["a.md"], "Edit A");
         let fetched = fetch(&opened(&root), None).unwrap();
         assert!(
-            matches!(&fetched, Fetched::Merge { conflicts, .. } if conflicts.is_empty()),
+            matches!(&fetched, Fetched::Merge { incoming, conflicts, .. }
+                if *incoming == ["b.md"] && conflicts.is_empty()),
             "{fetched:?}"
         );
         assert_eq!(sync_now(&root, &fetched, &HashMap::new()), synced(true));

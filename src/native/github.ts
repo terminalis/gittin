@@ -18,8 +18,8 @@ export interface RemoteState { remotes: boolean; url: string | null; github: boo
 export type Stop = 'detached' | 'busy' | 'signs' | 'filter' | 'changed' | 'identity';
 export type Fetched =
   | { kind: 'upToDate'; fetched: string; ahead: number }
-  | { kind: 'fastForward'; fetched: string }
-  | { kind: 'merge'; fetched: string; conflicts: string[] }
+  | { kind: 'fastForward'; fetched: string; incoming: string[] }
+  | { kind: 'merge'; fetched: string; incoming: string[]; conflicts: string[] }
   | { kind: 'publish' }
   | { kind: 'stopped'; reason: Stop; paths: string[] };
 export type Synced =
