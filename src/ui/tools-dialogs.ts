@@ -9,7 +9,7 @@ import { syntaxSpans } from '../editor/source-language';
 import { headingAnchors } from '../editor/heading-anchors';
 import { fragment } from '../sources/paths';
 import {
-  button, checkbox, dropDown, el, errorText, fileDialog, listRow, notice, textField,
+  button, checkbox, copyText, dropDown, el, errorText, fileDialog, listRow, notice, textField,
 } from './dom';
 export function fileStatistics(source: string) {
   return {
@@ -61,26 +61,15 @@ export function openComparison(controller: GittinController) {
 }
 /** Email `source` under the subject `title`: the saved file's text, or with `draft`, the current text. */
 export function openEmail(title: string, source: string, draft: boolean) {
-  const url = emailURL(title, source);
+  const url = emailURL(title, source), long = url.length > mailtoLaunchLimit;
   fileDialog(draft ? 'Email this draft' : 'Email this file', (body, _close, footer) => {
-    body.append(
-      paragraph(draft ? 'Current source snapshot.' : 'Last opened or explicitly saved source snapshot.'),
-      paragraph('Review the complete text below. Open email draft requests your configured device mail '
-        + 'app; you choose whether to send. Client and OS length limits vary.'),
-      paragraph('Subject: ' + title),
-      preview(source));
-    const open = button('Open email draft', () => { window.location.href = url; }, 'primary');
-    open.disabled = url.length > mailtoLaunchLimit;
-    if (open.disabled)
-      body.append(paragraph('This text exceeds this app’s conservative 1800-character mailto handoff '
-        + 'limit. Copy the complete text into your email app. Nothing has been truncated.'));
-    const manual = 'Select and copy the preview text using your device shortcut.';
-    const copy = button('Copy preview text', () => {
-      void navigator.clipboard?.writeText(source).then(() => notice('Preview text copied.'))
-        .catch(() => notice('Clipboard access was declined. ' + manual));
-      if (!navigator.clipboard) notice(manual);
-    });
-    footer.append(copy, open);
+    body.append(el('p', {}, el('strong', { textContent: 'Subject: ' }), title), preview(source));
+    if (long) body.append(el('p', { className: 'dialog-hint',
+      textContent: 'Too long for a mail link. Copy the text into your mail app instead; nothing was cut.' }));
+    const open = button('Open in mail app', () => { window.location.href = url; }, 'primary');
+    open.disabled = long;
+    footer.append(open, button('Copy text', () =>
+      copyText(source, 'Text copied.', 'Select the text above and copy it with your device shortcut.')));
   });
 }
 /** How Linked resources opens relative targets; given only for a file opened from a folder. */

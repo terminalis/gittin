@@ -226,8 +226,15 @@ test('email previews exact saved and draft snapshots and long copy fallback with
     'textContent',
     baseline,
   );
+  await expect(dialog(page, 'Email this file')).toContainText('Subject: source.md');
+  await expect(dialog(page, 'Email this file').locator('.dialog-hint')).toHaveCount(0);
+  await expect(dialog(page, 'Email this file').locator('.dialog-actions > button')).toHaveText([
+    'Open in mail app',
+    'Copy text',
+    'Close',
+  ]);
   await expect(
-    dialog(page, 'Email this file').getByRole('button', { name: 'Open email draft' }),
+    dialog(page, 'Email this file').getByRole('button', { name: 'Open in mail app' }),
   ).toBeEnabled();
   await close(page, 'Email this file');
   await command(page, 'Email this draft');
@@ -251,9 +258,9 @@ test('email previews exact saved and draft snapshots and long copy fallback with
   await command(page, 'Email this draft');
   const d = dialog(page, 'Email this draft');
   await expect(d.locator('pre')).toHaveJSProperty('textContent', long);
-  await expect(d.getByRole('button', { name: 'Open email draft' })).toBeDisabled();
-  await expect(d).toContainText('Nothing has been truncated');
-  await d.getByRole('button', { name: 'Copy preview text' }).click();
+  await expect(d.getByRole('button', { name: 'Open in mail app' })).toBeDisabled();
+  await expect(d.locator('.dialog-hint')).toHaveText('Too long for a mail link. Copy the text into your mail app instead; nothing was cut.');
+  await d.getByRole('button', { name: 'Copy text' }).click();
   expect(await page.evaluate(() => (window as any).copied)).toBe(long);
   await close(page, 'Email this draft');
   expect(await bytes(page)).toEqual(Buffer.from(long));
