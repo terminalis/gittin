@@ -136,6 +136,13 @@ export function notice(error: unknown) {
   host.replaceChildren(el('span', { textContent: errorText(error) }), close);
 }
 
+/** Copies `text` and says `done`; where the clipboard is missing or refused, says `manual` instead. */
+export function copyText(text: string, done: string, manual: string) {
+  if (!navigator.clipboard) return notice(manual);
+  void navigator.clipboard.writeText(text)
+    .then(() => notice(done), () => notice('Clipboard access was declined. ' + manual));
+}
+
 /** Shared workspace dialog structure: a title row (the heading, then any ✕), the body and the footer; callers retain
  * their own actions and lifecycle. */
 export function dialogShell(title: string, className: string, form?: HTMLFormElement) {

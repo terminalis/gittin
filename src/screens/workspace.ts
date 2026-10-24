@@ -24,9 +24,7 @@ import { extensions } from '../extensions';
 import { isAt, sourceFor, sourceInfoFor } from '../sources/registry';
 import { FolderSource } from '../sources/folder';
 import { renderFolderPanel, imageFromFolderDialog } from '../ui/folder-panel';
-import {
-  detailsDialog, locationDialog, moveDialog, nameDialog, renameDialog,
-} from '../ui/file-actions';
+import { detailsDialog, moveDialog, nameDialog, renameDialog } from '../ui/file-actions';
 import { versionHistoryButton, openVersionHistory } from '../ui/version-history';
 import { basename, dirname, fragment, join, relativePath, resolvePath, imageType, suffixed } from '../sources/paths';
 import { place } from '../platform';
@@ -188,8 +186,8 @@ export class Workspace {
       { id: 'document-title', title: 'Rename file' });
     const favourite = Object.assign(iconButton('star', 'Add favourite', () => this.toggleFavourite()),
       { id: 'favourite' });
-    const location = Object.assign(
-      iconButton('folder', 'File location', () => locationDialog(this.identity)), { id: 'location' });
+    const detailsButton = Object.assign(
+      iconButton('folder', 'File details', () => this.details()), { id: 'details' });
     const history = versionHistoryButton(identity.kind === 'source', () => this.openHistory());
     const save = Object.assign(button('Save', () => actions.save(false), 'primary'),
       { id: 'save-file', title: `Save (${shortcutHint(keysFor('save')!)})` });
@@ -201,7 +199,7 @@ export class Workspace {
     const header = el('header',
       { id: 'workspace-header', className: 'workspace-header', innerHTML: brand('#/home', true) },
       el('div', { className: 'document-identity' },
-        el('div', { className: 'document-title-row' }, title, favourite, location)),
+        el('div', { className: 'document-title-row' }, title, favourite, detailsButton)),
       el('div', { className: 'workspace-header-actions' }, history,
         el('div', { className: 'save-split' }, save),
         menusToggle));
@@ -305,7 +303,6 @@ export class Workspace {
         const folder = this.managed();
         if (folder) actions.deleteEntry(folder, this.path(), 'file');
       }, managed],
-      ['File', 'location', 'Location', () => locationDialog(this.identity)],
       ['File', 'favourite', 'Add/remove favourite', () => this.toggleFavourite(),
         selected(() => doc.favourite)],
       ['File', 'details', 'Details', () => this.details()],
@@ -375,12 +372,17 @@ export class Workspace {
     void this.document.autosave.updateMetadata({ favourite: !this.document.favourite });
   }
   private details() {
-    const doc = this.document;
-    detailsDialog(doc.fileType, doc.session.current.source, this.identity, [
-      this.part('#draft-status').textContent,
-      doc.fileStatus || 'No device-file save acknowledged in this session.',
-      doc.localBaseline ? 'Comparison baseline available.' : 'No comparison baseline yet.',
-    ].join(' '));
+    const doc = this.document, identity = this.identity, info = this.info();
+    const disk = extensions.diskPath?.(identity) ?? null;
+    detailsDialog({
+      type: doc.fileType,
+      source: doc.session.current.source,
+      location: disk ?? locationText(identity, info),
+      path: disk ?? (identity.kind === 'source' && info?.kind !== 'file' ? identity.path : null),
+      state: this.part('#save-state').textContent ?? '',
+      draft: this.part('#draft-status').textContent ?? '',
+      baseline: !!doc.localBaseline,
+    });
   }
   private openHistory() {
     const identity = this.identity;

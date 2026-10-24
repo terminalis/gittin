@@ -9,7 +9,7 @@ import type { Extensions } from '../extensions';
 import { notice } from '../ui/dom';
 import { accountButton } from './account';
 import { cloneButton, cloneCommand } from './clone';
-import { DesktopFileHandle, installPickers, revive } from './files';
+import { DesktopFileHandle, diskPath, installPickers, revive } from './files';
 import { offerRepository } from './folder';
 import { openHistory } from './history';
 import { askBeforeQuitting } from './quit';
@@ -38,7 +38,7 @@ const extensions: Extensions = {
   home: (header, actions) => { accountButton(header); cloneButton(actions); },
   workspace: (doc, header, footer) => { accountButton(header); githubStatus(doc, footer); },
   commands: doc => [cloneCommand, syncCommand(doc)],
-  preferences: gitPreferences,
+  preferences: gitPreferences, diskPath,
 };
 void start({ revive, extensions }).then(async () => {
   colourFrame();

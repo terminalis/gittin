@@ -1,4 +1,5 @@
 // What a version of Gittin adds to the shared app through start(): the desktop app's git and GitHub. The web app adds none.
+import type { Identity } from './documents/types';
 import type { OpenDocument } from './screens/workspace';
 import type { FolderSource } from './sources/folder';
 import type { Action } from './ui/menus';
@@ -36,6 +37,8 @@ export interface Extensions {
   commands?(doc: OpenDocument): Action[];
   /** A tab of its own in Preferences. */
   preferences?(): { name: string; panel: HTMLElement };
+  /** A file's full path on this computer, where Gittin knows it. */
+  diskPath?(identity: Identity): string | null;
 }
 export let extensions: Extensions = {};
 export const extend = (added: Extensions) => { extensions = added; };

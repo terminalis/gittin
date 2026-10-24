@@ -7,7 +7,7 @@ const sections: Record<string, readonly (readonly string[])[]> = {
     ['home', 'New', 'Open', 'make-copy'],
     ['Email'],
     ['save', 'save-as', 'sync', 'version-history'],
-    ['rename', 'move', 'delete-file', 'location', 'favourite'],
+    ['rename', 'move', 'delete-file', 'favourite'],
     ['details', 'print', 'download-pdf', 'close'],
   ],
   Edit: [['undo', 'redo'], ['cut', 'copy', 'paste'], ['selectAll', 'deleteSelection', 'Lines'], ['find']],

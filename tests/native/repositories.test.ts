@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { addFile, addFolder } from '../../src/sources/registry';
-import { DesktopDirectoryHandle, DesktopFileHandle } from '../../src/native/files';
+import { DesktopDirectoryHandle, DesktopFileHandle, diskPath } from '../../src/native/files';
 import { useGit, type Git } from '../../src/native/git';
 import { placeOf } from '../../src/native/repositories';
 
@@ -26,4 +26,12 @@ test('a file opened on its own has no place', async () => {
   repositories(['']);
   const source = await addFile({ handle: new DesktopFileHandle('C:\\loose\\a.md') });
   expect(await placeOf(source, 'a.md')).toBeNull();
+});
+
+test("a file's full path on disk joins its folder's path with the folder's own separator", async () => {
+  const folder = await addFolder(new DesktopDirectoryHandle('C:\\work'));
+  expect(diskPath({ kind: 'source', sourceId: folder.id, path: 'notes/a.md' })).toBe('C:\\work\\notes\\a.md');
+  const loose = await addFile({ handle: new DesktopFileHandle('C:\\loose\\a.md') });
+  expect(diskPath({ kind: 'source', sourceId: loose.id, path: 'a.md' })).toBe('C:\\loose\\a.md');
+  expect(diskPath({ kind: 'local', id: 'x' })).toBeNull();
 });

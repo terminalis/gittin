@@ -355,6 +355,33 @@ test.describe('writable folders', () => {
     await expect(page.getByRole('dialog', { name: 'Version history', exact: true })).toContainText('Opened');
   });
 
+  test('File details shows six rows with the location and Copy path, and opens from the folder button', async ({ page }) => {
+    await useFolder(page, { 'docs/a.md': '# A\n' });
+    await openFromFolder(page, 'docs/a.md');
+    await expectDraftSaved(page);
+    await page.evaluate(() =>
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: async (text: string) => { (window as any).copied = text; } },
+      }));
+    await page.getByRole('button', { name: 'File details', exact: true }).click();
+    const details = page.getByRole('dialog', { name: 'File details', exact: true });
+    await expect(details.getByRole('row')).toHaveText([
+      'TypeMarkdown',
+      'Size4 bytes',
+      'Locationproject › docs/a.md',
+      'StateSaved',
+      'DraftDraft saved on this device',
+      'Diff compares withThe file as you opened or last saved it',
+    ]);
+    await details.getByRole('button', { name: 'Copy path', exact: true }).click();
+    await expect.poll(() => page.evaluate(() => (window as any).copied)).toBe('docs/a.md');
+    await expect(page.locator('#notice')).toContainText('Path copied.');
+    await details.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.locator('.menus > details > summary').filter({ hasText: /^File$/ }).click();
+    await expect(page.locator('.menus .menu-items button').filter({ hasText: /^Location$/ })).toHaveCount(0);
+  });
+
   test('Delete… asks first, then deletes the file and its draft for good', async ({ page }) => {
     await useFolder(page, { 'a.md': 'A', 'b.md': 'B' });
     await openFromFolder(page, 'b.md');

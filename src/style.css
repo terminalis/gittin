@@ -648,18 +648,24 @@ a:has(> .app-icon) {
 .statistics-dialog {
   --dialog-width: 350px;
 }
-.statistics-dialog table {
+/* File statistics' table, which File details shares; details' values are words and paths, read from the left, with
+   Copy path at the end. */
+.statistics-dialog table,
+.details-dialog table {
   width: 100%;
   border-collapse: collapse;
 }
 .statistics-dialog th,
-.statistics-dialog td {
+.statistics-dialog td,
+.details-dialog th,
+.details-dialog td {
   height: 52px;
   padding: 0 16px;
   border-bottom: 1px solid var(--line);
   font-weight: 400;
 }
-.statistics-dialog th {
+.statistics-dialog th,
+.details-dialog th {
   text-align: left;
 }
 .statistics-dialog td {
@@ -667,7 +673,15 @@ a:has(> .app-icon) {
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
-.statistics-dialog tr:last-child > * {
+.details-dialog td {
+  overflow-wrap: anywhere;
+}
+.details-dialog td button {
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.statistics-dialog tr:last-child > *,
+.details-dialog tr:last-child > * {
   border-bottom: 0;
 }
 .statistics-help {
@@ -2292,7 +2306,7 @@ label.home-option {
   border: 0;
   line-height: 24px;
 }
-#location {
+#details {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2301,7 +2315,7 @@ label.home-option {
   padding: 4px;
   border: 0;
 }
-.workspace-header :where(#document-title, #favourite, #location) {
+.workspace-header :where(#document-title, #favourite, #details) {
   background: transparent;
 }
 .workspace-header .menus > details > summary {
@@ -2337,7 +2351,7 @@ label.home-option {
   --icon: 14px;
 }
 #favourite > .app-icon,
-#location > .app-icon,
+#details > .app-icon,
 .open-document button > .app-icon {
   --icon: 18px;
 }
@@ -2781,9 +2795,9 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   #workspace:not(.focus-mode) .workspace-header.menus-hidden {
     display: grid;
   }
-  /* The title needs the room; File › Location and File › Add/remove favourite stay in the menu. */
+  /* The title needs the room; File › Details and File › Add/remove favourite stay in the menu. */
   #favourite,
-  #location {
+  #details {
     display: none;
   }
   .workspace-tools > button > [data-icon^="layout-sidebar"] {
