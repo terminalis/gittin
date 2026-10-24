@@ -49,21 +49,15 @@ export function openStatistics(source: string, preferences: DevicePreferences) {
     body.append(table, help, display.parentElement!);
   }, { className: 'statistics-dialog', info: true });
 }
+/** Tools › Compare files…: the system's file picker, then Diff shows the chosen file against this one. */
 export function openComparison(controller: GittinController) {
-  fileDialog('Compare files', (body, close) => {
-    const input = el('input', { type: 'file', ariaLabel: 'Comparison file' });
-    input.onchange = () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      void file.arrayBuffer().then(buffer => {
-        if (!input.isConnected) return;
-        controller.setComparison(decodeSource(new Uint8Array(buffer)), file.name);
-        close();
-      }).catch(notice);
-    };
-    body.append(paragraph('Choose a UTF-8 file for temporary read-only Diff. '
-      + 'Your saved baseline and current source stay intact.'), input);
-  });
+  const input = el('input', { type: 'file' });
+  input.onchange = () => {
+    const file = input.files?.[0];
+    if (file) void file.arrayBuffer()
+      .then(buffer => controller.setComparison(decodeSource(new Uint8Array(buffer)), file.name)).catch(notice);
+  };
+  input.click();
 }
 /** Email `source` under the subject `title`: the saved file's text, or with `draft`, the current text. */
 export function openEmail(title: string, source: string, draft: boolean) {

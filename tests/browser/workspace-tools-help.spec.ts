@@ -59,10 +59,10 @@ test('statistics and temporary Compare preserve exact source and saved baseline'
   ]);
   await page.keyboard.press('Escape');
   await expect(dialog(page, 'File statistics')).toHaveCount(0);
+  const chooser = page.waitForEvent('filechooser');
   await command(page, 'Compare files…');
-  await dialog(page, 'Compare files')
-    .getByLabel('Comparison file')
-    .setInputFiles({ name: 'other.md', mimeType: 'text/markdown', buffer: Buffer.from('other\r\n') });
+  await (await chooser).setFiles({ name: 'other.md', mimeType: 'text/markdown', buffer: Buffer.from('other\r\n') });
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Diff', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',

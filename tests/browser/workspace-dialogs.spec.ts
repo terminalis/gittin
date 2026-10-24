@@ -10,7 +10,6 @@ test('dialog actions stay reachable and cancellation preserves source at 1280px 
       ['Rename…', 'Rename file', 'Close'],
       ['File statistics…', 'File statistics', 'Close'],
       ['Preferences…', 'Preferences', 'Close'],
-      ['Compare files…', 'Compare files', 'Close'],
       ['Attributions…', 'Attributions', 'Close'],
       ['Keyboard shortcuts', 'Keyboard shortcuts', 'Close'],
       ['Insert link', 'Insert link', 'Cancel'],

@@ -15,6 +15,8 @@ export interface Action {
   separatorBefore?: boolean;
   /** An icon other than the one its id gives it. */
   icon?: IconName;
+  /** What it does, as its tooltip: for a command that runs without asking first. */
+  tip?: string;
   run(): void;
   state?(): { disabled?: boolean; selected?: boolean };
 }
@@ -44,6 +46,9 @@ function insertionActions(controller: GittinController, controls: EditorControls
     ({ id, label, menu, run: () => controls.openInsert(kind), state });
   const element = (id: string, label: string, kind: string, state = markdown) =>
     dialog(id, label, kind, 'Insert/Elements', state);
+  /** An element inserted at once; `tip` says what goes in, and Undo takes it out again. */
+  const direct = (id: string, label: string, kind: string, tip: string, state = markdown): Action =>
+    ({ id, label, menu: 'Insert/Elements', tip, run: () => { controller.insertElement({ kind }); }, state });
   const imageCommand = (id: string, label: string, run: () => void): Action =>
     ({ id, label, menu: 'Format/Image', run, state: image });
   const aligns = { left: 'Align image left', center: 'Centre image', right: 'Align image right' };
@@ -63,22 +68,24 @@ function insertionActions(controller: GittinController, controls: EditorControls
     dialog('heading-link', 'Link to heading…', 'headingLink'),
     { id: 'line-break', label: 'Line break', menu: 'Insert', state: markdown,
       run: () => { controller.insertElement({ kind: 'lineBreak' }); } },
-    element('toc', 'Table of contents…', 'toc'),
+    direct('toc', 'Table of contents', 'toc',
+      "Inserts links to this file's headings. Renaming a heading may mean updating its link."),
     element('footnote', 'Footnote…', 'footnote'),
     element('collapsible-section', 'Collapsible section…', 'details',
       () => ({ disabled: !controller.isEditable() || !['markdown', 'html'].includes(fileType()) })),
-    element('comment-stub', 'Comment…', 'comment', () =>
+    direct('comment-stub', 'Comment', 'comment', "Inserts a comment stub in this file's language.", () =>
       ({ disabled: !controller.isEditable() || ['text', 'json', 'unknown'].includes(fileType()) })),
     element('alert', 'Alert…', 'alert'),
-    element('math', 'Math…', 'math'),
-    element('diagram', 'Diagram…', 'diagram'),
+    direct('math', 'Math', 'math', 'Inserts maths source; Preview typesets it.'),
+    direct('diagram', 'Diagram', 'diagram', 'Inserts a Mermaid diagram; Preview draws it.'),
     imageCommand('image-size', 'Size…', () => controls.openInsert('imageSize')),
     imageCommand('image-reset', 'Reset size', () => { controller.transformImage({ reset: true }); }),
     ...(Object.entries(aligns) as [keyof typeof aligns, string][]).map(([align, label]) =>
       imageCommand('image-' + align, label, () => { controller.transformImage({ align }); })),
     ...types.flatMap(type => snippets(type).map((snippet): Action => ({
       id: `snippet-${type}-${snippet.id}`, label: snippet.label + (type === 'markdown' ? '' : ` (${type})`),
-      menu: 'Insert/Snippets', run: () => controls.openInsert('snippet', snippet.id),
+      menu: 'Insert/Snippets', tip: snippet.text,
+      run: () => { controller.insertElement({ kind: 'snippet', id: snippet.id }); },
       state: () => ({ disabled: !controller.isEditable() || fileType() !== type }) }))),
   ];
 }
@@ -87,6 +94,7 @@ function insertionActions(controller: GittinController, controls: EditorControls
 function actionButton(action: Action, run: () => void, search = false) {
   const b = button('', () => { if (!action.state?.().disabled) run(); });
   b.setAttribute('aria-label', action.label);
+  if (action.tip) b.title = action.tip;
   const state = action.state?.();
   b.append(menuIcon(action.id, { selected: state?.selected, icon: action.icon }),
     el('span', { className: 'menu-label', textContent: action.label }));

@@ -1,7 +1,5 @@
 import type { GittinController, SourceContext } from '../editor/controller';
-import {
-  insertElement, snippets, imageContext, transformImage, transformTable, type ElementRequest,
-} from '../editor/markdown-elements';
+import { insertElement, imageContext, transformImage, transformTable, type ElementRequest } from '../editor/markdown-elements';
 import { headingAnchors } from '../editor/heading-anchors';
 import {
   button, checkbox, dialogShell, dropDown, el, field, select, showDialog, textField,
@@ -16,20 +14,17 @@ const symbolChoices = [
 type Edit = Parameters<SourceContext['apply']>[0];
 type Link = ReturnType<GittinController['getLinkValues']>;
 /** Adds a form's fields to `body` and returns its edit, or null when there is nothing to edit. */
-type Form = (body: HTMLElement, context: SourceContext, id?: string, link?: Link) => Edit | null;
+type Form = (body: HTMLElement, context: SourceContext, link?: Link) => Edit | null;
 
 const insert = (request: () => ElementRequest): Edit =>
   (source, selection, type) => insertElement(source, selection, type, request());
 const hint = (body: HTMLElement, text: string) =>
   body.append(el('p', { className: 'dialog-hint', textContent: text }));
-/** A form with no fields: a hint about what it inserts. */
-const explained = (kind: string, text: string): Form =>
-  (body, _context, id) => { hint(body, text); return insert(() => ({ kind, id })); };
 const textForm = (kind: string, label: string, value: string): Form => body => {
   const text = textField(body, label, { name: 'text', type: 'text', value });
   return insert(() => ({ kind, text: text.value }));
 };
-const linkForm = (kind: 'link' | 'image'): Form => (body, _context, _id, link) => {
+const linkForm = (kind: 'link' | 'image'): Form => (body, _context, link) => {
   const image = kind === 'image';
   const url = textField(body, image ? 'Image URL' : 'URL',
     { name: 'url', type: 'text', value: link?.linkUrl || '', required: true });
@@ -120,19 +115,9 @@ const forms: Record<string, [title: string, form: Form]> = {
   }],
   footnote: ['Footnote', textForm('footnote', 'Note text', 'Note')],
   details: ['Collapsible section', textForm('details', 'Summary', 'Details')],
-  comment: ['Comment', explained('comment', 'Inserts a comment stub using this file’s language.')],
   alert: ['Alert', body => {
     const type = dropDown(body, 'Alert type', ['NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION']);
     return insert(() => ({ kind: 'alert', id: type.value }));
-  }],
-  math: ['Math', explained('math', 'Inserts math source. Preview typesets it.')],
-  diagram: ['Diagram',
-    explained('diagram', 'Inserts a Mermaid source block. Preview draws it as a diagram.')],
-  toc: ['Table of contents',
-    explained('toc', 'Inserts ordinary heading links. Renaming headings may require updating links.')],
-  snippet: ['Insert snippet', (body, context, id) => {
-    hint(body, snippets(context.type).find(s => s.id === id)?.text || 'No snippet available.');
-    return insert(() => ({ kind: 'snippet', id }));
   }],
   imageSize: ['Image size', imageSizeForm],
   alignColumn: ['Align column', body => {
@@ -144,7 +129,7 @@ const forms: Record<string, [title: string, form: Form]> = {
 export class InsertDialogs {
   private dialog?: HTMLDialogElement;
   constructor(private controller: GittinController) {}
-  open(kind: string, id?: string) {
+  open(kind: string) {
     if (!this.controller.isEditable()) return;
     this.close();
     // Cancel restores the selection from before a link's text was selected for editing.
@@ -153,7 +138,7 @@ export class InsertDialogs {
     const context = this.controller.captureSourceContext();
     const [title, build] = forms[kind], form = el('form');
     const { dialog, body, footer } = dialogShell(title, 'insert-dialog', form);
-    const edit = build(body, context, id, link);
+    const edit = build(body, context, link);
     if (!edit) return;
     const error = el('p', { role: 'alert' });
     const cancel = () => { this.close(); original.restore(); };
