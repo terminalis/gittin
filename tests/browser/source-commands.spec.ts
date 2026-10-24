@@ -187,7 +187,7 @@ test('paste and Edit › Paste write pasted links as Markdown; Ctrl+Shift+V and 
   await editor(page).press('ControlOrMeta+End');
   await selectionIs(page, 45, 45);
   await menuAction(page, 'Paste');
-  expect(await source(page)).toBe('`xcode` See [the docs](https://a.test/) plain[more](https://b.test/)');
+  await expect.poll(() => source(page)).toBe('`xcode` See [the docs](https://a.test/) plain[more](https://b.test/)');
 });
 
 test('whole word source/visible-text and regex retain literal replacement and read-only rules', async ({
