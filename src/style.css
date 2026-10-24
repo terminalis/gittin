@@ -2896,13 +2896,21 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   .workspace-tools .panel-label {
     display: none;
   }
-  /* The footer's three groups take a row each, in order. */
+  /* The file's details take the first row, the save state and Focus share the second, and a report gets a row of its
+     own beneath. */
   .editor-footer {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .editor-status,
+  #file-status {
+    grid-column: 1 / -1;
   }
   .editor-report {
-    justify-content: space-between;
+    display: contents;
     text-align: start;
+  }
+  .editor-footer #focus-toggle {
+    grid-area: 2 / 2;
   }
   #menus-toggle {
     display: inline-flex;
