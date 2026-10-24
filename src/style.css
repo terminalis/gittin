@@ -1087,12 +1087,37 @@ label.home-option {
   color: var(--muted);
   font-size: 15px;
 }
-#folders button {
+/* A recent folder: a pill holding its open button and the × that takes it off Home. */
+.folder-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+}
+.folder-chip:hover {
+  border-color: var(--accent);
+}
+#folders .folder-chip > button {
+  border: 0;
+  background: transparent;
+}
+#folders .folder-open {
   min-height: 38px;
-  padding: 0 16px;
+  padding: 0 6px 0 16px;
   gap: 8px;
   border-radius: 999px;
   font-size: 15px;
+}
+#folders .folder-remove {
+  width: 30px;
+  height: 30px;
+  margin-right: 4px;
+  padding: 0;
+  border-radius: 50%;
+}
+#folders .folder-remove:hover {
+  color: var(--accent);
 }
 #folders .app-icon {
   --icon: 18px;
@@ -1100,7 +1125,7 @@ label.home-option {
 }
 /* On the warm band a hovered button keeps its own surface, so it does not vanish into the band. */
 .home-welcome .document-actions button:not(.primary):hover,
-#folders button:hover {
+.folder-chip:hover {
   background: var(--surface);
 }
 .home-welcome .reassurance {

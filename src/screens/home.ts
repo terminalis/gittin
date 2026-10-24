@@ -3,7 +3,7 @@ import type { DevicePreferences } from '../preferences';
 import type { DraftSummary } from '../documents/drafts';
 import { whenLabel } from '../documents/labels';
 import { recentFolder } from '../documents/save-state';
-import { recentFolders, sourceInfo } from '../sources/registry';
+import { homeFolders, sourceInfo } from '../sources/registry';
 import { brand, button, el, iconButton } from '../ui/dom';
 import { fileTile } from '../ui/file-tile';
 import { homeMenu } from '../ui/home-menu';
@@ -44,6 +44,7 @@ export function home(
     open(): void;
     openFolder(): void;
     openRecentFolder(id: string): void;
+    removeFolder(id: string): void;
     switch(id: string): void;
     home(): void;
     remove(id: string): void;
@@ -52,7 +53,7 @@ export function home(
   failed = false
 ) {
   const screen = el('div', { id: 'home' });
-  const folders = recentFolders(), favourites = rows.filter(r => r.favourite);
+  const folders = homeFolders(), favourites = rows.filter(r => r.favourite);
   const returning = rows.length > 0 || folders.length > 0;
   // The welcome band carries the landing's warm colour and logo; empty sections are left out rather
   // than explained.
@@ -83,9 +84,10 @@ export function home(
     const group = el('div', { id: 'folders', role: 'group' }, label);
     group.setAttribute('aria-labelledby', 'folders-label');
     for (const row of folders) {
-      const chip = button(row.label, () => actions.openRecentFolder(row.id));
+      const chip = button(row.label, () => actions.openRecentFolder(row.id), 'folder-open');
       chip.prepend(icon('folder'));
-      group.append(chip);
+      group.append(el('span', { className: 'folder-chip' }, chip,
+        iconButton('x', `Remove ${row.label} from Home`, () => actions.removeFolder(row.id), 'folder-remove')));
     }
     copy.append(group);
   } else if (!returning) copy.insertAdjacentHTML('beforeend', '<p class="reassurance">No account needed.</p>');

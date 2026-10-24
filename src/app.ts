@@ -16,7 +16,7 @@ import { headingAnchors } from './editor/heading-anchors';
 import { fileName, fileTypeForName, otherTs, type FileType } from './documents/file-types';
 import { clearVersionsAt, moveVersions, recordVersion, versionKey } from './documents/versions';
 import {
-  addFile, addFolder, addReadOnlyFolder, folderHolding, isAt, loadSources, recentFolders, rememberedFiles,
+  addFile, addFolder, addReadOnlyFolder, folderHolding, hideFolder, isAt, loadSources, recentFolders, rememberedFiles,
   restoreSource, sourceFor, type Revive,
 } from './sources/registry';
 import { FolderSource } from './sources/folder';
@@ -68,6 +68,7 @@ const actions = {
   openFolder: openFolderCommand,
   openRecentFolder: (id: string) => void openRecentFolder(id),
   remove: (id: string) => void removeRecent(id),
+  removeFolder: (id: string) => void hideFolder(id).then(() => navigate({ screen: 'home' })),
   createLocal: (source: string, title: string) =>
     openNew(() => newDraft({ source, title, fileType: 'yaml' })),
   makeCopy: (doc: OpenDocument) => openNew(() => copyOf(doc, 'copy')),

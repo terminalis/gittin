@@ -107,6 +107,16 @@ test('recent folders show a folder icon', async ({ page }) => {
   ).toBeVisible();
 });
 
+test('a recent folder can be taken off Home', async ({ page }) => {
+  await home(page);
+  await rememberFolder(page);
+  await page.reload();
+  await page.getByRole('button', { name: 'Remove project from Home', exact: true }).click();
+  await expect(page.locator('#folders')).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('#folders')).toHaveCount(0);
+});
+
 test('the landing page and Home load no editor code until a file opens', async ({ page }) => {
   const editorCode: string[] = [];
   page.on('request', (request) => {

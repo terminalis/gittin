@@ -89,3 +89,17 @@ test('moveDraft can point a stored draft at a path in another source, and keeps 
   await drafts.moveDraft('folder-1', 'docs/a.md', 'b.md');
   expect(await drafts.findDraft('folder-1', 'b.md')).toMatchObject({ id: 'one', storageRevision: 5 });
 });
+
+test('Home lists the three folders opened most recently, less any taken off it until they are opened again', async () => {
+  const folders = [];
+  for (const name of ['a', 'b', 'c', 'd']) {
+    folders.push(await registry.addFolder(fakeDirectory(name, {}).handle));
+    await new Promise(resolve => setTimeout(resolve, 2));
+  }
+  expect(registry.homeFolders().map(row => row.label)).toEqual(['d', 'c', 'b']);
+  await registry.hideFolder(folders[2].id);
+  expect(registry.homeFolders().map(row => row.label)).toEqual(['d', 'b', 'a']);
+  expect(registry.recentFolders()).toHaveLength(4);
+  await registry.addFolder(folders[2].root);
+  expect(registry.homeFolders().map(row => row.label)).toEqual(['c', 'd', 'b']);
+});
