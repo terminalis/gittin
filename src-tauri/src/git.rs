@@ -412,6 +412,9 @@ fn fetch_options(callbacks: RemoteCallbacks<'_>) -> FetchOptions<'_> {
 /// Why an operation on `url` failed, given how many times git asked for a sign-in.
 fn failure(error: git2::Error, url: &str, login: Option<&Login>, asked: u32) -> Failure {
     match (asked, login_for(url, login)) {
+        _ if url.starts_with(GITHUB) && error.message().contains("status code: 403") => {
+            message("GitHub refused this account access to this repository.")
+        }
         (0, _) | (1, Some(_)) => error.into(),
         (_, Some(_)) => Failure::Refused,
         (_, None) if url.starts_with(GITHUB) => Failure::SignIn,
@@ -1678,6 +1681,11 @@ mod tests {
             "failed to resolve address for github.com: Name or service not known",
         );
         assert_eq!(failure(unreachable, github, None, 0), Failure::Offline);
+        let forbidden = git2::Error::from_str("request failed with status code: 403");
+        assert_eq!(
+            failure(forbidden, github, Some(&login), 1),
+            message("GitHub refused this account access to this repository.")
+        );
     }
 
     #[test]

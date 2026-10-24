@@ -94,6 +94,19 @@ test('Cancel in the conflict dialog leaves everything as it was', async () => {
   expect(stand.sync).not.toHaveBeenCalled();
 });
 
+test("when the push doesn't happen, the screen still shows GitHub's changes", async () => {
+  useGitHubStand({
+    fetch: vi.fn(async () => ({ kind: 'merge' as const, fetched: 'f1', conflicts: [] })),
+    sync: vi.fn().mockRejectedValueOnce({ kind: 'signIn' }),
+  });
+  const syncing = sync(repoOfFolder(work));
+  await vi.waitFor(() => expect(openDialog()).not.toBeNull());
+  buttonNamed('Cancel', openDialog()!)!.click();
+  await syncing;
+  expect(reshow).toHaveBeenCalled();
+  expect(noticeText()).toBe("GitHub's changes are in work; its commits go to GitHub at the next Sync.");
+});
+
 test('Sync says why it stopped', async () => {
   useGitHubStand({ fetch: vi.fn(async () => ({ kind: 'stopped' as const, reason: 'changed' as const, paths: ['notes.md'] })) });
   await sync(repoOfFolder(work));

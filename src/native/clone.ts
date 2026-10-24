@@ -6,7 +6,7 @@ import { button, el, field, fileDialog, notice, textField } from '../ui/dom';
 import { icon } from '../ui/icons';
 import type { Action } from '../ui/menus';
 import { DesktopDirectoryHandle } from './files';
-import { github, type Cloned, type Listed, type Step } from './github';
+import { github, isFailure, type Cloned, type Listed, type Step } from './github';
 import { failureText, signIn, signedIn } from './sign-in';
 
 const percent = ({ done, total }: Step) => `${Math.floor((100 * done) / Math.max(total, 1))}%`;
@@ -53,7 +53,9 @@ export function openClone() {
         cloned = await signedIn(() => github.clone(address.value, folder!, step => { status.textContent = stepText(step); }));
         if (!cloned) status.textContent = '';
       } catch (error) {
-        if (cloning) status.textContent = failureText(error);
+        if (cloning) status.textContent = isFailure(error) && error.kind === 'offline'
+          ? `Gittin can't reach ${address.value.split('/')[2]}. Check the address and the connection.`
+          : failureText(error);
       }
       // Cancel closed the dialog meanwhile.
       const cancelled = !cloning;

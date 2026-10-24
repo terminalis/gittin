@@ -69,7 +69,10 @@ async function offerWorkflow(repo: Repo, message: string) {
 
 export async function sync(repo: Repo): Promise<void> {
   const state = await github.remote(repo.root);
-  if (!state.remotes) return publishDialog(repo);
+  if (!state.remotes) {
+    if (await saveFirst(repo)) publishDialog(repo);
+    return;
+  }
   if (!state.github)
     return notice(`Gittin can't sync ${repo.name} with ${state.url ?? 'its remote'} yet: it syncs only with GitHub, over HTTPS.`);
   if (!(await saveFirst(repo))) return;
@@ -84,14 +87,23 @@ export async function sync(repo: Repo): Promise<void> {
     if (!picked) return;
     choices = picked;
   }
-  let synced = await signedIn(() => github.sync(repo.root, id, choices, storedAuthor()));
-  if (synced?.kind === 'stopped' && synced.reason === 'identity') {
-    const author = await fallbackAuthor(repo.name);
-    if (!author) return;
-    synced = await signedIn(() => github.sync(repo.root, id, choices, author));
+  let synced: Synced | null;
+  try {
+    synced = await signedIn(() => github.sync(repo.root, id, choices, storedAuthor()));
+    if (synced?.kind === 'stopped' && synced.reason === 'identity') {
+      const author = await fallbackAuthor(repo.name);
+      if (!author) return;
+      synced = await signedIn(() => github.sync(repo.root, id, choices, author));
+    }
+  } finally {
+    // GitHub's changes reach the folder before the push, so the screen follows them even when the push doesn't happen.
+    await reshow();
   }
-  if (!synced) return;
-  await reshow();
+  if (!synced) {
+    if (fetched.kind === 'merge')
+      notice(`GitHub's changes are in ${repo.name}; its commits go to GitHub at the next Sync.`);
+    return;
+  }
   if (synced.kind === 'refused' && /\bworkflow\b/.test(synced.message)) return offerWorkflow(repo, synced.message);
   notice(syncedText(repo, fetched, synced));
 }
