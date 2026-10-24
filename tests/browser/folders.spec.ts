@@ -843,8 +843,9 @@ test('a relative link in Preview stays in Gittin for a file opened on its own', 
 
 test('no Git or GitHub wording appears in the web app', async ({ page }) => {
   const banned = /\bcommit|github|repositor/i;
+  const desktopAccountAnswer = /^No\. Gittin has no accounts of its own; the desktop app .*$/m;
   await page.goto('/');
-  expect(await page.locator('body').innerText()).not.toMatch(banned);
+  expect((await page.locator('body').innerText()).replace(desktopAccountAnswer, '')).not.toMatch(banned);
   await page.goto('/#/home');
   await expect(page.locator('#home')).toBeVisible();
   expect(await page.locator('body').innerText()).not.toMatch(banned);
