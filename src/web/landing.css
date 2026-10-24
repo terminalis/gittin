@@ -530,26 +530,27 @@
 .install-terminal small {
   font-size: 12px;
 }
-/* One shaded box: the command scrolls, and the copy button sits at its end. */
+/* One shaded box: the command wraps inside it, and the copy button sits in its top corner. */
 .install-command {
-  display: flex;
+  position: relative;
   min-width: 0;
   border-radius: var(--radius);
   background: var(--code);
 }
 .install-command code {
-  flex: 1;
-  min-width: 0;
-  overflow-x: auto;
-  padding: 8px 10px;
+  display: block;
+  padding: 8px 44px 8px 10px;
   font: 13px var(--font-document-mono);
-  white-space: nowrap;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   user-select: all;
-  mask-image: linear-gradient(to left, transparent, #000 20px);
 }
 .install-command button,
 .install-command button:hover {
-  flex: none;
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-height: 32px;
   padding: 0 10px;
   border: 0;
   background: transparent;

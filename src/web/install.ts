@@ -1,4 +1,4 @@
-import { button, el, fileDialog, iconButton, legalRel, listRow, notice } from '../ui/dom';
+import { button, copyText, el, fileDialog, iconButton, legalRel, listRow } from '../ui/dom';
 
 const flatpakref = 'https://terminalis.github.io/packages/flatpak/gittin.flatpakref';
 const command = `flatpak install --user ${flatpakref}`;
@@ -24,12 +24,8 @@ const newTab = (text: string, href: string) =>
 export function install() {
   fileDialog('Install Gittin', body => {
     const linux = row('Linux', 'The desktop app', newTab('Download Flatpak', flatpakref));
-    const copy = iconButton('copy', 'Copy command', () => {
-      void navigator.clipboard?.writeText(command).then(() => notice('Command copied.'))
-        .catch(() => notice('Clipboard access was declined. ' + manual));
-      if (!navigator.clipboard) notice(manual);
-    });
-    // The command keeps to one line, which scrolls sideways.
+    const copy = iconButton('copy', 'Copy command', () => copyText(command, 'Command copied.', manual));
+    // The command wraps inside its box, the copy button in the box's top corner.
     linux.append(el('div', { className: 'install-terminal' }, el('small', { textContent: 'Or in a terminal:' }),
       el('div', { className: 'install-command' }, el('code', { textContent: command, tabIndex: 0 }), copy)));
     const list = el('ul', { className: 'version-list' },

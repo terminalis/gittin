@@ -53,8 +53,14 @@ test('the dialog links to the Microsoft Store and the Flatpak, with the command 
   await expect(dialog(page).locator('.version-label')).toHaveText(['WindowsThe desktop app', 'LinuxThe desktop app']);
   await expect(dialog(page).getByText('Or in a terminal:', { exact: true })).toBeVisible();
   await expect(dialog(page).locator('code')).toHaveText(`flatpak install --user ${flatpakref}`);
-  // One line that scrolls sideways, rather than wrapping beside the button.
-  expect(await dialog(page).locator('code').evaluate(code => code.scrollWidth > code.clientWidth)).toBe(true);
+  // The command wraps inside its box, with no sideways scroll, and Copy sits in the box's top corner.
+  const code = dialog(page).locator('code');
+  expect(await code.evaluate(code => code.scrollWidth <= code.clientWidth)).toBe(true);
+  expect((await code.boundingBox())!.height).toBeGreaterThan(30);
+  const box = (await dialog(page).locator('.install-command').boundingBox())!;
+  const copy = (await dialog(page).getByRole('button', { name: 'Copy command', exact: true }).boundingBox())!;
+  expect(box.x + box.width - (copy.x + copy.width)).toBeLessThan(8);
+  expect(copy.y - box.y).toBeLessThan(8);
   await expect(browserRow(page)).toHaveCount(0);
 });
 
