@@ -330,29 +330,34 @@ test('Help opens as a dialog, guides separate, shortcuts assigned/platform-speci
   await close(page, "What's new");
   await command(page, 'Keyboard shortcuts');
   let d = dialog(page, 'Keyboard shortcuts');
-  await expect(d.locator('h3')).toHaveCount(0);
-  await expect(d).toContainText('Search the menus — Ctrl + Shift + P');
-  await expect(d).toContainText('Hide or show the menus — Ctrl + Shift + F');
-  await expect(d).toContainText('Print — Ctrl + P');
+  const keysOf = (label: string) => d.locator('tr').filter({ hasText: label }).locator('kbd');
+  await expect(d.locator('h3')).toHaveText(['File', 'Edit', 'View', 'Insert', 'Format', 'Help']);
+  await expect(keysOf('Search the menus')).toHaveText(['Ctrl', 'Shift', 'P']);
+  await expect(keysOf('Hide or show the menus')).toHaveText(['Ctrl', 'Shift', 'F']);
+  await expect(keysOf('Print')).toHaveText(['Ctrl', 'P']);
+  await expect(keysOf('Move lines up')).toHaveText(['Alt', '↑']);
   await d.getByRole('searchbox').fill('Bold');
-  await expect(d).toContainText('Bold — Ctrl + B');
+  await expect(keysOf('Bold')).toHaveText(['Ctrl', 'B']);
   await expect(d).not.toContainText('Search the menus');
+  await expect(d.locator('h3')).toHaveText(['Format']);
   await close(page, 'Keyboard shortcuts');
   await page.evaluate(() =>
     Object.defineProperty(navigator, 'platform', { configurable: true, value: 'MacIntel' }),
   );
   await command(page, 'Keyboard shortcuts');
   d = dialog(page, 'Keyboard shortcuts');
-  await expect(d).toContainText('Search the menus — ⌘ + ⇧ + P');
+  await expect(keysOf('Search the menus')).toHaveText(['⌘', '⇧', 'P']);
   await close(page, 'Keyboard shortcuts');
   // Letter keys read as capitals wherever a shortcut is shown.
   await expect(page.locator('[data-command="bold"]')).toHaveAttribute('title', /\(Ctrl\/⌘-B\)$/);
   await page.keyboard.press('ControlOrMeta+Shift+p');
   d = palette(page);
   await d.getByRole('searchbox').fill('Bold');
-  await expect(d.locator('kbd')).toHaveText('Ctrl/⌘-B');
+  const bold = d.getByRole('button', { name: 'Bold', exact: true }).filter({ has: page.locator('kbd') });
+  await expect(bold.locator('kbd')).toHaveText(['⌘', 'B']);
+  await expect(bold.locator('.menu-path')).toHaveText('Format › Text');
   await d.getByRole('searchbox').fill('Print');
-  await expect(d.getByRole('button', { name: 'Print', exact: true }).locator('kbd')).toHaveText('Ctrl/⌘-P');
+  await expect(d.getByRole('button', { name: 'Print', exact: true }).locator('kbd')).toHaveText(['⌘', 'P']);
   await close(page, 'Search commands and settings');
   await expect(d).toHaveCount(0);
   for (const [label, path] of [

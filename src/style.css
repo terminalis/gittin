@@ -2274,11 +2274,48 @@ label.home-option {
   text-align: left;
   font-size: 15px;
 }
-.command-results kbd {
-  font: 11px var(--font-secondary);
+.command-results .menu-path {
   color: var(--muted);
-  margin-left: auto;
+  font-size: 12px;
   white-space: nowrap;
+}
+.command-results .key-caps {
+  margin-left: auto;
+}
+/* Shortcut keys drawn as key caps. */
+.key-caps {
+  display: inline-flex;
+  gap: 4px;
+  white-space: nowrap;
+}
+.key-caps kbd {
+  min-width: 22px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 12px/18px var(--font-secondary);
+  text-align: center;
+}
+/* Keyboard shortcuts: a table per menu, keys at the right. */
+.shortcuts-dialog h3 {
+  margin: 16px 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.shortcut-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.shortcut-table td {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.shortcut-table td:last-child {
+  text-align: right;
 }
 .document-title-row {
   display: flex;

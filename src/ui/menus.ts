@@ -6,7 +6,7 @@ import { button, el, field, fileDialog, narrow, onDocumentClick } from './dom';
 import type { IconName } from './icons';
 import { menuIcon } from './menu-icons';
 import { arrangeMenu, submenuOf } from './menu-layout';
-import { keysFor, shortcutHint } from './shortcuts';
+import { keyCapRow, keysFor, shortcutHint } from './shortcuts';
 export interface Action {
   id: string;
   label: string;
@@ -83,14 +83,16 @@ function insertionActions(controller: GittinController, controls: EditorControls
   ];
 }
 
-function actionButton(action: Action, run: () => void) {
+/** A menu item, or with `search` a command-search row, which adds its menu path and draws its keys as key caps. */
+function actionButton(action: Action, run: () => void, search = false) {
   const b = button('', () => { if (!action.state?.().disabled) run(); });
   b.setAttribute('aria-label', action.label);
   const state = action.state?.();
   b.append(menuIcon(action.id, { selected: state?.selected, icon: action.icon }),
     el('span', { className: 'menu-label', textContent: action.label }));
+  if (search) b.append(el('small', { className: 'menu-path', textContent: action.menu.split('/').join(' › ') }));
   const keys = keysFor(action.id);
-  if (keys) b.append(el('kbd', { textContent: shortcutHint(keys) }));
+  if (keys) b.append(search ? keyCapRow(keys) : el('kbd', { textContent: shortcutHint(keys) }));
   b.disabled = !!state?.disabled;
   if (state?.selected !== undefined) b.setAttribute('aria-pressed', String(state.selected));
   return b;
@@ -372,7 +374,7 @@ export class Menus {
         const found = this.actions.filter(a =>
           (a.label + ' ' + a.menu.split('/').join(' ')).toLowerCase().includes(query));
         results.replaceChildren(...found.map(a =>
-          actionButton(a, () => { close(); this.runAction(a); })));
+          actionButton(a, () => { close(); this.runAction(a); }, true)));
       };
       input.oninput = render;
       body.append(field('Search', input), results);

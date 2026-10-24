@@ -180,10 +180,11 @@ test('Help, searchable shortcuts and navigation cleanup', async ({ page }) => {
   await homeMenu(page, 'Shortcuts');
   const shortcuts = page.getByRole('dialog', { name: 'Keyboard shortcuts', exact: true });
   // Home lists the same shortcuts as the editor.
-  await expect(shortcuts).toContainText('Save — Ctrl + S');
-  await expect(shortcuts).toContainText('Print — Ctrl + P');
+  const keysOf = (label: string) => shortcuts.locator('tr').filter({ hasText: label }).locator('kbd');
+  await expect(keysOf('Save')).toHaveText(['Ctrl', 'S']);
+  await expect(keysOf('Print')).toHaveText(['Ctrl', 'P']);
   await shortcuts.getByRole('searchbox').fill('bold');
-  await expect(shortcuts).toContainText('Bold — Ctrl + B');
+  await expect(keysOf('Bold')).toHaveText(['Ctrl', 'B']);
   await expect(shortcuts).not.toContainText('Find and replace');
   await page.evaluate(() => { location.hash = '#/'; });
   await expect(shortcuts).toHaveCount(0);

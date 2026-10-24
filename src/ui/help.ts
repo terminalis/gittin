@@ -1,6 +1,6 @@
 import { button, closeButton, dialogShell, el, field, fileDialog } from './dom';
 import { icon, type IconName } from './icons';
-import { keyCaps, shortcuts } from './shortcuts';
+import { keyCapRow, keyNames, shortcuts } from './shortcuts';
 import { desktop, place } from '../platform';
 /** A point of a Help topic: its heading, then a sentence or two. */
 type Point = [heading: string, text: string];
@@ -264,25 +264,29 @@ export function whatsNew() {
       el('ul', {}, ...changes.map(change => el('li', { textContent: change })))))),
   { className: 'releases-dialog', info: true });
 }
-function shortcutLabel(keys: string) {
-  const mac = /Mac|iPhone|iPad/.test(navigator.platform);
-  return keyCaps(keys).replace('Mod', mac ? '⌘' : 'Ctrl').replace(/Shift/g, mac ? '⇧' : 'Shift')
-    .replace(/Alt/g, mac ? '⌥' : 'Alt').replace(/-/g, ' + ');
-}
+/** A table per menu of each command and its keys, with a search across names and keys. */
 export function keyboardShortcuts() {
   return fileDialog('Keyboard shortcuts', body => {
     const input = el('input', { type: 'search' }), results = el('div');
     const render = () => {
       const query = input.value.toLowerCase();
-      results.replaceChildren(...shortcuts.flatMap(({ label, keys }) => {
-        const text = label + ' — ' + shortcutLabel(keys);
-        return text.toLowerCase().includes(query) ? [el('p', { textContent: text })] : [];
+      const found = shortcuts.filter(({ label, keys }) =>
+        (label + ' ' + keyNames(keys).join(' ')).toLowerCase().includes(query));
+      results.replaceChildren(...[...new Set(found.map(shortcut => shortcut.menu))].map(menu => {
+        const table = el('table', { className: 'shortcut-table' });
+        for (const { label, keys } of found.filter(shortcut => shortcut.menu === menu)) {
+          const row = table.insertRow();
+          row.insertCell().textContent = label;
+          row.insertCell().append(keyCapRow(keys));
+        }
+        return el('section', {}, el('h3', { textContent: menu }), table);
       }));
+      if (!found.length) results.append(el('p', { textContent: 'No shortcut matches.' }));
     };
     input.oninput = render;
     body.append(field('Search assigned shortcuts', input), results);
     render();
-  }, { info: true });
+  }, { className: 'shortcuts-dialog', info: true });
 }
 
 /** Home's Help: the workspace's topics and points in a dialog of its own. */
