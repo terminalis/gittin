@@ -209,6 +209,31 @@ export function gettingStarted() {
 }
 /** Every release, newest first: its name, its date and its changes. */
 const releases: [name: string, date: string, changes: string[]][] = [
+  ...desktop ? [['GitHub in the desktop apps', '24 October 2026', [
+    'Sign in to GitHub from the GitHub button at the right of the header.',
+    'Clone repository, on Home and in File › Open, copies a repository into a new folder in the folder you choose.',
+    "Sync saves first, then brings GitHub's changes in and sends yours; where both changed the same lines, you keep "
+      + 'one version and the other stays in Version history.',
+    'A repository with no remote offers Publish to GitHub, private unless you untick Private.',
+    "The status footer says whether the open file is on GitHub, and the Folder panel counts the edited files that "
+      + "aren't yet.",
+    "Start a repository commits the folder's files as its first commit, and Preferences › Git sets how commit "
+      + 'messages start.',
+  ]] as [string, string, string[]]] : [],
+  ['Find, Help and dialogs', '24 October 2026', [
+    'Find and replace floats over the text as one bar, with its options in a menu.',
+    'Help shows topics beside short points, and Getting Started, now first in the Help menu, says how your files '
+      + 'are kept.',
+    "Dialog buttons follow Windows' order, main action first and destructive ones in red; dialogs that only show "
+      + 'information close with ✕.',
+    "File details is a table that includes the file's location, opened from the folder button beside its name.",
+    'Compare files and Restore drafts open the file picker at once, and Comment, Math, Diagram, Table of contents '
+      + 'and snippets insert at once.',
+    'Insert table has a larger grid, Move to shows a folder tree, Image from folder shows thumbnails, and Keyboard '
+      + 'shortcuts are drawn as keys grouped by menu.',
+    "The status footer shows only the file's details, its save state and what needs attention, and Home lists the "
+      + 'three folders opened most recently, each removable.',
+  ]],
   ...desktop ? [['Git in the desktop apps', '23 October 2026', [
     'In a folder that is a git repository, saving also commits, with a message that says what changed.',
     "Version history lists a repository file's commits.",

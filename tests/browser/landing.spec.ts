@@ -206,7 +206,8 @@ test('the story headings, FAQ questions and first answer match the copy, with no
   await expect(page.locator('.landing-faq dt')).toHaveText([
     'Do I need an account?', 'Where are unsaved changes kept?', 'Does Preview change my Markdown?', 'Can I work offline?',
   ]);
-  await expect(page.locator('.landing-faq dd').first()).toHaveText('No. Gittin has no accounts. Your files stay on your device.');
+  await expect(page.locator('.landing-faq dd').first()).toHaveText('No. Gittin has no accounts of its own; the '
+    + 'desktop app can sign in to GitHub to sync repositories.');
   await expect(page.locator('.landing-faq dd').last()).toHaveText('Yes. After Gittin has loaded once on this device, it '
     + 'starts without a connection and opens files and unsaved changes already in this browser. Or install the '
     + 'desktop app, which works offline from the start.');

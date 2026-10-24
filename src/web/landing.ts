@@ -18,7 +18,8 @@ const feature = (number: string, title: string, text: string, points: string[], 
   + `<ul>${points.map(point => `<li>${point}</li>`).join('')}</ul></div>${demo}</section>`;
 
 const faq: [string, string][] = [
-  ['Do I need an account?', 'No. Gittin has no accounts. Your files stay on your device.'],
+  ['Do I need an account?', 'No. Gittin has no accounts of its own; the desktop app can sign in to GitHub to sync '
+    + 'repositories.'],
   ['Where are unsaved changes kept?', 'In this browser on this device, until you save. '
     + 'Browser storage can be cleared, so save to keep them in a file.'],
   ['Does Preview change my Markdown?', 'No. Preview is read-only and shows source snippets for '

@@ -11,7 +11,8 @@ finish-args:
   - --socket=fallback-x11
   - --share=ipc
   - --device=dri
-  # Images in documents can come from the web, as in a browser. Files come only through the portals.
+  # Images in documents can come from the web, as in a browser, and signing in to GitHub, Clone, Sync and
+  # Publish need it. Files come only through the portals.
   - --share=network
   # git's settings name the author of commits Gittin makes in repositories; read only. The XDG location
   # (~/.config/git/config) isn't read: in the sandbox XDG_CONFIG_HOME is the app's own folder, so where
