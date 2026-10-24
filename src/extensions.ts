@@ -34,6 +34,8 @@ export interface Extensions {
   workspace?(doc: OpenDocument, header: HTMLElement, footer: HTMLElement): void;
   /** More commands for a document's menus. */
   commands?(doc: OpenDocument): Action[];
+  /** A tab of its own in Preferences. */
+  preferences?(): { name: string; panel: HTMLElement };
 }
 export let extensions: Extensions = {};
 export const extend = (added: Extensions) => { extensions = added; };

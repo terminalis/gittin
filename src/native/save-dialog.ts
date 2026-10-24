@@ -3,6 +3,7 @@
 import { button, el, field, fileDialog, textField } from '../ui/dom';
 import type { OpenDocument } from '../screens/workspace';
 import type { Author } from './git';
+import { commitTemplate, setCommitTemplate } from './messages';
 import type { Place } from './repositories';
 import { signIn } from './sign-in';
 
@@ -85,4 +86,14 @@ export function askAuthor(repository: string) {
       footer.append(button('Use these', use, 'primary'));
     }, { closeLabel: 'Cancel', onClose: () => resolve(author) });
   });
+}
+
+/** Preferences › Git: the template the save dialog's commit message starts from. */
+export function gitPreferences() {
+  const template = el('input', { type: 'text', value: commitTemplate(), autocomplete: 'off' });
+  template.oninput = () => setCommitTemplate(template.value);
+  const panel = el('section', {}, field('Commit message template', template),
+    el('p', { className: 'preferences-hint', textContent: "Fills the save dialog's commit message, which you can still "
+      + "change each time. {changes} describes what changed, {files} lists the files and {date} is today's date." }));
+  return { name: 'Git', panel };
 }

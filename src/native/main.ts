@@ -14,6 +14,7 @@ import { offerRepository } from './folder';
 import { openHistory } from './history';
 import { askBeforeQuitting } from './quit';
 import { changed, saveAll } from './save';
+import { gitPreferences } from './save-dialog';
 import { githubStatus, syncCommand, syncInFolder } from './sync';
 
 installPickers();
@@ -37,6 +38,7 @@ const extensions: Extensions = {
   home: (header, actions) => { accountButton(header, 'home'); cloneButton(actions); },
   workspace: (doc, header, footer) => { accountButton(header, 'workspace'); githubStatus(doc, footer); },
   commands: doc => [cloneCommand, syncCommand(doc)],
+  preferences: gitPreferences,
 };
 void start({ revive, extensions }).then(async () => {
   colourFrame();

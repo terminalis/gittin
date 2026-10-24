@@ -5,6 +5,7 @@ import { addFile, addFolder } from '../../src/sources/registry';
 import type { FolderSource } from '../../src/sources/folder';
 import { DesktopDirectoryHandle, DesktopFileHandle } from '../../src/native/files';
 import { useGit, type Git, type Outcome } from '../../src/native/git';
+import { setCommitTemplate } from '../../src/native/messages';
 import { changed, outcomeText, saveAll, useDialogs } from '../../src/native/save';
 import type { SaveAnswer, SaveGroup } from '../../src/native/save-dialog';
 import { noticeText, octocat, useDom, useGitHubStand } from './stand-ins';
@@ -176,4 +177,12 @@ test('the outcome says only what needs attention', () => {
     .toBe('Not committed: secret.md, which git converts as it commits; commit it with git.');
   expect(outcomeText(place, { kind: 'refused', reason: 'signs' }))
     .toBe("Saved, but not committed to work: it signs its commits, which Gittin can't do, so commit with git.");
+});
+
+test("the save dialog's message starts from the template in Preferences", async () => {
+  setCommitTemplate('Notes {date}: {changes}');
+  answer(groups => new Map([[groups[0].place!.root, '']]));
+  await saveAll([doc(work.id, 'notes.md', 'x\n', 'y\n')], 'save', tools());
+  expect(shown[0][0].message).toMatch(/^Notes \d{4}-\d{2}-\d{2}: Edit notes\.md$/);
+  setCommitTemplate('{changes}');
 });

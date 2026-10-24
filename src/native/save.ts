@@ -7,7 +7,7 @@ import { basename, dirname } from '../sources/paths';
 import { notice } from '../ui/dom';
 import { git, type Author, type Outcome } from './git';
 import { github } from './github';
-import { commitMessage } from './messages';
+import { commitTemplate, fillTemplate } from './messages';
 import { placeOf, placeOfDocument, type Place } from './repositories';
 import { askAuthor, saveDialog, type SaveGroup } from './save-dialog';
 
@@ -87,7 +87,7 @@ async function group(docs: OpenDocument[]): Promise<SaveGroup[]> {
   for (const group of groups.values()) {
     if (!group.place) continue;
     const added = [...(created.get(group.place.root) ?? [])].filter(path => !group.docs.some(d => d.path === path));
-    group.message = commitMessage([
+    group.message = fillTemplate(commitTemplate(), [
       ...group.docs.map(({ doc, path }) =>
         ({ path, before: doc.localBaseline?.source ?? null, after: doc.session.current.source })),
       ...added.map(path => ({ path, before: null, after: '' })),

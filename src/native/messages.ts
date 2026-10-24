@@ -55,3 +55,23 @@ export function commitMessage(changes: Change[]): string {
   const text = changes.map(part).join('; ');
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
+
+const templateKey = 'gittin-commit-template';
+/** The writer's template for commit messages, kept on this computer: `{changes}` is Gittin's description of what
+ * changed, `{files}` the files and `{date}` today's date. */
+export function commitTemplate(): string {
+  try { return localStorage.getItem(templateKey) ?? '{changes}'; } catch { return '{changes}'; }
+}
+export function setCommitTemplate(template: string) {
+  try { localStorage.setItem(templateKey, template); } catch {}
+}
+/** A commit message from `template`; an empty template gives Gittin's own description. */
+export function fillTemplate(template: string, changes: Change[], date = new Date()): string {
+  const two = (n: number) => String(n).padStart(2, '0');
+  const values: Record<string, string> = {
+    changes: commitMessage(changes),
+    files: changes.map(change => change.path).join(', '),
+    date: `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`,
+  };
+  return (template.trim() || '{changes}').replace(/\{(changes|files|date)\}/g, (_, key: string) => values[key]).trim();
+}

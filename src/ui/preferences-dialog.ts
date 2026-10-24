@@ -3,6 +3,7 @@ import type { GittinController } from '../editor/controller';
 import { ruleError, spellcheckCategory, spellcheckEnabled } from '../editor/prose-preferences';
 import { button, checkbox, dialogShell, el, iconButton, showDialog } from './dom';
 import { desktop } from '../platform';
+import { extensions } from '../extensions';
 
 /** A checkbox row that hands each change to `change`. */
 function option(label: string, checked: boolean, change: (checked: boolean) => void) {
@@ -87,8 +88,10 @@ export function openPreferences(preferences: DevicePreferences, controller: Gitt
   document.querySelector('.preferences-dialog')?.remove();
   const context = controller.captureSourceContext();
   const { dialog, body: content, footer } = dialogShell('Preferences', 'preferences-dialog');
-  const panels = [generalPanel(preferences, controller), substitutionsPanel(preferences)];
-  const triggers = ['General', 'Substitutions'].map((name, index) => {
+  const added = extensions.preferences?.();
+  const panels = [generalPanel(preferences, controller), substitutionsPanel(preferences), ...(added ? [added.panel] : [])];
+  const names = ['General', 'Substitutions', ...(added ? [added.name] : [])], last = names.length - 1;
+  const triggers = names.map((name, index) => {
     const trigger = Object.assign(button('', () => select(index)),
       { id: 'preferences-tab-' + index, role: 'tab' });
     trigger.append(el('span', { textContent: name }));
@@ -98,7 +101,8 @@ export function openPreferences(preferences: DevicePreferences, controller: Gitt
     trigger.onkeydown = event => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
       event.preventDefault();
-      const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - index;
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? last
+        : event.key === 'ArrowRight' ? (index === last ? 0 : index + 1) : (index === 0 ? last : index - 1);
       select(next);
       triggers[next].focus();
     };
