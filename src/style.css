@@ -351,6 +351,9 @@ a:has(> .app-icon) {
 .workspace-dialog::backdrop {
   background: var(--scrim);
 }
+.workspace-dialog:modal:has(~ .workspace-dialog:modal)::backdrop {
+  background: transparent;
+}
 .workspace-dialog[open],
 .dialog-form {
   display: flex;
@@ -2964,8 +2967,8 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
     transform: rotate(90deg);
   }
   /* Drawers dim the document behind them; tapping it closes them (workspace.ts). */
-  #workspace:not(.focus-mode):not(.hide-documents) .workspace-body::after,
-  #workspace:not(.focus-mode):not(.hide-repository) .workspace-body::after {
+  body:not(:has(.workspace-dialog:modal)) #workspace:not(.focus-mode):not(.hide-documents) .workspace-body::after,
+  body:not(:has(.workspace-dialog:modal)) #workspace:not(.focus-mode):not(.hide-repository) .workspace-body::after {
     content: "";
     position: absolute;
     inset: 0;

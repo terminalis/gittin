@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { command, editor, newFile, palette, readable, tool } from './kit';
+import { command, editor, newFile, openText, palette, readable, tool } from './kit';
 
 test('dialog actions stay reachable and cancellation preserves source at 1280px and 390px', async ({ page }) => {
   await newFile(page);
@@ -158,4 +158,28 @@ test('insert dialogs show in Focus mode', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect(link).toHaveCount(0);
   await expect(workspace).toHaveClass(/focus-mode/);
+});
+
+test('only the topmost dialog dims the page, and a phone panel leaves the dimming to the dialog', async ({ page }) => {
+  const dialog = (title: string) => page.getByRole('dialog', { name: title, exact: true });
+  const backdrop = (title: string) => dialog(title).evaluate(element => getComputedStyle(element, '::backdrop').backgroundColor);
+  await openText(page, '# Saved', 'saved.md');
+  await command(page, 'Version history…');
+  await dialog('Version history').getByRole('button', { name: 'Clear history for this file', exact: true }).click();
+  await expect(dialog('Clear version history?')).toBeVisible();
+  expect(await backdrop('Version history')).toBe('rgba(0, 0, 0, 0)');
+  expect(await backdrop('Clear version history?')).not.toBe('rgba(0, 0, 0, 0)');
+  await dialog('Clear version history?').getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(await backdrop('Version history')).not.toBe('rgba(0, 0, 0, 0)');
+  await dialog('Version history').getByRole('button', { name: 'Close', exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const scrim = () => page.locator('.workspace-body').evaluate(body => getComputedStyle(body, '::after').content);
+  await page.locator('#documents-toggle').click();
+  await expect.poll(scrim).not.toBe('none');
+  await page.getByRole('button', { name: 'Actions for saved.md', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Rename…', exact: true }).click();
+  await expect(dialog('Rename file')).toBeVisible();
+  expect(await scrim()).toBe('none');
+  await dialog('Rename file').getByRole('button', { name: 'Close', exact: true }).click();
+  await expect.poll(scrim).not.toBe('none');
 });
