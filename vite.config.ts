@@ -53,17 +53,19 @@ export default defineConfig(({ mode }) => {
         apply: (_config, env) => env.command === 'build' && env.mode !== 'desktop',
         enforce: 'post',
         generateBundle(_options, bundle) {
-          // landing/ stays out of the install: the installed app opens at Home, and the link-preview
-          // image is only for other apps.
+          // landing/ (the website's screenshots and link-preview image) stays out of the offline copy.
           const publicFiles = readdirSync('public', { recursive: true, withFileTypes: true })
             .filter(entry => entry.isFile())
             .map(entry => relative('public', join(entry.parentPath, entry.name)).replace(/\\/g, '/'))
             .filter(name => !name.startsWith('landing/'));
-          const built = Object.keys(bundle).filter(name => name !== 'index.html');
+          // Each page is cached by its folder's address: index.html as /, use/index.html as /use/.
+          const pages = Object.keys(bundle).filter(name => name.endsWith('index.html'))
+            .map(name => '/' + name.slice(0, -'index.html'.length));
+          const built = Object.keys(bundle).filter(name => !name.endsWith('.html'));
           const hash = createHash('sha256');
           for (const name of Object.keys(bundle).sort()) { const item = bundle[name]; hash.update(name).update(item.type === 'chunk' ? item.code : item.source); }
           for (const name of publicFiles.sort()) hash.update(name).update(readFileSync(join('public', name)));
-          const files = ['/', ...built.map(name => '/' + name), ...publicFiles.map(name => '/' + name)];
+          const files = [...pages, ...built.map(name => '/' + name), ...publicFiles.map(name => '/' + name)];
           this.emitFile({
             type: 'asset',
             fileName: 'sw.js',
@@ -98,7 +100,8 @@ export default defineConfig(({ mode }) => {
       // Mermaid's on-demand diagram engines (ELK layout, its grammar parser) are third-party chunks
       // of up to about 1.5 MB that load only when a diagram needs them.
       chunkSizeWarningLimit: 1500,
-      ...(desktop ? { rolldownOptions: { input: 'src/native/index.html' } } : {}),
+      // The website's pages and the web app at /use/; the desktop app has its own page.
+      rolldownOptions: { input: desktop ? 'src/native/index.html' : ['index.html', 'use/index.html'] },
     },
     test: {
       globals: true,

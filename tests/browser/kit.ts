@@ -68,7 +68,7 @@ export const chromiumOnly = () =>
 
 export async function home(page: Page) {
   // Going to the address Home already has reloads in WebKit and drops the open documents.
-  if (!page.url().endsWith('#/home')) await page.goto('/#/home');
+  if (!page.url().endsWith('#/home')) await page.goto('/use/#/home');
   await expect(page.locator('#app')).not.toHaveAttribute('inert', '');
   await expect(page.getByRole('button', { name: 'New file', exact: true })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Open file', exact: true })).toBeEnabled();
@@ -372,7 +372,7 @@ export const commandIds = (page: Page) =>
 let fixtures = 0;
 async function freshPage(page: Page) {
   // A new query string forces a real load, so modules start from scratch.
-  await page.goto(`/?fixture=${++fixtures}#/home`);
+  await page.goto(`/use/?fixture=${++fixtures}#/home`);
   await expect(page.getByRole('button', { name: 'New file', exact: true })).toBeVisible();
 }
 

@@ -3,7 +3,7 @@
   "short_name": "Gittin",
   "description": "An IDE? A word processor? It's just plain text.",
   "id": "/",
-  "start_url": "/#/home",
+  "start_url": "/use/#/home",
   "scope": "/",
   "display": "standalone",
   "background_color": "#F7F6F3",

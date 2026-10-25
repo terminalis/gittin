@@ -7,8 +7,8 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const src = join(root, 'src');
 const within = (folder: string) => (path: string) => path === folder || path.startsWith(folder + sep);
-const inWeb = within(join(src, 'web')), inNative = within(join(src, 'native'));
-const area = (path: string) => (inWeb(path) ? 'web' : inNative(path) ? 'native' : 'shared');
+const inWeb = within(join(src, 'web')), inNative = within(join(src, 'native')), inSite = within(join(src, 'site'));
+const area = (path: string) => (inWeb(path) ? 'web' : inNative(path) ? 'native' : inSite(path) ? 'site' : 'shared');
 const show = (path: string) => relative(root, path).replace(/\\/g, '/');
 const files = readdirSync(src, { recursive: true, withFileTypes: true })
   .filter(entry => entry.isFile() && /\.(ts|js|css)$/.test(entry.name))
@@ -27,4 +27,12 @@ it('each version imports only shared code and its own', () => {
 it('only the desktop app imports Tauri', () => {
   const tauri = files.filter(file => !inNative(file) && specifiers(file).some(s => s.startsWith('@tauri-apps/')));
   expect(tauri.map(show)).toEqual([]);
+});
+it('the website imports only its own code and the shared palette', () => {
+  const base = join(src, 'base.css');
+  const crossings = files.filter(inSite).flatMap(file => specifiers(file).filter(s => s.startsWith('.'))
+    .map(s => resolve(dirname(file), s))
+    .filter(target => !inSite(target) && target !== base)
+    .map(target => `${show(file)} imports ${show(target)}`));
+  expect(crossings).toEqual([]);
 });

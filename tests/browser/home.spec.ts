@@ -121,13 +121,11 @@ test('a recent folder can be taken off Home', async ({ page }) => {
   await expect(page.locator('#folders')).toHaveCount(0);
 });
 
-test('the landing page and Home load no editor code until a file opens', async ({ page }) => {
+test('Home loads no editor code until a file opens', async ({ page }) => {
   const editorCode: string[] = [];
   page.on('request', (request) => {
     if (request.url().includes('prosemirror')) editorCode.push(request.url());
   });
-  await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1, name: 'Gittin', exact: true })).toBeVisible();
   await home(page);
   expect(editorCode).toEqual([]);
   await page.getByRole('button', { name: 'New file', exact: true }).click();
@@ -137,7 +135,7 @@ test('the landing page and Home load no editor code until a file opens', async (
 
 test("a file's ⋯ favourites it in place: the file stays put on screen and its ⋯ keeps focus", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 700 });
-  await page.goto('/#/home');
+  await page.goto('/use/#/home');
   const now = Date.now();
   await seedDrafts(page, Array.from({ length: 12 }, (_, i) =>
     ({ title: `File ${i + 1}`, source: String(i), lastOpened: now - i * 1000 })));
@@ -167,7 +165,7 @@ test("a file's ⋯ favourites it in place: the file stays put on screen and its 
 });
 
 test('Rename… on Home renames a file kept only in Gittin, and its type follows the new name', async ({ page }) => {
-  await page.goto('/#/home');
+  await page.goto('/use/#/home');
   const [id] = await seedDrafts(page, [{ title: 'notes', source: 'Notes' }]);
   await page.reload();
   await fileAction(page, 'notes', 'Rename…');
@@ -182,7 +180,7 @@ test('Rename… on Home renames a file kept only in Gittin, and its type follows
 });
 
 test('Remove on Home warns that a file kept only in Gittin is deleted, then focuses the next file', async ({ page }) => {
-  await page.goto('/#/home');
+  await page.goto('/use/#/home');
   const now = Date.now();
   await seedDrafts(page, [
     { title: 'One', source: '1', lastOpened: now },
@@ -196,4 +194,15 @@ test('Remove on Home warns that a file kept only in Gittin is deleted, then focu
   await dialog.getByRole('button', { name: 'Remove', exact: true }).click();
   await expect(page.locator('#recent .recent-open')).toHaveText(['One', 'Three']);
   await expect(page.locator('#recent').getByRole('button', { name: 'Actions for Three', exact: true })).toBeFocused();
+});
+
+test("Home's Install link goes to the website's install page, and phones leave it out", async ({ page }) => {
+  for (const [width, shown] of [[1280, true], [601, true], [600, false], [390, false]] as const) {
+    await page.setViewportSize({ width, height: 800 });
+    await home(page);
+    await expect(page.locator('.home-install'), `${width}px`).toBeVisible({ visible: shown });
+    await expect(page.locator('.home-install')).toHaveText('Install');
+    await expect(page.locator('.home-install')).toHaveAttribute('href', '/install/');
+  }
+  await expect(page.locator('.home-header .brand')).toHaveAttribute('href', '/');
 });

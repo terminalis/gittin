@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <!-- Only Gittin's own scripts run, even if document HTML gets past the sanitizer. Documents may show
+         images from anywhere; KaTeX and Mermaid need inline styles. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src * data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'none'"
+    />
+    <meta name="theme-color" content="#F7F6F3" />
+    <title>Gittin</title>
+    <!-- favicon.ico serves browsers that can't show SVG icons, and pages without icon tags. -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/gittin-logo.svg" type="image/svg+xml" />
+    <!-- iPhones use this for the home screen and fill see-through corners with black, so it has a solid background. -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <script src="/theme.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="notice" role="status" aria-live="polite"></div>
+    <script type="module" src="/src/web/main.ts"></script>
+  </body>
+</html>

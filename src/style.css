@@ -754,6 +754,25 @@
 .home-drawer .home-drawer-close:hover {
   background: color-mix(in srgb, var(--surface) 55%, transparent);
 }
+/* Install: a quiet link beside Home's menu, to the website's install page. Phones leave it out of the full header. */
+.home-install {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-right: 4px;
+  padding: 0 14px;
+  border-radius: 22px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.home-install:hover {
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+}
+@media (max-width: 600px) {
+  .home-install {
+    display: none;
+  }
+}
 .home-drawer {
   position: fixed;
   inset: 0 0 0 auto;

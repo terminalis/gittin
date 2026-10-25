@@ -1,8 +1,8 @@
 // Screenshots of the real app for the landing page: npm run landing-shots
 // Drives the running app with a sample folder and writes public/landing/<shot>-<theme>-<size>.webp,
-// plus their sizes in src/web/landing-shots.json. Re-run it whenever the workspace changes, then commit both.
+// plus their sizes in src/site/landing-shots.json. Re-run it whenever the workspace changes, then commit both.
 import { test, expect, type Page } from '@playwright/test';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 const folder: Record<string, string> = {
   'trip-notes.md': '# Trip notes\n\n**Day 1:** the harbour, then the old town.\n\n| Stop | Time |\n| --- | --- |\n| Harbour | 09:00 |\n| Old town | 11:30 |\n\n- [x] Book the ferry\n- [ ] Find the market\n',
@@ -30,7 +30,7 @@ async function start(page: Page, theme: Theme, size: Size, changes: Record<strin
     (window as any).showDirectoryPicker = async () =>
       (await navigator.storage.getDirectory()).getDirectoryHandle('field-notes', { create: true });
   });
-  await page.goto('/#/home');
+  await page.goto('/use/#/home');
   await expect(page.locator('#app')).not.toHaveAttribute('inert', '');
   await page.evaluate(async files => {
     const root = await (await navigator.storage.getDirectory()).getDirectoryHandle('field-notes', { create: true });
@@ -119,11 +119,14 @@ async function shot(page: Page, name: string, theme: Theme, size: Size, clip?: {
   (dimensions[name] ??= {})[size] = [Math.round(clip?.width ?? sizes[size].width), Math.round(clip?.height ?? sizes[size].height)];
 }
 
-/** CSS-pixel sizes per shot and screen size, so the landing reserves each image's space before it loads. */
+/** CSS-pixel sizes per shot and screen size, so the landing reserves each image's space before it loads. The desktop
+ * app's shots, captured by hand, keep their entries. */
 const dimensions: Record<string, Partial<Record<Size, [number, number]>>> = {};
 test.afterAll(() => {
-  const sorted = Object.fromEntries(Object.keys(dimensions).sort().map(name => [name, { desktop: dimensions[name].desktop, phone: dimensions[name].phone }]));
-  writeFileSync('src/web/landing-shots.json', JSON.stringify(sorted, null, 2) + '\n');
+  const path = 'src/site/landing-shots.json';
+  const all = { ...JSON.parse(readFileSync(path, 'utf8')), ...Object.fromEntries(Object.entries(dimensions)
+    .map(([name, sizes]) => [name, { desktop: sizes.desktop, phone: sizes.phone }])) };
+  writeFileSync(path, JSON.stringify(Object.fromEntries(Object.keys(all).sort().map(name => [name, all[name]])), null, 2) + '\n');
 });
 
 test.use({ deviceScaleFactor: 2, browserName: 'chromium', locale: 'en-GB' });

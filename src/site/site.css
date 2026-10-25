@@ -1,10 +1,13 @@
-/* Landing: the doorway, the slide-in bar, feature sections with screenshots of the app, FAQ and closing band. */
-.landing {
+@import "../base.css";
+/* The website: the landing page (the doorway, the slide-in bar, feature sections with screenshots of the app, the
+   questions and the closing band) and the install page. */
+.site {
   overflow-x: clip;
 }
 
-/* Slide-in bar: hidden (and out of the tab order) while any of the doorway shows. */
-.landing-bar {
+/* The bar. On the landing it is hidden (and out of the tab order) while any of the doorway shows, then slides in; the
+   install page shows it from the start. */
+.site-bar {
   display: flex;
   align-items: center;
   gap: 20px;
@@ -20,29 +23,24 @@
   transform: translateY(-100%);
   transition: transform .3s cubic-bezier(.2, .8, .2, 1), visibility 0s linear .3s;
 }
-.landing-bar.shown {
+.site-bar.shown {
   visibility: visible;
   transform: none;
   transition: transform .3s cubic-bezier(.2, .8, .2, 1);
 }
-.landing-bar .brand {
+.site-bar .brand {
   margin-right: auto;
 }
-.landing-bar .brand img {
+.site-bar .brand img {
   width: 28px;
   height: 28px;
 }
-.landing-bar .brand strong {
+.site-bar .brand strong {
   font-size: 22px;
 }
-.landing-bar .action {
-  display: inline-flex;
-  align-items: center;
-  column-gap: 10px;
+.site-bar .action {
   padding: 9px 18px;
-}
-.landing-bar .install {
-  padding: 9px 18px;
+  white-space: nowrap;
 }
 
 /* Doorway: one composition scaled to fit the screen's shape (1280×800 landscape, 768×1024 for upright tablets,
@@ -82,6 +80,19 @@
   font-size: calc(30 * var(--u));
   line-height: 1.3;
 }
+/* Use in browser under the tagline, for the upright arrangements, which have no quiet links at the foot. */
+.doorway-use {
+  display: none;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 18px;
+  color: var(--muted);
+  font: 17px var(--font-secondary);
+  text-decoration: none;
+}
+.doorway-use:hover {
+  color: var(--ink);
+}
 .doorway .door {
   right: calc(-280 * var(--u));
   top: calc(-50 * var(--u));
@@ -98,15 +109,11 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 0;
-  border: 0;
-  background: none;
   color: var(--muted);
   font: 16px var(--font-secondary);
   text-decoration: none;
 }
 .doorway-links > :hover {
-  background: none;
   color: var(--ink);
 }
 
@@ -178,12 +185,25 @@
 .feature.alt .feature-text {
   order: 2;
 }
+.feature-kicker {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin: 0;
+}
 .feature-number {
-  display: block;
   font-family: var(--font-primary);
   font-weight: 700;
   font-size: 18px;
   letter-spacing: .05em;
+  color: var(--accent);
+}
+/* Small uppercase labels: Desktop app on the landing's first sections and under the install page's desktop cards. */
+.site-label {
+  margin: 0;
+  font: 700 13px var(--font-primary);
+  letter-spacing: .1em;
+  text-transform: uppercase;
   color: var(--accent);
 }
 .feature h2 {
@@ -192,7 +212,7 @@
   letter-spacing: -0.035em;
   line-height: 1.02;
 }
-.feature-text p {
+.feature-text p:not(.feature-kicker) {
   margin: 0;
   font: 20px/1.5 var(--font-secondary);
 }
@@ -267,7 +287,7 @@
   display: none;
 }
 
-/* FAQ: always open. */
+/* Questions: always open. */
 .landing-faq {
   display: grid;
   grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
@@ -301,16 +321,8 @@
   color: var(--muted);
   font: 18px/1.5 var(--font-secondary);
 }
-.landing-faq .install {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  text-decoration: underline;
-}
 
-/* Closing band: the logo returns at the left, its ring holding Open Gittin again.
+/* Closing band: the logo returns at the left, its ring holding Install Gittin again.
    Narrower than about 1080px, the band scales with the window, so the logo keeps clear of the words. */
 .farewell {
   --u: min(0.845px, calc(100vw / 1280));
@@ -343,7 +355,7 @@
   font: 19px var(--font-secondary);
 }
 
-.landing > footer {
+.site-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -352,7 +364,7 @@
   border-top: 1px solid var(--line);
   font: 15px var(--font-secondary);
 }
-.landing-legal {
+.site-legal {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -378,6 +390,9 @@
   .doorway .tagline {
     margin-top: calc(30 * var(--u));
     font-size: calc(34 * var(--u));
+  }
+  .doorway-use {
+    display: inline-flex;
   }
   .doorway .door {
     width: calc(860 * var(--u));
@@ -417,6 +432,9 @@
     margin-top: calc(22 * var(--u));
     font-size: calc(22 * var(--u));
   }
+  .doorway-use {
+    display: inline-flex;
+  }
   .doorway .door {
     width: calc(560 * var(--u));
     height: calc(560 * var(--u));
@@ -435,14 +453,14 @@
   }
 }
 @media (max-width: 760px) {
-  .landing-bar {
+  .site-bar {
     height: 56px;
+    gap: 12px;
   }
-  .landing-bar .brand strong {
+  .site-bar .brand strong {
     font-size: 20px;
   }
-  .landing-bar .action,
-  .landing-bar .install {
+  .site-bar .action {
     padding: 8px 14px;
   }
   .feature,
@@ -454,7 +472,7 @@
   .feature.alt .feature-text {
     order: 0;
   }
-  .feature-text p {
+  .feature-text p:not(.feature-kicker) {
     font-size: 18px;
   }
   .demo-pair > .shot-back {
@@ -494,83 +512,26 @@
     bottom: -150px;
     translate: none;
   }
-  .landing > footer {
+  .site-footer {
     flex-direction: column;
     align-items: flex-start;
     gap: 14px;
     padding: 20px var(--gutter);
     font-size: 12px;
   }
-  .landing-legal {
+  .site-legal {
     justify-content: flex-start;
   }
 }
-/* Install: a quiet button beside Home's menu, and the Flatpak command in its dialog. Phones can't run the
-   desktop app, so the bar and Home leave the button out. */
-.home-install {
-  min-height: 44px;
-  margin-right: 4px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 22px;
-  background: transparent;
-}
-.home-install:hover {
-  background: color-mix(in srgb, var(--surface) 55%, transparent);
-}
-.install-dialog .version-row {
-  flex-wrap: wrap;
-}
-.install-terminal {
-  display: grid;
-  flex-basis: 100%;
-  gap: 4px;
-  min-width: 0;
-}
-.install-terminal small {
-  font-size: 12px;
-}
-/* One shaded box: the command wraps inside it, and the copy button sits in its top corner. */
-.install-command {
-  position: relative;
-  min-width: 0;
-  border-radius: var(--radius);
-  background: var(--code);
-}
-.install-command code {
-  display: block;
-  padding: 8px 44px 8px 10px;
-  font: 13px var(--font-document-mono);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  user-select: all;
-}
-.install-command button,
-.install-command button:hover {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  min-height: 32px;
-  padding: 0 10px;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-}
-.install-command button:hover {
-  color: var(--ink);
-}
-.install-command button:focus-visible {
-  outline-offset: -2px;
-}
-@media (max-width: 600px) {
-  .landing-bar .install,
-  .home-install {
+/* The logo, Use in browser and Install need about 400px with the wordmark. */
+@media (max-width: 480px) {
+  .site-bar .brand strong {
     display: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .landing-bar,
-  .landing-bar.shown,
+  .site-bar,
+  .site-bar.shown,
   .ring,
   .ring .app-icon {
     transition: none;

@@ -46,7 +46,7 @@ test('immediate Home actions, themes, recent work and open histories', async ({
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Gittin', exact: true })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await page.getByRole('link', { name: 'Use Gittin in your browser' }).click();
+  await page.locator('.doorway-links').getByRole('link', { name: 'Use in browser', exact: true }).click();
   await expect(page.getByRole('button', { name: 'New file' })).toBeEnabled();
   await page.getByRole('button', { name: 'Main menu', exact: true }).click();
   await expect(page.getByRole('button', { name: 'System', exact: true })).toHaveAttribute(
@@ -84,9 +84,9 @@ test('immediate Home actions, themes, recent work and open histories', async ({
 test('direct document URL opens Edit', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('/use/#/home');
   const [id] = await seedDrafts(page, [{ title: 'Intent.md', source: '# Intended', revision: 7 }]);
-  await page.goto('/#/document/' + id);
+  await page.goto('/use/#/document/' + id);
   await expect(editor(page)).toHaveText('# Intended');
   await expect(page).toHaveURL(new RegExp(id));
   await page.reload();
@@ -220,7 +220,7 @@ test('backs up all drafts to a zip and restores it, or a JSON backup, in an empt
   // A context made here has no base URL, so the address is spelled out.
   const context = await browser.newContext();
   const other = await context.newPage();
-  await other.goto(new URL(page.url()).origin + '/#/home');
+  await other.goto(new URL(page.url()).origin + '/use/#/home');
   const restore = async (name: string, mimeType: string, buffer: Buffer) => {
     const chooser = other.waitForEvent('filechooser');
     await homeMenu(other, 'Restore drafts');

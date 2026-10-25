@@ -16,7 +16,7 @@ import { headingAnchors } from './editor/heading-anchors';
 import { fileName, fileTypeForName, otherTs, type FileType } from './documents/file-types';
 import { clearVersionsAt, moveVersions, recordVersion, versionKey } from './documents/versions';
 import {
-  addFile, addFolder, addReadOnlyFolder, folderHolding, hideFolder, isAt, loadSources, recentFolders, rememberedFiles,
+  addFile, addFolder, addReadOnlyFolder, folderHolding, hideFolder, isAt, loadSources, rememberedFiles,
   restoreSource, sourceFor, type Revive,
 } from './sources/registry';
 import { FolderSource } from './sources/folder';
@@ -40,8 +40,6 @@ let workspace: Workspace | undefined,
   starting = true,
   pending: Route | undefined,
   fileSave: Promise<boolean> | undefined;
-/** The landing page and the Install dialog, handed in by the version of Gittin that has them. */
-let landing: (() => HTMLElement) | undefined, install: (() => void) | undefined;
 const input = document.createElement('input');
 input.type = 'file';
 // Accept any file: openPath validates UTF-8 and preserves unknown formats.
@@ -152,7 +150,6 @@ function clear() {
 }
 /** `checked` skips the disk check when openPath has just made it. */
 async function show(route: Route, checked = false) {
-  if (route.screen === 'landing' && !landing) route = { screen: 'home' };
   if (route.screen === 'editor') {
     const existing = documents.get(route.id),
       record = existing ? null : await loadDraft(route.id);
@@ -170,7 +167,7 @@ async function show(route: Route, checked = false) {
         if (disk) await reconcile(doc, disk);
       }
     }
-    // The editor loads with its first document, so the landing page and Home start lighter.
+    // The editor loads with its first document, so Home starts lighter.
     const { Workspace } = await import('./screens/workspace');
     clear();
     // The workspace sets the window title to its document's name.
@@ -180,16 +177,15 @@ async function show(route: Route, checked = false) {
   } else {
     let rows: Awaited<ReturnType<typeof listRecent>> = [],
       failed = false;
-    if (route.screen === 'home')
-      try {
-        rows = await listRecent();
-      } catch (e) {
-        failed = true;
-        notice(e);
-      }
+    try {
+      rows = await listRecent();
+    } catch (e) {
+      failed = true;
+      notice(e);
+    }
     clear();
     document.title = 'Gittin';
-    root.append(route.screen === 'landing' ? landing!() : home(prefs, rows, { ...actions, install }, failed));
+    root.append(home(prefs, rows, actions, failed));
   }
   window.scrollTo(0, 0);
   current = route;
@@ -675,16 +671,7 @@ function showConflict(doc: OpenDocument) {
   const name = identity.kind === 'source' ? basename(identity.path) : doc.title;
   conflictDialog(name, workspace?.document === doc ? choices : { ...choices, compare: undefined });
 }
-/** The bare address opens Home for someone with recent work on this browser (files, folders or
- * unsaved work); `#/` always shows the landing page. */
-async function startRoute(): Promise<Route> {
-  const route = readRoute();
-  if (route.screen !== 'landing' || location.hash !== '') return route;
-  if (recentFolders().length || (await listRecent().catch(() => [])).length) return { screen: 'home' };
-  return route;
-}
 window.addEventListener('hashchange', () => {
-  if (location.hash === '#story') return;
   if (starting) pending = readRoute();
   else navigate(readRoute());
 });
@@ -695,12 +682,9 @@ window.addEventListener('pagehide', (event) => {
   if (!event.persisted) workspace?.controller.dispose();
   void flushAll();
 });
-/** Starts Gittin. Each version hands in what only it has: the website its landing page and Install dialog,
- * the desktop app a way to bring back the file handles it stored and its git. Resolves once the first screen shows. */
-export function start(version: {
-  landing?: () => HTMLElement; install?: () => void; revive?: Revive; extensions?: Extensions;
-}) {
-  ({ landing, install } = version);
+/** Starts Gittin. The desktop app hands in what only it has: a way to bring back the file handles it stored, and its
+ * git. Resolves once the first screen shows. */
+export function start(version: { revive?: Revive; extensions?: Extensions } = {}) {
   if (version.extensions) extend(version.extensions);
   return (async () => {
     root.inert = true;
@@ -709,7 +693,7 @@ export function start(version: {
     // The hash already holds any change made while loading.
     pending = undefined;
     try {
-      await show(await startRoute());
+      await show(readRoute());
     } catch (e) {
       notice(e);
       await show({ screen: 'home' });

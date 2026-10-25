@@ -382,22 +382,18 @@ test('the system appearance holds while the page is laid out for printing in the
 });
 
 test('a notice sits on the theme peach with a red outline and rises in, again when another replaces it', async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {} } });
-  });
   await home(page);
   await page.evaluate(() => {
     (window as any).entrances = 0;
     document.querySelector('#notice')!.addEventListener('animationstart', () => (window as any).entrances++);
   });
   const entrances = () => page.evaluate(() => (window as any).entrances);
-  await page.locator('.home-header').getByRole('button', { name: 'Install', exact: true }).click();
-  const copy = page.getByRole('dialog').getByRole('button', { name: 'Copy command', exact: true });
+  const show = () => page.evaluate(async path => (await import(path)).notice('Test notice.'), '/src/ui/dom.ts');
   const notice = page.locator('#notice');
-  await copy.click();
-  await expect(notice).toContainText('Command copied.');
+  await show();
+  await expect(notice).toContainText('Test notice.');
   await expect.poll(entrances).toBe(1);
-  await copy.click();
+  await show();
   await expect.poll(entrances).toBe(2);
   for (const colorScheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme });

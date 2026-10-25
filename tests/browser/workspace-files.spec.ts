@@ -34,7 +34,7 @@ test('new title/type, rename and favourite survive recovery', async ({ page }) =
   await expect(page.locator('#document-title')).toHaveText('Daily notes');
   await expect(page.getByRole('button', { name: 'Remove favourite' })).toBeVisible();
   expect((await savedDraft(page)).localBaseline).toBeNull();
-  await page.goto('/#/home');
+  await page.goto('/use/#/home');
   await expect(page.locator('#favourites')).toContainText('Daily notes');
   await page.locator('#favourites').getByRole('button', { name: 'Daily notes', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Edit', exact: true })).toHaveAttribute('aria-pressed', 'true');
