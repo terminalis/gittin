@@ -231,9 +231,12 @@ test('Find floats over the top centre of the text, its options a menu of ticks w
   const row = card.locator('.find-row').first();
   const order = await row.locator(':scope > *').evaluateAll((items) =>
     items.map((item) => item.getAttribute('data-action') ?? item.className));
-  expect(order).toEqual(['chevron', 'find-field', 'find-count', 'next', 'previous', 'options', 'close']);
+  expect(order).toEqual(['chevron', 'find-field', 'next', 'previous', 'options', 'close']);
+  const magnifier = card.locator('.find-field .app-icon');
+  await expect(magnifier).toBeVisible();
   await findField(page).fill('alpha');
-  await expect(page.locator('.find-count')).toHaveText('1 of 2');
+  await expect(card.locator('.find-field .find-count')).toHaveText('1 of 2');
+  await expect(magnifier).toBeHidden();
   const options = page.getByRole('button', { name: 'Find options', exact: true });
   await expect(options).not.toHaveClass(/options-on/);
   await findOption(page, 'Match case');

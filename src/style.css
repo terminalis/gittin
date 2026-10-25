@@ -2309,11 +2309,22 @@ label.home-option {
   margin-left: 36px;
 }
 .find-count {
-  min-width: 64px;
+  position: absolute;
+  top: 50%;
+  right: 8px;
   color: var(--muted);
   font-size: 13px;
-  text-align: center;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+/* Once a search reports, the count takes the magnifier's place and the text stops short of it. */
+.find-field:has(.find-count:not(:empty)) .app-icon {
+  display: none;
+}
+.find-field:has(.find-count:not(:empty)) input {
+  padding-right: 84px;
 }
 .find-message {
   margin: 6px 0 0 36px;
@@ -2869,10 +2880,6 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   }
   .find-card {
     width: calc(100% - 16px);
-  }
-  .find-count {
-    min-width: 0;
-    font-size: 12px;
   }
   /* Phone: logo, title and Save share the first row; the menus take the whole second row. */
   .workspace-header {
