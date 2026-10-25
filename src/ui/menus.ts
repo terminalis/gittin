@@ -267,9 +267,7 @@ export class Menus {
     panel.style.maxHeight = Math.max(32, viewportHeight - edge * 2) + 'px';
     const parent = trigger.closest('details')!.parentElement!.getBoundingClientRect();
     const bounds = panel.getBoundingClientRect();
-    const left = parent.right + bounds.width - 1 <= viewportWidth - edge
-      ? parent.right - 1 : parent.left - bounds.width + 1;
-    panel.style.left = Math.max(edge, Math.min(left, viewportWidth - bounds.width - edge)) + 'px';
+    panel.style.left = Math.max(edge, Math.min(parent.right - 1, viewportWidth - bounds.width - edge)) + 'px';
     const top = Math.min(anchor.top - 7, viewportHeight - bounds.height - edge);
     panel.style.top = Math.max(edge, top) + 'px';
   }

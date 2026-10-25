@@ -313,8 +313,9 @@ a:has(> .app-icon) {
 }
 /* All workspace dialogs share a shell, fields and action hierarchy. */
 .workspace-dialog {
-  width: var(--dialog-width, 460px);
-  max-width: calc(100vw - 32px);
+  width: var(--dialog-width, fit-content);
+  min-width: min(360px, calc(100vw - 32px));
+  max-width: min(var(--dialog-width, 460px), calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   padding: 24px;
   overflow: hidden;
@@ -387,6 +388,9 @@ a:has(> .app-icon) {
 }
 .dialog-body > :has(+ [role=alert]:empty) {
   margin-bottom: 0;
+}
+.workspace-dialog :is(p, .dialog-hint, [role=alert]) {
+  contain: inline-size;
 }
 .workspace-dialog :where(label) {
   display: grid;
@@ -1488,10 +1492,6 @@ label.home-option {
 .file-more .app-icon {
   --icon: 18px;
 }
-/* Home's ⋯ menu is as wide as its items, so the Favourite switch sits a short gap from its label. */
-.toolbar-popup.file-menu {
-  width: max-content;
-}
 /* The ⋯ menu's Favourite switch, drawn like the menu drawer's and on while the file is a favourite. */
 .menu-switch {
   position: relative;
@@ -1840,6 +1840,7 @@ label.home-option {
   position: fixed;
   overflow: auto;
   z-index: 80;
+  width: max-content;
   padding: 6px 0;
   background: var(--surface);
   box-shadow: var(--shadow-popover);
@@ -1847,8 +1848,6 @@ label.home-option {
   border-radius: var(--radius-panel);
 }
 .menu-items {
-  width: 315px;
-  min-width: 250px;
   max-width: calc(100vw - 24px);
 }
 .menus > details[open] > .menu-items {
@@ -1960,9 +1959,6 @@ label.home-option {
 .gittin-controls .toolbar-zoom > .app-icon {
   --icon: 14px;
 }
-.toolbar-popup.toolbar-zoom-menu {
-  width: 144px;
-}
 .toolbar-menu-toggle {
   margin-left: auto;
 }
@@ -1973,7 +1969,7 @@ label.home-option {
   position: fixed;
   z-index: 130;
   box-sizing: border-box;
-  width: 260px;
+  width: max-content;
   max-width: calc(100vw - 16px);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -2009,7 +2005,6 @@ label.home-option {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  width: max-content;
   gap: 4px 0;
   padding: 6px;
   border-radius: var(--radius-panel);
@@ -2537,6 +2532,9 @@ label.home-option {
   flex: 1;
   min-width: 0;
 }
+.menus .menu-label:not(:last-child) {
+  margin-right: 14px;
+}
 .menu-items hr {
   border: 0;
   border-top: 1px solid var(--line);
@@ -2583,8 +2581,6 @@ label.home-option {
   flex: 0 0 12px;
 }
 .submenu-items {
-  width: max-content;
-  min-width: 240px;
   max-width: min(380px, calc(100vw - 24px));
   z-index: 81;
 }
@@ -2798,9 +2794,6 @@ summary.folder-row::-webkit-details-marker {
 .folder-row-more .app-icon {
   --icon: 16px;
 }
-.toolbar-popup.folder-row-menu {
-  width: 180px;
-}
 details[open] > summary.folder-row > [data-icon="chevron-right"] {
   transform: rotate(90deg);
 }
@@ -2936,7 +2929,6 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   .submenu-items {
     position: static;
     width: auto;
-    min-width: 0;
     max-width: none;
     max-height: none;
     padding: 0;

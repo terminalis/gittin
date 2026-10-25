@@ -91,6 +91,37 @@ test('desktop hover opens adjacent panels without shifting rows and switches bra
   await expect(file).not.toHaveAttribute('open', '');
 });
 
+test('menus and submenus are as wide as their longest row, with 24px before shortcuts and arrows', async ({ page }) => {
+  const fit = (panel: Element) => {
+    const textRight = (element: Element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return range.getBoundingClientRect().right;
+    };
+    let spare = Infinity, gap = Infinity;
+    for (const row of [...panel.querySelectorAll(':scope > button, :scope > .submenu > summary')].filter(row => row.getClientRects().length)) {
+      const label = row.querySelector('.menu-label')!, trailing = label.nextElementSibling;
+      const end = trailing ? trailing.getBoundingClientRect().right : textRight(label);
+      spare = Math.min(spare, row.getBoundingClientRect().right - parseFloat(getComputedStyle(row).paddingRight) - end);
+      if (trailing) gap = Math.min(gap, trailing.getBoundingClientRect().left - textRight(label));
+    }
+    return { spare: Math.round(spare), gap: Math.round(gap) };
+  };
+  for (const [name, inner] of [['Edit', 'Lines'], ['Format', 'Image']]) {
+    const root = rootMenu(page, name), child = submenu(page, inner);
+    await root.locator(':scope > summary').click();
+    await child.locator(':scope > summary').hover();
+    await expect(child).toHaveAttribute('open', '');
+    for (const panel of [root.locator(':scope > .menu-items'), child.locator(':scope > .submenu-items')]) {
+      const { spare, gap } = await panel.evaluate(fit);
+      expect(spare).toBe(0);
+      expect(gap).toBeGreaterThanOrEqual(24);
+    }
+    if (name === 'Edit') expect((await root.locator(':scope > .menu-items').evaluate(fit)).gap).toBe(24);
+    await root.locator(':scope > summary').press('Escape');
+  }
+});
+
 test('keyboard stays in the current panel and restores its parent on Left and Escape', async ({ page }) => {
   const format = rootMenu(page, 'Format'), text = submenu(page, 'Text');
   await format.locator(':scope > summary').focus();
@@ -115,8 +146,8 @@ test('keyboard stays in the current panel and restores its parent on Left and Es
   await expect(format.locator(':scope > summary')).toBeFocused();
 });
 
-test('deep desktop flyouts flip at the edge and retain working toolbar actions', async ({ page }) => {
-  await page.setViewportSize({ width: 820, height: 500 });
+test('deep desktop flyouts open beside their parent inside the narrowest desktop window and retain working toolbar actions', async ({ page }) => {
+  await page.setViewportSize({ width: 770, height: 500 });
   await rootMenu(page, 'View').locator(':scope > summary').click();
   const toolbar = submenu(page, 'Toolbar'), formatting = submenu(page, 'Text formatting');
   await toolbar.locator(':scope > summary').hover();
@@ -125,10 +156,9 @@ test('deep desktop flyouts flip at the edge and retain working toolbar actions',
   await expect(formatting).toHaveAttribute('open', '');
   const parent = await toolbar.locator(':scope > .submenu-items').boundingBox();
   const child = await formatting.locator(':scope > .submenu-items').boundingBox();
-  expect(child!.x).toBeLessThan(parent!.x);
-  expect(child!.x).toBeGreaterThanOrEqual(8);
+  expect(child!.x).toBeGreaterThanOrEqual(parent!.x + parent!.width - 2);
   expect(child!.y).toBeGreaterThanOrEqual(8);
-  expect(child!.x + child!.width).toBeLessThanOrEqual(812);
+  expect(child!.x + child!.width).toBeLessThanOrEqual(762);
   expect(child!.y + child!.height).toBeLessThanOrEqual(492);
   await formatting.getByRole('button', { name: 'Bold', exact: true }).click();
   await expect(page.locator('[data-command=bold]')).toBeHidden();
