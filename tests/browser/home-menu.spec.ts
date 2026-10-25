@@ -25,16 +25,19 @@ test('drawer order, focus, Escape and backdrop at 1280px and 390px', async ({ pa
     for (const name of ['Light', 'Dark', 'System']) await expect(theme.getByRole('button', { name, exact: true })).toHaveAttribute('title', name);
     await expect(theme.getByRole('button', { name: 'System', exact: true })).toHaveAttribute('aria-pressed', 'true');
     const nav = drawer(page).getByRole('navigation');
-    await expect(nav.locator('.home-drawer-label')).toHaveText(['Settings', 'Drafts', 'Help']);
+    await expect(nav.locator('.home-drawer-label')).toHaveText(['Your files', 'Drafts', 'Help', 'About']);
     await expect(nav.getByRole('group', { name: 'Drafts', exact: true }).getByRole('button')).toHaveText(['Export drafts', 'Restore drafts']);
     await expect(nav.getByRole('button', { name: 'Restore drafts', exact: true })).toHaveAttribute(
       'title', 'Restore drafts from a backup file. Drafts already on this device are kept unchanged.');
-    const settings = nav.getByRole('group', { name: 'Settings', exact: true });
+    const settings = nav.getByRole('group', { name: 'Your files', exact: true });
     await expect(settings.getByRole('button')).toHaveText(['10', '25', 'All']);
     await expect(settings.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(settings.getByRole('switch', { name: 'Show favourites', exact: true })).toBeChecked();
     await expect(settings.getByRole('switch', { name: 'Show recent folders', exact: true })).toBeChecked();
-    await expect(nav.getByRole('group', { name: 'Help', exact: true }).getByRole('button')).toHaveText(['Help', 'Shortcuts']);
+    await expect(nav.getByRole('group', { name: 'Help', exact: true }).getByRole('button'))
+      .toHaveText(['Getting Started', 'Gittin Help']);
+    await expect(nav.getByRole('group', { name: 'About', exact: true }).getByRole('button'))
+      .toHaveText(["What's new", 'Send feedback']);
     await expect(drawer(page).locator('.home-drawer-footer a')).toHaveText(['Privacy Policy', 'Terms of Service', 'Third-party notices']);
     for (const [name, href] of [['Privacy Policy', '/privacy.html'], ['Terms of Service', '/terms.html']])
       await expect(drawer(page).getByRole('link', { name, exact: true })).toHaveAttribute('href', href);
@@ -83,7 +86,7 @@ test('a click that starts in the drawer and ends outside it closes the drawer', 
   await expect(trigger(page)).toBeFocused();
 });
 
-const settings = (page: Page) => drawer(page).getByRole('group', { name: 'Settings', exact: true });
+const settings = (page: Page) => drawer(page).getByRole('group', { name: 'Your files', exact: true });
 
 test('appearance and Home options change in place and persist without creating a file', async ({ page }) => {
   await page.goto('/#/home');
@@ -171,25 +174,24 @@ test('Home options hide Favourites and recent folders and shorten Recently worke
   await expect(page.locator('#folders')).toBeHidden();
 });
 
-test('Help, searchable shortcuts and navigation cleanup', async ({ page }) => {
+test("Home's Help and About items open, and leaving Home closes their dialogs", async ({ page }) => {
   const errors = pageErrors(page);
   await page.goto('/#/home');
-  await homeMenu(page, 'Help');
+  for (const name of ['Getting Started', "What's new"]) {
+    await homeMenu(page, name);
+    await expect(page.getByRole('dialog', { name, exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+  }
+  await page.evaluate(() => { window.open = (...args) => { (window as any).opened = args; return null; }; });
+  await homeMenu(page, 'Send feedback');
+  expect(await page.evaluate(() => (window as any).opened))
+    .toEqual(['https://github.com/terminalis/gittin/issues/new', '_blank', 'noopener,noreferrer']);
+  await homeMenu(page, 'Gittin Help');
   const help = page.getByRole('dialog', { name: 'Gittin Help', exact: true });
   await help.getByText('Saving and recovery', { exact: true }).click();
   await expect(help.getByText('Kept in this browser, which you or the browser can clear.', { exact: true })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await homeMenu(page, 'Shortcuts');
-  const shortcuts = page.getByRole('dialog', { name: 'Keyboard shortcuts', exact: true });
-  // Home lists the same shortcuts as the editor.
-  const keysOf = (label: string) => shortcuts.locator('tr').filter({ hasText: label }).locator('kbd');
-  await expect(keysOf('Save')).toHaveText(['Ctrl', 'S']);
-  await expect(keysOf('Print')).toHaveText(['Ctrl', 'P']);
-  await shortcuts.getByRole('searchbox').fill('bold');
-  await expect(keysOf('Bold')).toHaveText(['Ctrl', 'B']);
-  await expect(shortcuts).not.toContainText('Find and replace');
   await page.evaluate(() => { location.hash = '#/'; });
-  await expect(shortcuts).toHaveCount(0);
+  await expect(help).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Use Gittin in your browser' })).toBeVisible();
   expect(errors).toEqual([]);
 });

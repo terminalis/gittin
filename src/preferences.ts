@@ -21,6 +21,9 @@ export interface Preferences {
   homeFavourites?: boolean;
   homeFolders?: boolean;
   homeRecentLimit?: 10 | 25 | 'all';
+  /** Home: Favourites as cards or rows, and their order (last opened, newest first, when unset). */
+  homeFavouritesView?: 'grid' | 'list';
+  homeFavouritesSort?: 'title-asc' | 'title-desc' | 'opened-desc' | 'opened-asc';
   lineNumbers?: boolean;
   showComments?: boolean;
   syntaxHighlighting?: boolean;

@@ -5,7 +5,7 @@ import * as fs from '@tauri-apps/plugin-fs';
 import type { Identity } from '../documents/types';
 import { FolderSource } from '../sources/folder';
 import type { DirectoryHandle, FileHandle } from '../sources/handle';
-import { sourceFor } from '../sources/registry';
+import { rememberedFiles, sourceFor } from '../sources/registry';
 import { SingleFileSource } from '../sources/single-file';
 
 /** The file calls the handles make: Tauri's file plugin, or a stand-in in tests. */
@@ -129,4 +129,21 @@ export function diskPath(identity: Identity) {
     return identity.path.split('/').reduce((path, part) => new DesktopDirectoryHandle(path).child(part),
       (source.root as DesktopDirectoryHandle).path);
   return source instanceof SingleFileSource ? (source.handle as DesktopFileHandle | null)?.path ?? null : null;
+}
+/** Home's line under a file opened on its own: the folder holding `path`, from the user folder `home` when it is
+ * inside it (the user folder's own name when directly in it), else from the drive or root, with › between folders. */
+export function folderLine(home: string, path: string) {
+  const parts = (text: string) => text.split(/[\\/]+/).filter(Boolean);
+  // Windows paths, with a drive letter, ignore case.
+  const fold = (part: string) => (/^[a-z]:/i.test(path) ? part.toLowerCase() : part);
+  const folder = parts(path).slice(0, -1), user = parts(home);
+  const inHome = user.length > 0 && user.every((part, i) => fold(part) === fold(folder[i] ?? ''));
+  const shown = inHome ? folder.slice(user.length) : folder;
+  return (shown.length ? shown : folder.slice(-1)).join(' › ');
+}
+/** The folder line of a remembered file opened on its own, or nothing for any other file. */
+export function fileFolder(home: string, identity: Identity) {
+  const handle = identity.kind === 'source'
+    ? rememberedFiles().find(row => row.id === identity.sourceId)?.locator : undefined;
+  return handle instanceof DesktopFileHandle ? folderLine(home, handle.path) : '';
 }

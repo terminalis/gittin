@@ -3,6 +3,7 @@ import { basename, dirname, imageType, join } from '../sources/paths';
 import { findFiles } from '../sources/search';
 import type { FileSource, TreeEntry } from '../sources/types';
 import { moveDialog, nameDialog, renameDialog, row } from './file-actions';
+import { icon, type IconName } from './icons';
 import { PopupMenu } from './popup-menu';
 import { place } from '../platform';
 export interface FolderPanelOptions {
@@ -66,24 +67,26 @@ export function renderFolderPanel(panel: HTMLElement, o: FolderPanelOptions) {
   const menu = manage ? new PopupMenu('File actions', 'folder-row-menu', { alignEnd: true }) : null;
   if (menu) o.signal.addEventListener('abort', () => menu.dispose(), { once: true });
   /** The ⋯ menu's items for a row. */
-  const menuItems = (path: string, kind: TreeEntry['kind']): [string, () => void][] =>
+  const menuItems = (path: string, kind: TreeEntry['kind']): [string, IconName, () => void][] =>
     !manage ? [] : kind === 'file' ? [
-      ['Rename…', () => renameDialog(path, manage.move)],
-      ['Move to…', () => moveDialog(source, path, manage.move, async folder => {
+      ['Rename…', 'pencil', () => renameDialog(path, manage.move)],
+      ['Move to…', 'folder-share', () => moveDialog(source, path, manage.move, async folder => {
         const reason = await manage.createFolder(folder);
         if (reason === null) refresh();
         return reason;
       })],
-      ['Delete…', () => manage.remove(path, 'file')],
-    ] : [['Delete…', () => manage.remove(path, 'directory')]];
+      ['Delete…', 'trash', () => manage.remove(path, 'file')],
+    ] : [['Delete…', 'trash', () => manage.remove(path, 'directory')]];
   const more = (item: HTMLElement, path: string, kind: TreeEntry['kind']) => {
     if (!menu) return;
     const toggle = iconButton('dots-vertical', `Actions for ${basename(path)}`, () => {
       if (toggle.getAttribute('aria-expanded') === 'true') return menu.close(true);
       menu.element.setAttribute('aria-label', `Actions for ${basename(path)}`);
-      menu.element.replaceChildren(...menuItems(path, kind).map(([label, run]) => {
+      menu.element.replaceChildren(...menuItems(path, kind).map(([label, name, run]) => {
         // Focus goes back to ⋯ first, so the dialog that follows returns focus there.
-        return Object.assign(button(label, () => { menu.close(true); run(); }), { role: 'menuitem' });
+        const item = Object.assign(button(label, () => { menu.close(true); run(); }), { role: 'menuitem' });
+        item.prepend(icon(name));
+        return item;
       }));
       menu.open(toggle);
     });

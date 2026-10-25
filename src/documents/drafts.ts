@@ -69,6 +69,16 @@ export function moveDraft(sourceId: string, from: string, to: string, toSourceId
     };
   });
 }
+/** Change a stored draft that no open document holds: its name and type, or whether it is a favourite. */
+export function updateDraft(id: string, patch: Partial<Pick<DraftRecord, 'title' | 'fileType' | 'favourite'>>) {
+  return change(['documents'], tx => {
+    const store = tx.objectStore('documents'), request = store.get(id);
+    request.onsuccess = () => {
+      const row = request.result as DraftRecord | undefined;
+      if (row) store.put({ ...row, ...patch, storageRevision: row.storageRevision + 1 });
+    };
+  });
+}
 /** Delete the drafts of a deleted file, or of every file under a deleted folder. */
 export function deleteDraftsAt(sourceId: string, path: string): Promise<void> {
   return change(['documents'], tx => {

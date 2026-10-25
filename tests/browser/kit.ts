@@ -176,6 +176,13 @@ export async function holdModule(page: Page, glob: string) {
   return release;
 }
 
+/** Chooses an item from a file's ⋯ menu on Home, in Recently worked on unless `within` says otherwise. */
+export async function fileAction(page: Page, title: string, item: string, within = page.locator('#recent')) {
+  await within.getByRole('button', { name: `Actions for ${title}`, exact: true }).click();
+  await page.getByRole('menu', { name: `Actions for ${title}`, exact: true })
+    .getByRole(item === 'Favourite' ? 'menuitemcheckbox' : 'menuitem', { name: item, exact: true }).click();
+}
+
 /** Chromium: an origin-private folder named "project" stands in for the folder picker. */
 export async function useFolder(page: Page, files: Record<string, string | number[]>) {
   await page.addInitScript(() => {

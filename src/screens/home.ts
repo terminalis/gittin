@@ -1,5 +1,5 @@
-import { icon, iconMarkup } from '../ui/icons';
-import type { DevicePreferences } from '../preferences';
+import { icon, iconMarkup, type IconName } from '../ui/icons';
+import type { DevicePreferences, Preferences } from '../preferences';
 import type { DraftSummary } from '../documents/drafts';
 import { whenLabel } from '../documents/labels';
 import { recentFolder } from '../documents/save-state';
@@ -8,9 +8,47 @@ import { brand, button, el, iconButton } from '../ui/dom';
 import { fileTile } from '../ui/file-tile';
 import { homeMenu } from '../ui/home-menu';
 import { favouriteCard } from '../ui/favourite-card';
+import { PopupMenu } from '../ui/popup-menu';
 import { desktop, place } from '../platform';
 import { extensions } from '../extensions';
-const stateLabels = { local: `Only in ${place}`, unsaved: 'Unsaved changes', saved: 'Saved' };
+const stateLabels = { local: 'Not saved yet', unsaved: 'Unsaved changes', saved: 'Saved' };
+const recentListMarkup = '<div class="recent-head" aria-hidden="true"><span>Name</span><span>State</span>'
+  + '<span>Last opened</span></div><ul class="recent-list"></ul>';
+/** A Recently worked on row, which Favourites' list view shares: the whole row opens the file, and `more` is its ⋯. */
+function recentRow(row: DraftSummary, open: () => void, more: HTMLElement) {
+  const info = row.identity.kind === 'source' ? sourceInfo(row.identity.sourceId) : undefined;
+  const state = row.identity.kind === 'local' ? 'local' : row.unsaved ? 'unsaved' : 'saved';
+  const where = recentFolder(row.identity, info) || (extensions.fileFolder?.(row.identity) ?? '');
+  // The name button stretches over the whole row, so the row opens the file; ⋯ sits above it.
+  const name = el('span', { className: 'recent-name' }, button(row.title, open, 'recent-open'));
+  if (where) name.append(el('span', { className: 'recent-folder' }, icon('folder'), el('span', { textContent: where })));
+  // State and time sit in their own columns on wide screens and share a line under the name on phones.
+  const status = el('span', { className: 'recent-state' },
+    el('span', { className: 'state-mark' }, ...(state === 'saved' ? [icon('check')] : [])),
+    stateLabels[state]);
+  status.dataset.state = state;
+  return el('li', { className: 'recent-row' }, fileTile(row.fileType, row.title), name,
+    el('span', { className: 'recent-details' }, status,
+      el('span', { className: 'recent-when', textContent: whenLabel(row.lastOpened) })), more);
+}
+/** Where focus goes when Home is redrawn: back to the control that had it or, when its file has left that list, to the
+ * ⋯ of the file after it, else the one before. */
+export function focusTargets(active: Element | null) {
+  const item = active?.closest('.recent-row, .favourite-card');
+  const near = [item?.nextElementSibling, item?.previousElementSibling]
+    .map(next => next?.querySelector('.file-more')?.id);
+  return [active?.id, ...near].filter((id): id is string => !!id);
+}
+type FavouritesSort = NonNullable<Preferences['homeFavouritesSort']>;
+const favouriteSorts: [FavouritesSort, string][] = [
+  ['title-asc', 'Title, A to Z'], ['title-desc', 'Title, Z to A'],
+  ['opened-desc', 'Last opened, newest first'], ['opened-asc', 'Last opened, oldest first'],
+];
+const byTitle = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare;
+function sortFavourites(rows: DraftSummary[], order: FavouritesSort) {
+  const sorted = [...rows].sort((a, b) => order.startsWith('title') ? byTitle(a.title, b.title) : a.lastOpened - b.lastOpened);
+  return order.endsWith('desc') ? sorted.reverse() : sorted;
+}
 // The welcome band's backdrop: a faint editor window describing Gittin in YAML, coloured with the editor's own
 // syntax classes (comments, strings, true/false and numbers; keys and list items stay plain, as in the editor).
 const snippetLines = [
@@ -48,29 +86,58 @@ export function home(
     switch(id: string): void;
     home(): void;
     remove(id: string): void;
+    favourite(id: string, favourite: boolean): void;
+    rename(id: string): void;
+    deleteFile(id: string): void;
     install?(): void;
   },
   failed = false
 ) {
   const screen = el('div', { id: 'home' });
+  // One ⋯ menu serves every file on Home, filled for the file whose ⋯ opens it. Delete… is offered only in a folder
+  // Gittin can write to: it cannot delete a file opened on its own, and Remove deletes one kept only in Gittin.
+  const fileMenu = new PopupMenu('File actions', 'file-menu', { alignEnd: true });
+  const actionsButton = (row: DraftSummary, list: 'favourite' | 'recent') => {
+    const label = `Actions for ${row.title}`;
+    const toggle = iconButton('dots-vertical', label, () => {
+      if (toggle.getAttribute('aria-expanded') === 'true') return fileMenu.close(true);
+      // Focus goes back to ⋯ first, so a dialog that follows returns focus there.
+      const item = (text: string, name: IconName, run: () => void) => {
+        const entry = button(text, () => { fileMenu.close(true); run(); });
+        entry.prepend(icon(name));
+        return Object.assign(entry, { role: 'menuitem' });
+      };
+      const favourite = Object.assign(item('Favourite', 'star', () => actions.favourite(row.id, !row.favourite)),
+        { role: 'menuitemcheckbox' });
+      favourite.setAttribute('aria-checked', String(row.favourite));
+      favourite.append(el('span', { className: 'menu-switch', ariaHidden: 'true' }));
+      const info = row.identity.kind === 'source' ? sourceInfo(row.identity.sourceId) : undefined;
+      fileMenu.element.setAttribute('aria-label', label);
+      fileMenu.element.replaceChildren(favourite, item('Rename…', 'pencil', () => actions.rename(row.id)),
+        item('Remove', 'x', () => actions.remove(row.id)),
+        ...(info?.kind === 'folder' && info.open ? [item('Delete…', 'trash', () => actions.deleteFile(row.id))] : []));
+      fileMenu.open(toggle);
+    }, 'file-more');
+    Object.assign(toggle, { id: `${list}-actions-${row.id}`, ariaHasPopup: 'menu', ariaExpanded: 'false' });
+    return toggle;
+  };
   const folders = homeFolders(), favourites = rows.filter(r => r.favourite);
   const returning = rows.length > 0 || folders.length > 0;
   // The welcome band carries the landing's warm colour and logo; empty sections are left out rather
   // than explained.
-  const intro = returning ? 'Pick up where you left off.'
-    : 'Start a new file, or open one from your computer.';
   const favouritesSection = favourites.length
-    ? '<section class="home-favourites"><h2>Favourites</h2><div id="favourites"></div></section>'
+    ? '<section class="home-favourites"><div class="favourites-head"><h2>Favourites</h2></div>'
+      + '<div id="favourites"></div></section>'
     : '';
   screen.innerHTML = `<header class="home-header">${brand('#/')}`
     + '<button type="button" class="home-menu-trigger" aria-label="Main menu" title="Main menu">'
     + `${iconMarkup('menu-2')}</button></header>`
-    + `<main><div class="home-welcome">${snippet}<div class="home-welcome-copy"><h1>Your files</h1>`
-    + `<p class="home-welcome-sub">${intro}</p><div class="document-actions"></div></div></div>`
+    + `<main><div class="home-welcome">${snippet}<div class="home-welcome-copy">`
+    + '<div class="document-actions"></div></div></div>'
     + `<div class="home-content">${favouritesSection}`
-    + '<section class="recent-section"><h2>Recently worked on</h2><div id="recent"></div></section>'
-    + `<p class="storage-note">${iconMarkup('info-circle')}<span>${storageNote}</span></p>`
-    + '</div></main>';
+    + '<section class="recent-section"><h2>Recently worked on</h2>'
+    + `<p class="storage-note">${iconMarkup('info-circle')}<span>${storageNote}</span></p><div id="recent"></div>`
+    + '</section></div></main>';
   const create = button('New file', () => actions.new(), 'primary'),
     open = button('Open file', actions.open),
     folder = button('Open folder', actions.openFolder);
@@ -91,8 +158,52 @@ export function home(
     }
     copy.append(group);
   } else if (!returning) copy.insertAdjacentHTML('beforeend', '<p class="reassurance">No account needed.</p>');
-  const favouriteGrid = screen.querySelector('#favourites');
-  for (const row of favourites) favouriteGrid!.append(favouriteCard(row, () => actions.switch(row.id)));
+  const favouriteList = screen.querySelector<HTMLElement>('#favourites');
+  if (favouriteList) {
+    // Cards, or Recently worked on's rows, in the order chosen from Sort; this device keeps both.
+    const showFavourites = () => {
+      const { homeFavouritesView = 'grid', homeFavouritesSort = 'opened-desc' } = prefs.value;
+      const sorted = sortFavourites(favourites, homeFavouritesSort), list = homeFavouritesView === 'list';
+      if (list) {
+        favouriteList.className = '';
+        favouriteList.innerHTML = recentListMarkup;
+        favouriteList.querySelector('.recent-list')!.append(...sorted.map(row =>
+          recentRow(row, () => actions.switch(row.id), actionsButton(row, 'favourite'))));
+      } else {
+        favouriteList.className = 'favourite-grid';
+        favouriteList.replaceChildren(...sorted.map(row =>
+          favouriteCard(row, () => actions.switch(row.id), actionsButton(row, 'favourite'))));
+      }
+      const label = list ? 'Show as grid' : 'Show as list';
+      viewButton.replaceChildren(icon(list ? 'layout-grid' : 'list'));
+      Object.assign(viewButton, { ariaLabel: label, title: label });
+    };
+    const viewButton = iconButton('list', '', () => {
+      void prefs.save({ homeFavouritesView: prefs.value.homeFavouritesView === 'list' ? 'grid' : 'list' });
+      showFavourites();
+    }, 'favourite-view');
+    const sortMenu = new PopupMenu('Sort favourites', 'favourite-sort-menu', { alignEnd: true });
+    const sortButton = iconButton('arrows-up-down', 'Sort favourites', () => {
+      if (!sortMenu.element.hidden) return sortMenu.close(true);
+      const current = prefs.value.homeFavouritesSort ?? 'opened-desc';
+      const items = favouriteSorts.map(([order, label]) => {
+        const item = el('button', { type: 'button', role: 'menuitemradio', onclick: () => {
+          sortMenu.close(true);
+          void prefs.save({ homeFavouritesSort: order });
+          showFavourites();
+        } }, el('span', { className: 'toolbar-menu-check' }, ...(order === current ? [icon('check')] : [])), label);
+        item.setAttribute('aria-checked', String(order === current));
+        return item;
+      });
+      sortMenu.element.replaceChildren(...items);
+      sortMenu.open(sortButton, items[favouriteSorts.findIndex(([order]) => order === current)]);
+    }, 'favourite-sort');
+    sortButton.setAttribute('aria-haspopup', 'menu');
+    sortButton.setAttribute('aria-expanded', 'false');
+    screen.querySelector('.favourites-head')!.append(
+      el('div', { className: 'favourite-tools' }, viewButton, sortButton, sortMenu.element));
+    showFavourites();
+  }
   const recent = screen.querySelector('#recent')!;
   if (failed) {
     recent.textContent = 'Recent work could not be loaded.';
@@ -103,32 +214,9 @@ export function home(
       + (folders.length ? '' : '<span>So will the folders you open and the files you star.</span>')
       + '</div>';
   else {
-    recent.innerHTML = '<div class="recent-head" aria-hidden="true"><span>Name</span><span>State</span>'
-      + '<span>Last opened</span></div><ul class="recent-list"></ul>';
-    for (const row of rows) {
-      const info = row.identity.kind === 'source' ? sourceInfo(row.identity.sourceId) : undefined;
-      const state = row.identity.kind === 'local' ? 'local' : row.unsaved ? 'unsaved' : 'saved';
-      const where = recentFolder(row.identity, info);
-      // The name button stretches over the whole row, so the row opens the file; Remove sits above it.
-      const name = el('span', { className: 'recent-name' },
-        button(row.title, () => actions.switch(row.id), 'recent-open'));
-      if (where)
-        name.append(el('span', { className: 'recent-folder' },
-          ...(info && info.kind !== 'file' ? [icon('folder')] : []), el('span', { textContent: where })));
-      // State and time sit in their own columns on wide screens and share a line under the name on phones.
-      const status = el('span', { className: 'recent-state' },
-        el('span', { className: 'state-mark' }, ...(state === 'saved' ? [icon('check')] : [])),
-        stateLabels[state]);
-      status.dataset.state = state;
-      const remove = iconButton('x', 'Remove ' + row.title, () => actions.remove(row.id),
-        'recent-remove');
-      remove.title = 'Remove from this list';
-      recent.querySelector('.recent-list')!.append(el('li', { className: 'recent-row' },
-        fileTile(row.fileType, row.title), name,
-        el('span', { className: 'recent-details' }, status,
-          el('span', { className: 'recent-when', textContent: whenLabel(row.lastOpened) })),
-        remove));
-    }
+    recent.innerHTML = recentListMarkup;
+    recent.querySelector('.recent-list')!.append(...rows.map(row =>
+      recentRow(row, () => actions.switch(row.id), actionsButton(row, 'recent'))));
   }
   // Home options from the main menu hide parts in place, so a change shows at once and the menu stays open.
   const listed = [...recent.querySelectorAll<HTMLElement>('.recent-row')];
@@ -155,7 +243,7 @@ export function home(
   applyOptions();
   const trigger = screen.querySelector<HTMLButtonElement>('.home-menu-trigger')!;
   if (actions.install) trigger.before(button('Install', actions.install, 'home-install'));
-  screen.append(homeMenu(trigger, prefs, { refresh: actions.home, applyHomeOptions: applyOptions }));
+  screen.append(homeMenu(trigger, prefs, { refresh: actions.home, applyHomeOptions: applyOptions }), fileMenu.element);
   extensions.home?.(screen.querySelector<HTMLElement>('.home-header')!, screen.querySelector<HTMLElement>('.document-actions')!);
   return screen;
 }

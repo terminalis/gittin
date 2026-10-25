@@ -31,7 +31,7 @@ import { place } from '../platform';
 import { FindBar } from '../ui/find-bar';
 import { Menus, editorActions, type Action } from '../ui/menus';
 import {
-  brand, button, el, iconButton, legalPages, markUnsaved, narrow, notice, onDocumentClick, segmented,
+  brand, button, el, feedbackPage, iconButton, legalPages, markUnsaved, narrow, notice, onDocumentClick, segmented,
 } from '../ui/dom';
 export interface OpenDocument {
   session: DocumentSession;
@@ -341,7 +341,7 @@ export class Workspace {
       ['Help', 'gittin-help', 'Gittin Help',
         () => workspaceHelpDialog(this.part('.workspace-body'), this.abort.signal)],
       ['Help', 'whats-new', "What's new", whatsNew],
-      page('feedback', ['Send feedback…', 'https://github.com/terminalis/gittin/issues/new']),
+      page('feedback', ['Send feedback…', feedbackPage]),
       page('privacy', privacy),
       page('terms', terms),
       ['Help', 'shortcuts', 'Keyboard shortcuts', () => keyboardShortcuts()],

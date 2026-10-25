@@ -39,6 +39,8 @@ export interface Extensions {
   preferences?(): { name: string; panel: HTMLElement };
   /** A file's full path on this computer, where Gittin knows it. */
   diskPath?(identity: Identity): string | null;
+  /** Home's line under a file opened on its own: the folder it is in, where Gittin knows it; empty otherwise. */
+  fileFolder?(identity: Identity): string;
 }
 export let extensions: Extensions = {};
 export const extend = (added: Extensions) => { extensions = added; };

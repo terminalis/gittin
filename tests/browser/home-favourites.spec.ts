@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { editor, noSidewaysScroll, outsideRequests, seedDrafts } from './kit';
+import { editor, noSidewaysScroll, outsideRequests, savedPreferences, seedDrafts } from './kit';
 
 const noteSource = [
   '# Launch plan',
@@ -46,6 +46,10 @@ for (const width of [1280, 390]) {
     expect(codeStyle.startsWith('ui-monospace')).toBe(true);
     await expect(favourites).toContainText('Empty file');
     expect(await noSidewaysScroll(page)).toBe(true);
+    // A phone's narrow card gives the type tile's room to ⋯, a full touch target.
+    const actions = (await note.getByRole('button', { name: 'Actions for Project notes', exact: true }).boundingBox())!;
+    expect(Math.min(actions.width, actions.height)).toBeGreaterThanOrEqual(width < 600 ? 44 : 40);
+    await expect(note.locator('.favourite-caption .file-tile')).toBeVisible({ visible: width >= 600 });
 
     // The thumbnail surface opens the same file as its accessible title button.
     await note.click({ position: { x: 20, y: 20 } });
@@ -59,3 +63,66 @@ for (const width of [1280, 390]) {
     await expect(page.locator('#document-title')).toHaveText('Project notes');
   });
 }
+
+test('Favourites switch between cards and rows, sort four ways and keep both choices', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/#/home');
+  const now = Date.now();
+  await seedDrafts(page, [
+    { title: 'Recent only', source: 'R', lastOpened: now },
+    { title: 'note 10', favourite: true, source: 'B', lastOpened: now - 1000 },
+    { title: 'apple', favourite: true, source: 'C', lastOpened: now - 2000 },
+    { title: 'Note 2', favourite: true, source: 'A', lastOpened: now - 3000 },
+  ]);
+  await page.reload();
+  const section = page.locator('.home-favourites'), favourites = page.locator('#favourites');
+  const names = favourites.locator(':is(.favourite-open, .recent-open)');
+  // Cards, last opened first, until chosen otherwise.
+  await expect(favourites.locator('.favourite-card')).toHaveCount(3);
+  await expect(names).toHaveText(['note 10', 'apple', 'Note 2']);
+  await section.getByRole('button', { name: 'Show as list', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(favourites.locator('.recent-row')).toHaveCount(3);
+  await expect(favourites.locator('.recent-row .recent-when').first()).toHaveText(/^Today, /);
+  await expect(favourites.locator('.file-more')).toHaveCount(3);
+  await expect(section.getByRole('button', { name: 'Show as grid', exact: true })).toBeFocused();
+  // Recently worked on keeps every file, newest first.
+  await expect(page.locator('#recent .recent-open')).toHaveText(['Recent only', 'note 10', 'apple', 'Note 2']);
+  await expect(page.locator('#recent .file-more')).toHaveCount(4);
+
+  const sort = section.getByRole('button', { name: 'Sort favourites', exact: true });
+  const menu = page.getByRole('menu', { name: 'Sort favourites', exact: true });
+  for (const [order, expected] of [
+    ['Title, A to Z', ['apple', 'Note 2', 'note 10']],
+    ['Title, Z to A', ['note 10', 'Note 2', 'apple']],
+    ['Last opened, oldest first', ['Note 2', 'apple', 'note 10']],
+    ['Last opened, newest first', ['note 10', 'apple', 'Note 2']],
+  ] as const) {
+    await sort.click();
+    await expect(sort).toHaveAttribute('aria-expanded', 'true');
+    await expect(menu.getByRole('menuitemradio')).toHaveCount(4);
+    await expect(menu.getByRole('menuitemradio', { checked: true })).toBeFocused();
+    await menu.getByRole('menuitemradio', { name: order, exact: true }).click();
+    await expect(menu).toBeHidden();
+    await expect(sort).toBeFocused();
+    await expect(names).toHaveText([...expected]);
+  }
+
+  await sort.click();
+  await menu.getByRole('menuitemradio', { name: 'Title, A to Z', exact: true }).click();
+  // Each choice is saved asynchronously; reloading before the last write lands drops it.
+  await expect.poll(() => savedPreferences(page))
+    .toMatchObject({ homeFavouritesView: 'list', homeFavouritesSort: 'title-asc' });
+  await page.reload();
+  await expect(favourites.locator('.recent-row')).toHaveCount(3);
+  await expect(names).toHaveText(['apple', 'Note 2', 'note 10']);
+  await sort.click();
+  await expect(menu.getByRole('menuitemradio', { name: 'Title, A to Z', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await page.keyboard.press('Escape');
+  await expect(sort).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await noSidewaysScroll(page)).toBe(true);
+  await section.getByRole('button', { name: 'Show as grid', exact: true }).click();
+  await expect(favourites.locator('.favourite-card')).toHaveCount(3);
+  await expect(names).toHaveText(['apple', 'Note 2', 'note 10']);
+});

@@ -10,8 +10,7 @@ export function hasUnsavedChanges(identity: Identity, current: SourceVersion, ba
   return identity.kind === 'source' && baseline?.source !== current.source;
 }
 export function saveState(identity: Identity, current: SourceVersion, baseline: SavedBaseline | null, source: SourceInfo | undefined): string {
-  if (identity.kind === 'local') return `Only in ${place}`;
-  if (source && !source.open && source.kind !== 'folder') return `Only in ${place} (from ${source.label})`;
+  if (identity.kind === 'local') return 'Not saved yet';
   if (source?.kind === 'folder-readonly') return 'Read-only folder: Save downloads a copy';
   return hasUnsavedChanges(identity, current, baseline) ? UNSAVED : 'Saved';
 }
@@ -22,10 +21,9 @@ export function locationText(identity: Identity, source: SourceInfo | undefined)
   // Browsers never reveal a single file's folder, and its name is already shown beside this.
   return source.kind === 'file' ? 'Opened on its own' : `${source.label} › ${identity.path}`;
 }
-/** Home's line under a recent file's name: its folder and subfolders, since the name is already shown. Browser-only files have none. */
+/** Home's line under a recent file's name: its folder and subfolders, since the name is already shown. A file in no
+ * folder Gittin knows has none; File details says where it is. */
 export function recentFolder(identity: Identity, source: SourceInfo | undefined): string {
-  if (identity.kind === 'local') return '';
-  if (!source || source.kind === 'file' || (!source.open && source.kind !== 'folder')) return locationText(identity, source);
-  const folder = [source.label, ...identity.path.split('/').slice(0, -1)].join(' › ');
-  return source.open ? folder : `Folder unavailable: ${folder}`;
+  if (identity.kind !== 'source' || (source?.kind !== 'folder' && source?.kind !== 'folder-readonly')) return '';
+  return [source.label, ...identity.path.split('/').slice(0, -1)].join(' › ');
 }

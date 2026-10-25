@@ -258,7 +258,8 @@ a:has(> .app-icon) {
 /* Round icon buttons. */
 .home-header > .home-menu-trigger,
 .home-drawer .home-drawer-close,
-.recent-remove,
+.file-more,
+.favourite-tools > button,
 #version-history,
 .workspace-toolbar .toolbar-menu-toggle,
 .preferences-dialog .preferences-icon-button,
@@ -1220,22 +1221,10 @@ label.home-option {
   position: relative;
   max-width: 480px;
 }
-.home-welcome h1 {
-  margin: 0;
-  font-size: clamp(44px, 5.4vw, 68px);
-  letter-spacing: -0.04em;
-  line-height: 1;
-}
-.home-welcome-sub {
-  margin: 16px 0 0;
-  font-size: 20px;
-  line-height: 1.45;
-}
 .home-welcome .document-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  margin-top: 30px;
 }
 .home-welcome .document-actions button {
   min-height: 50px;
@@ -1252,7 +1241,7 @@ label.home-option {
   margin-top: 26px;
 }
 #folders-label {
-  margin-right: 4px;
+  width: 100%;
   color: var(--muted);
   font-size: 15px;
 }
@@ -1304,7 +1293,7 @@ label.home-option {
 .home-content {
   padding: 52px var(--gutter) 72px;
 }
-.home-content section > h2 {
+.home-content h2 {
   margin: 0 0 18px;
   font-size: 26px;
   letter-spacing: -0.02em;
@@ -1312,7 +1301,31 @@ label.home-option {
 .home-favourites {
   margin-bottom: 52px;
 }
-#favourites {
+/* Favourites' heading carries the view and sort buttons at its right end. */
+.favourites-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.favourites-head > h2 {
+  margin: 0;
+}
+.favourite-tools {
+  display: flex;
+  gap: 4px;
+}
+.favourite-tools > button {
+  width: 40px;
+  height: 40px;
+  color: var(--muted);
+}
+.favourite-tools > button:hover,
+.favourite-tools > button[aria-expanded="true"] {
+  color: var(--ink);
+}
+.favourite-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, min(200px, 100%));
   gap: 20px;
@@ -1341,7 +1354,7 @@ label.home-option {
 }
 .recent-row {
   position: relative;
-  grid-template-areas: "tile name state when remove";
+  grid-template-areas: "tile name state when more";
   min-height: 66px;
   padding: 0 8px 0 12px;
   border-bottom: 1px solid var(--line);
@@ -1463,19 +1476,53 @@ label.home-option {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.recent-remove {
-  grid-area: remove;
+/* A file's ⋯ sits above the name button that stretches over its row or card. */
+.file-more {
   position: relative;
   z-index: 1;
   width: 40px;
   height: 40px;
   color: var(--muted);
 }
-.recent-remove:hover {
+.recent-row > .file-more {
+  grid-area: more;
+}
+.file-more:hover {
   color: var(--accent);
 }
-.recent-remove .app-icon {
+.file-more .app-icon {
   --icon: 18px;
+}
+/* Home's ⋯ menu is as wide as its items, so the Favourite switch sits a short gap from its label. */
+.toolbar-popup.file-menu {
+  width: max-content;
+}
+/* The ⋯ menu's Favourite switch, drawn like the menu drawer's and on while the file is a favourite. */
+.menu-switch {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  margin-left: 12px;
+  border-radius: 999px;
+  background: var(--control-line);
+}
+.menu-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px #0003;
+}
+[aria-checked="true"] > .menu-switch {
+  background: var(--accent);
+}
+[aria-checked="true"] > .menu-switch::after {
+  translate: 14px 0;
 }
 /* With a Recent files shown limit, the list ends by saying so and offers the rest. */
 .recent-more {
@@ -1521,12 +1568,16 @@ label.home-option {
   --icon: 40px;
   margin-bottom: 6px;
 }
+/* Under Recently worked on's heading, where the files' states are read: where unsaved work is kept. */
+.recent-section > h2 {
+  margin-bottom: 8px;
+}
 .storage-note {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   max-width: 72ch;
-  margin: 28px 0 0;
+  margin: 0 0 22px;
   color: var(--muted);
   font-size: 15px;
   line-height: 1.5;
@@ -1546,7 +1597,7 @@ label.home-option {
 .favourite-card:hover {
   border-color: var(--muted);
 }
-.favourite-card:focus-within {
+.favourite-card:has(.favourite-open:focus-visible) {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
@@ -1579,11 +1630,15 @@ label.home-option {
 }
 .favourite-caption {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr);
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   column-gap: 10px;
   align-items: center;
-  padding: 11px 12px;
+  padding: 11px 4px 11px 12px;
   border-top: 1px solid var(--line);
+}
+.favourite-caption > .file-more {
+  grid-column: 3;
+  grid-row: 1 / span 2;
 }
 .favourite-caption > .file-tile {
   grid-row: span 2;
@@ -1596,6 +1651,7 @@ label.home-option {
   font-size: 15px;
 }
 .favourite-caption small {
+  grid-column: 2;
   color: var(--muted);
   font-size: 12px;
 }
@@ -1621,15 +1677,11 @@ label.home-option {
     padding-top: 22px;
     padding-bottom: 36px;
   }
-  .home-welcome-sub {
-    font-size: 17px;
-  }
   /* New file takes the full width; the two Open buttons share the row below. */
   .home-welcome .document-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
-    margin-top: 24px;
   }
   .home-welcome .document-actions .primary {
     grid-column: 1 / -1;
@@ -1642,23 +1694,20 @@ label.home-option {
   #folders {
     margin-top: 22px;
   }
-  #folders-label {
-    width: 100%;
-  }
   #folders .folder-open {
     min-height: 44px;
   }
   .home-content {
     padding: 36px var(--gutter) 48px;
   }
-  .home-content section > h2 {
+  .home-content h2 {
     font-size: 23px;
   }
   .home-favourites {
     margin-bottom: 40px;
   }
   /* Favourites scroll sideways instead of stacking full-width cards. */
-  #favourites {
+  .favourite-grid {
     grid-template-columns: none;
     grid-auto-flow: column;
     grid-auto-columns: 156px;
@@ -1673,6 +1722,21 @@ label.home-option {
   .favourite-card {
     scroll-snap-align: start;
   }
+  /* The ⋯ takes the type tile's room in a phone's narrow card; the type stays written under the name. */
+  .favourite-caption {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .favourite-caption > .file-tile {
+    display: none;
+  }
+  .favourite-caption small {
+    grid-column: 1;
+  }
+  .favourite-caption > .file-more {
+    grid-column: 2;
+    width: 44px;
+    height: 44px;
+  }
   .recent-head,
   .recent-folder {
     display: none;
@@ -1680,7 +1744,7 @@ label.home-option {
   /* State and time move under the name; the whole row and a 44px Remove are the touch targets. */
   .recent-row {
     grid-template-columns: 40px minmax(0, 1fr) 44px;
-    grid-template-areas: "tile name remove" "tile details remove";
+    grid-template-areas: "tile name more" "tile details more";
     column-gap: 14px;
     min-height: 72px;
     padding: 10px 0 10px 2px;
@@ -1706,7 +1770,7 @@ label.home-option {
     content: "·";
     margin-right: 6px;
   }
-  .recent-remove {
+  .recent-row > .file-more {
     width: 44px;
     height: 44px;
   }
