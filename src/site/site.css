@@ -198,14 +198,6 @@
   letter-spacing: .05em;
   color: var(--accent);
 }
-/* Small uppercase labels: Desktop app on the landing's first sections and under the install page's desktop cards. */
-.site-label {
-  margin: 0;
-  font: 700 13px var(--font-primary);
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
 .feature h2 {
   margin: 14px 0 24px;
   font-size: clamp(34px, 4.6vw, 58px);
@@ -457,8 +449,77 @@
   padding-top: 64px;
 }
 .install-head {
+  position: relative;
+  overflow: hidden;
   padding: 72px var(--gutter) 64px;
   background: var(--warm);
+}
+.install-head-copy {
+  position: relative;
+  max-width: 600px;
+}
+/* As on Home: a faint editor window describing Gittin in YAML, clear of the words, cut off at the content column's
+   right edge and the band's bottom. */
+.install-art {
+  position: absolute;
+  inset: 0 var(--gutter);
+  overflow: hidden;
+  pointer-events: none;
+}
+.install-snippet {
+  position: absolute;
+  top: 28px;
+  left: calc(600px + clamp(64px, (100% - 600px) * 0.25, 140px));
+  width: 640px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 24px 70px #00000024;
+  opacity: 0.14;
+}
+.install-snippet-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  font: 600 14px var(--font-secondary);
+}
+.install-snippet-tile {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  background: var(--warm);
+  color: var(--accent);
+  font: 700 8px var(--font-primary);
+  letter-spacing: .02em;
+}
+.install-snippet pre {
+  margin: 0;
+  padding: 14px 0;
+  font: 15px/1.7 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+.install-snippet-number {
+  display: inline-block;
+  width: 3ch;
+  margin-right: 2ch;
+  color: var(--muted);
+  text-align: right;
+}
+.syntax-comment {
+  color: var(--syntax-comment);
+}
+.syntax-string {
+  color: var(--syntax-string);
+}
+.syntax-keyword {
+  color: var(--syntax-keyword);
+}
+.syntax-number {
+  color: var(--syntax-number);
 }
 .install-head h1 {
   margin: 0;
@@ -496,12 +557,6 @@
   margin: 0;
   font: 16px/1.5 var(--font-secondary);
 }
-.install-card p code {
-  padding: 1px 4px;
-  border-radius: 4px;
-  background: var(--code);
-  font: 14px ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-}
 .install-hint,
 .install-lead-note {
   color: var(--muted);
@@ -528,26 +583,26 @@
 .install-terminal small {
   font-size: 12px;
 }
-/* One shaded box: the command wraps inside it, after a slash of the address, and Copy sits in its top corner. */
+/* One shaded box: the command on one line, scrolling sideways when it doesn't fit, and Copy beside it. */
 .install-command {
-  position: relative;
+  display: flex;
+  align-items: center;
   min-width: 0;
   border-radius: var(--radius);
   background: var(--code);
 }
 .install-command code {
-  display: block;
-  padding: 8px 44px 8px 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
   font: 13px/1.5 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  white-space: pre;
+  overflow-x: auto;
   user-select: all;
 }
 .install-command button,
 .install-command button:hover {
-  position: absolute;
-  top: 2px;
-  right: 2px;
+  flex: none;
   min-height: 32px;
   padding: 0 10px;
   border: 0;
@@ -561,7 +616,6 @@
   outline-offset: -2px;
 }
 .install-card .install-status {
-  min-height: 20px;
   color: var(--muted);
   font-size: 13px;
 }
@@ -595,6 +649,13 @@
 }
 .install-compare tbody td {
   color: var(--muted);
+}
+/* Narrower, the Store button's label would wrap in a third of the width and stand taller than the others; stacked,
+   every card keeps its button at its foot. */
+@media (max-width: 960px) {
+  .install-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 @media (max-width: 760px) {
   .site-bar {
@@ -671,6 +732,10 @@
   }
   .install-head {
     padding: 48px var(--gutter) 40px;
+  }
+  /* The editor window needs more room than a phone has beside the words. */
+  .install-art {
+    display: none;
   }
   .install-head p {
     font-size: 18px;

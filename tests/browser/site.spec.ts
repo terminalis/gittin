@@ -251,19 +251,16 @@ test('shared links preview with an image that exists, and the new description', 
     expect(await page.locator(selector).getAttribute('content')).toBe(description);
 });
 
-test('the story leads with the desktop app, then the four shared sections, the questions and the close', async ({ page }) => {
+test('the story leads with git and GitHub, then the four shared sections, the questions and the close', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#story h2')).toHaveText([
     'Every save, in git.', 'Sync with GitHub.', 'Write, then preview.', 'More than Markdown.', 'Bring the whole folder.',
     'Nothing gets lost.', 'A few things to know', 'Bring a file. Start writing.',
   ]);
-  expect(await page.locator('#story .feature').evaluateAll(sections =>
-    sections.map(section => section.querySelector('.site-label')?.textContent ?? ''))).toEqual(
-    ['Desktop app', 'Desktop app', '', '', '', '']);
   await expect(page.locator('#story .feature-number')).toHaveText(['01', '02', '03', '04', '05', '06']);
   await expect(page.locator('#story .feature li')).toHaveText([
     "Git is built in, so there's nothing else to install", 'Start a repository to give any folder git history',
-    'Your files go to GitHub only when you sync or publish', 'Signing in is optional',
+    'Your files go to GitHub only when you sync or publish', 'Gittin asks you to sign in only when GitHub needs it',
     'Tables, maths, diagrams and emoji render in Preview', 'Preview never changes your source',
     'Plain text, JSON, YAML, HTML, CSS, JavaScript and TypeScript', 'Any other text file opens as plain text',
     'Unsaved changes wait until you save', 'A dot marks files with unsaved changes',

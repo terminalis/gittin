@@ -14,7 +14,8 @@ const iPhoneSafari = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) App
 
 const order = (page: Page) => page.locator('.install-card').evaluateAll(cards => cards.map(card => (card as HTMLElement).dataset.card));
 const primary = (page: Page) => page.locator('.install-cards .primary');
-const install = (page: Page) => page.locator('.install-card').getByRole('button', { name: 'Install', exact: true });
+const install = (page: Page) => page.locator('.install-card').getByRole('button', { name: 'Install web app', exact: true });
+const useInBrowser = (page: Page) => page.locator('.install-card').getByRole('link', { name: 'Use in browser', exact: true });
 
 /** Opens the install page as another browser would: its user agent, Chromium's platform hint and touch points. */
 async function visitAs(page: Page, userAgent: string, platform?: string, touch = 0) {
@@ -97,25 +98,35 @@ test('the cards link to the Store and the Flatpak, and the comparison says what 
   await expect(page.locator('.install-compare tbody tr').first().locator('td')).toHaveText(['Built in', 'Not available']);
 });
 
-test('the command wraps inside its box after a slash, Copy in its corner, at every width', async ({ page }) => {
+test('the command stays on one line, scrolling inside its box, with Copy beside it, at every width', async ({ page }) => {
   await page.goto('/install/');
   for (const width of [1280, 760, 390]) {
     await page.setViewportSize({ width, height: 800 });
     const code = page.locator('.install-command code');
-    expect(await code.evaluate(code => code.scrollWidth <= code.clientWidth), `${width}px`).toBe(true);
+    expect(await code.evaluate(code => {
+      const range = document.createRange();
+      range.selectNodeContents(code);
+      return range.getClientRects().length;
+    }), `${width}px`).toBe(1);
     const box = (await page.locator('.install-command').boundingBox())!;
     const copy = (await page.getByRole('button', { name: 'Copy command', exact: true }).boundingBox())!;
     expect(box.x + box.width - (copy.x + copy.width)).toBeLessThan(8);
-    expect(copy.y - box.y).toBeLessThan(8);
-    expect(await code.evaluate(code => {
-      const name = 'gittin.flatpakref';
-      const text = [...code.childNodes].find(node => node.textContent!.includes(name))!;
-      const range = document.createRange(), at = text.textContent!.indexOf(name);
-      range.setStart(text, at);
-      range.setEnd(text, at + name.length);
-      return range.getClientRects().length;
-    }), `${width}px`).toBe(1);
     expect(await noSidewaysScroll(page), `${width}px`).toBe(true);
+  }
+});
+
+test("the cards' buttons sit level side by side, and at each card's foot when stacked", async ({ page }) => {
+  await page.goto('/install/');
+  const places = () => page.locator('.install-card').evaluateAll(cards => cards.map(card => {
+    const box = card.getBoundingClientRect(), button = card.querySelector('.install-actions > :not([hidden])')!;
+    const place = button.getBoundingClientRect();
+    return { top: Math.round(place.top), gap: Math.round(box.bottom - place.bottom) };
+  }));
+  for (const width of [1280, 1000, 900, 390]) {
+    await page.setViewportSize({ width, height: 800 });
+    const found = await places();
+    expect(new Set(found.map(place => place.gap)).size, `${width}px`).toBe(1);
+    if (width > 960) expect(new Set(found.map(place => place.top)).size, `${width}px`).toBe(1);
   }
 });
 
@@ -131,15 +142,17 @@ test('Copy command copies the Flatpak command and says so', async ({ page }) => 
   await expect(page.locator('.install-status')).toHaveText('Command copied.');
 });
 
-test('once the browser offers installation, Install prompts once and goes', async ({ page }) => {
+test('once the browser offers installation, Install web app takes Use in browser\'s place, prompts once and goes', async ({ page }) => {
   await visitAs(page, macChrome, 'macOS');
   await expect(install(page)).toBeHidden();
   await offerInstall(page);
   await expect(install(page)).toBeVisible();
-  await expect(primary(page)).toHaveText('Install');
+  await expect(useInBrowser(page)).toBeHidden();
+  await expect(primary(page)).toHaveText('Install web app');
   await install(page).click();
   await expect.poll(() => page.evaluate(() => (window as any).prompted)).toBe(1);
   await expect(install(page)).toBeHidden();
+  await expect(useInBrowser(page)).toBeVisible();
   await expect(primary(page)).toHaveText('Use in browser');
 });
 

@@ -35,38 +35,52 @@
     </header>
     <main>
       <section class="install-head" aria-labelledby="install-title">
-        <h1 id="install-title">Install Gittin</h1>
-        <p>Get the desktop app, with git and GitHub, or install the web version from your browser.</p>
+        <div class="install-art" aria-hidden="true"><div class="install-snippet"><div class="install-snippet-bar"><span class="install-snippet-tile">YAML</span>gittin.yaml</div><pre><span class="install-snippet-number">1</span><span class="syntax-comment"># Gittin: an IDE? A word processor? It's just plain text</span>
+<span class="install-snippet-number">2</span>name: <span class="syntax-string">"Gittin"</span>
+<span class="install-snippet-number">3</span>edits: <span class="syntax-string">"Markdown, notes, code and config files"</span>
+<span class="install-snippet-number">4</span>saves: <span class="syntax-string">"straight back to the file you opened"</span>
+<span class="install-snippet-number">5</span>account: <span class="syntax-keyword">false</span>  <span class="syntax-comment"># no account needed</span>
+<span class="install-snippet-number">6</span>drafts: <span class="syntax-string">"kept in this app until you save"</span>
+<span class="install-snippet-number">7</span>offline: <span class="syntax-keyword">true</span>
+<span class="install-snippet-number">8</span>history: <span class="syntax-number">20</span>  <span class="syntax-comment"># recent saves of each file</span>
+<span class="install-snippet-number">9</span>languages:
+<span class="install-snippet-number">10</span>  - Markdown
+<span class="install-snippet-number">11</span>  - plain text
+<span class="install-snippet-number">12</span>  - JSON
+<span class="install-snippet-number">13</span>  - YAML
+<span class="install-snippet-number">14</span>  - CSS</pre></div></div>
+        <div class="install-head-copy">
+          <h1 id="install-title">Install Gittin</h1>
+          <p>Get the desktop app, with git and GitHub, or install the web version from your browser.</p>
+        </div>
       </section>
       <div class="install-cards">
         <section class="install-card" data-card="windows" aria-labelledby="windows-title">
           <h2 id="windows-title">Windows</h2>
-          <p class="site-label">Desktop app</p>
-          <p>Windows 10 (version 1903 or later) or Windows 11, 64-bit. Updates come through the Microsoft Store.</p>
+          <p>Windows 10 (version 1903 or later) or Windows 11, 64-bit.</p>
           <p class="install-actions"><a class="action primary" data-main href="https://apps.microsoft.com/detail/9NDJ4HR0FF1H" target="_blank" rel="noopener noreferrer">Get it from Microsoft Store</a></p>
         </section>
         <section class="install-card" data-card="linux" aria-labelledby="linux-title">
           <h2 id="linux-title">Linux</h2>
-          <p class="site-label">Desktop app</p>
-          <p>64-bit (x86_64), as a Flatpak. Updates come through your software centre or <code>flatpak update</code>.</p>
-          <p class="install-actions"><a class="action" data-main href="https://terminalis.github.io/packages/flatpak/gittin.flatpakref" target="_blank" rel="noopener noreferrer">Download Flatpak</a></p>
+          <p>64-bit (x86_64), as a Flatpak.</p>
           <div class="install-terminal">
-            <small>Or in a terminal:</small>
+            <small>In a terminal:</small>
             <div class="install-command">
-              <code tabindex="0">flatpak install --user https://terminalis.github.io/<wbr>packages/<wbr>flatpak/<wbr>gittin.flatpakref</code>
+              <code tabindex="0">flatpak install --user https://terminalis.github.io/packages/flatpak/gittin.flatpakref</code>
               <button type="button" class="install-copy" aria-label="Copy command" title="Copy command"><svg class="app-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666" /><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" /></svg></button>
             </div>
             <p class="install-status" role="status" aria-live="polite"></p>
           </div>
+          <p class="install-actions"><a class="action" data-main href="https://terminalis.github.io/packages/flatpak/gittin.flatpakref" target="_blank" rel="noopener noreferrer">Download Flatpak</a></p>
         </section>
         <section class="install-card" data-card="web" aria-labelledby="web-title">
           <h2 id="web-title">Web version</h2>
-          <p>Gittin in its own window, from your browser. Works on any device.</p>
+          <p>Gittin in its own window, from your browser. Works on any device. Clearing your browser's data removes unsaved work.</p>
           <p class="install-lead-note" hidden>On a Mac, iPhone, iPad or Android, install the web version.</p>
           <p class="install-hint" data-hint="add-to-dock" hidden>In Safari, choose File › Add to Dock.</p>
           <p class="install-hint" data-hint="add-to-home-screen" hidden>In Safari, tap Share, then Add to Home Screen.</p>
           <p class="install-hint" data-hint="cannot-install" hidden>Your browser can't install Gittin, but you can use it here.</p>
-          <p class="install-actions"><button type="button" class="web-install" hidden>Install</button><a class="action" data-main href="/use/">Use in browser</a></p>
+          <p class="install-actions"><button type="button" class="web-install" hidden>Install web app</button><a class="action" data-main href="/use/">Use in browser</a></p>
         </section>
       </div>
       <section class="install-compare" aria-labelledby="compare-title">

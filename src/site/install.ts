@@ -29,9 +29,11 @@ if (leading) {
 const shown = hint(visitor);
 if (shown) web.querySelector<HTMLElement>(`[data-hint="${shown}"]`)!.hidden = false;
 
-/** Shows or hides Install; leading with the web version, it is the primary button while it shows. */
+/** While the browser offers installation, Install web app takes Use in browser's place; leading with the web version,
+ * it is the primary button. */
 function offering(on: boolean) {
   installButton.hidden = !on;
+  useInBrowser.hidden = on;
   if (leading !== 'web') return;
   installButton.classList.toggle('primary', on);
   useInBrowser.classList.toggle('primary', !on);
