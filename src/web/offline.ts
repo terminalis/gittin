@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import { button } from '../ui/dom';
+import { button, showNotice } from '../ui/dom';
 /** Production only: offline startup after the first visit, and user-approved updates that save drafts first. */
 export function registerOffline(saveDrafts: () => Promise<boolean>) {
   if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return;
@@ -25,5 +25,5 @@ export function registerOffline(saveDrafts: () => Promise<boolean>) {
 function updateNotice(reload: () => void) {
   const host = document.querySelector<HTMLElement>('#notice')!, text = document.createElement('span');
   text.textContent = 'A new version of Gittin is ready.';
-  host.replaceChildren(text, button('Reload to update', reload, 'primary'), button('Later', () => host.replaceChildren()));
+  showNotice(text, button('Reload to update', reload, 'primary'), button('Later', () => host.replaceChildren()));
 }

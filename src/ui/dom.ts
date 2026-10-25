@@ -144,7 +144,15 @@ export function notice(error: unknown) {
   close.addEventListener('keydown', event => {
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); dismiss(); }
   });
-  host.replaceChildren(el('span', { textContent: errorText(error) }), close);
+  showNotice(el('span', { textContent: errorText(error) }), close);
+}
+
+/** Puts `children` in the notice bar, emptying it first so a notice that replaces another rises in again. */
+export function showNotice(...children: Node[]) {
+  const host = document.querySelector<HTMLElement>('#notice')!;
+  host.replaceChildren();
+  void host.offsetWidth;
+  host.replaceChildren(...children);
 }
 
 /** Copies `text` and says `done`; where the clipboard is missing or refused, says `manual` instead. */

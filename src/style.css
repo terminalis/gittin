@@ -280,12 +280,19 @@ a:has(> .app-icon) {
   max-width: calc(100% - 32px);
   width: max-content;
   z-index: 110;
-  background: var(--surface);
+  background: var(--warm);
   box-shadow: 0 3px 18px #0003;
-  border: 1px solid var(--line);
+  border: 1px solid var(--accent);
   padding: 12px 18px;
   border-radius: 6px;
   font-size: 14px;
+  animation: notice-enter 200ms ease-out;
+}
+@keyframes notice-enter {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
 }
 #notice:empty {
   display: none;
@@ -296,6 +303,20 @@ a:has(> .app-icon) {
 }
 #notice > button {
   flex: none;
+}
+#notice > button:not(.primary) {
+  border-color: transparent;
+  background: transparent;
+  color: color-mix(in srgb, var(--accent) 90%, var(--ink));
+  font-weight: 600;
+}
+#notice > button:not(.primary):hover {
+  background: var(--hover);
+}
+@media (prefers-reduced-motion: reduce) {
+  #notice {
+    animation: none;
+  }
 }
 .reassurance {
   display: flex;
