@@ -23,7 +23,7 @@ test('the offline copy leaves out the screenshots; offline the site shows withou
   await expect(page.locator('.offline-status')).toBeVisible();
   const cached = await page.evaluate(async () => (await Promise.all((await caches.keys()).map(async key =>
     (await (await caches.open(key)).keys()).map(request => new URL(request.url).pathname)))).flat());
-  expect(cached).toEqual(expect.arrayContaining(['/', '/use/']));
+  expect(cached).toEqual(expect.arrayContaining(['/', '/install/', '/use/']));
   expect(cached.filter(path => path.startsWith('/landing/'))).toEqual([]);
   await context.setOffline(true);
   await page.goto('/');

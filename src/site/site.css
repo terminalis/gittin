@@ -452,6 +452,150 @@
     display: none;
   }
 }
+/* The install page: a tint band with the heading, the three cards, then the comparison. */
+.install-page main {
+  padding-top: 64px;
+}
+.install-head {
+  padding: 72px var(--gutter) 64px;
+  background: var(--warm);
+}
+.install-head h1 {
+  margin: 0;
+  font-size: clamp(40px, 5.4vw, 72px);
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+}
+.install-head p {
+  max-width: 40em;
+  margin: 18px 0 0;
+  font: 20px/1.5 var(--font-secondary);
+}
+.install-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  padding: 56px var(--gutter);
+}
+.install-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+.install-card h2 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+.install-card p {
+  margin: 0;
+  font: 16px/1.5 var(--font-secondary);
+}
+.install-card p code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--code);
+  font: 14px ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+.install-hint,
+.install-lead-note {
+  color: var(--muted);
+}
+/* The actions sit at each card's foot, so the three line up. */
+.install-card .install-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+.install-actions > * {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 16px;
+}
+.install-terminal {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.install-terminal small {
+  font-size: 12px;
+}
+/* One shaded box: the command wraps inside it, after a slash of the address, and Copy sits in its top corner. */
+.install-command {
+  position: relative;
+  min-width: 0;
+  border-radius: var(--radius);
+  background: var(--code);
+}
+.install-command code {
+  display: block;
+  padding: 8px 44px 8px 10px;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.install-command button,
+.install-command button:hover {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.install-command button:hover {
+  color: var(--ink);
+}
+.install-command button:focus-visible {
+  outline-offset: -2px;
+}
+.install-card .install-status {
+  min-height: 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.install-compare {
+  padding: 24px var(--gutter) 120px;
+}
+.install-compare h2 {
+  margin: 0 0 24px;
+  font-size: clamp(30px, 3.4vw, 44px);
+  letter-spacing: -0.03em;
+}
+.install-compare table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 17px/1.4 var(--font-secondary);
+}
+.install-compare th,
+.install-compare td {
+  padding: 14px 16px 14px 0;
+  border-top: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.install-compare thead th,
+.install-compare thead td {
+  border-top: 0;
+  font: 700 18px var(--font-primary);
+}
+.install-compare tbody th {
+  font-weight: 600;
+}
+.install-compare tbody td {
+  color: var(--muted);
+}
 @media (max-width: 760px) {
   .site-bar {
     height: 56px;
@@ -521,6 +665,29 @@
   }
   .site-legal {
     justify-content: flex-start;
+  }
+  .install-page main {
+    padding-top: 56px;
+  }
+  .install-head {
+    padding: 48px var(--gutter) 40px;
+  }
+  .install-head p {
+    font-size: 18px;
+  }
+  .install-cards {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 40px var(--gutter);
+  }
+  .install-compare {
+    padding-bottom: 72px;
+  }
+  .install-compare table {
+    font-size: 15px;
+  }
+  .install-compare th,
+  .install-compare td {
+    padding: 12px 10px 12px 0;
   }
 }
 /* The logo, Use in browser and Install need about 400px with the wordmark. */

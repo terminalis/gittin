@@ -100,6 +100,7 @@ test('the ring zooms out, then opens the install page', async ({ page }) => {
   await ring(page).click();
   await expect(page.locator('.landing-portal')).toBeAttached();
   await expect(page).toHaveURL(/\/install\/$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Install Gittin', exact: true })).toBeVisible();
 });
 
 test('Enter on the focused ring zooms too', async ({ page }) => {

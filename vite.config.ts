@@ -101,7 +101,7 @@ export default defineConfig(({ mode }) => {
       // of up to about 1.5 MB that load only when a diagram needs them.
       chunkSizeWarningLimit: 1500,
       // The website's pages and the web app at /use/; the desktop app has its own page.
-      rolldownOptions: { input: desktop ? 'src/native/index.html' : ['index.html', 'use/index.html'] },
+      rolldownOptions: { input: desktop ? 'src/native/index.html' : ['index.html', 'install/index.html', 'use/index.html'] },
     },
     test: {
       globals: true,
