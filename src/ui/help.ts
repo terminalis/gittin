@@ -31,7 +31,7 @@ const topics: Record<string, Point[]> = {
   ...(desktop ? {
     'GitHub': [
       ['Signing in', "Choose GitHub's mark at the right of the header, on Home or in a file. Gittin shows a code: "
-        + 'choose Copy & Open GitHub, then paste the code there.'],
+        + 'copy it, choose Open GitHub, then paste the code there.'],
       ['Only your own codes', 'Enter only a code Gittin showed you, never one someone gives you: anyone can start a '
         + "sign-in that GitHub shows as Gittin's."],
       ['Clone', 'Clone repository, on Home and in File › Open, copies a repository into a new folder in the folder '

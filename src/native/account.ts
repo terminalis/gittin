@@ -50,14 +50,9 @@ export function accountButton(host: HTMLElement) {
 
 /** Gittin can only forget its sign-in: revoking it on GitHub needs the client secret, which Gittin doesn't have. */
 function disconnected() {
-  fileDialog('GitHub disconnected', (body, close, footer) => {
+  fileDialog('Disconnected', body => {
     body.append(el('p', {
-      textContent: 'Gittin has forgotten its GitHub sign-in on this computer. GitHub lists Gittin as allowed until '
-        + 'you revoke it in Settings › Applications.',
+      textContent: "GitHub still lists applications as allowed until you revoke them in GitHub's Settings › Applications.",
     }));
-    footer.append(button('Open Settings › Applications', () => {
-      window.open('https://github.com/settings/applications', '_blank', 'noopener,noreferrer');
-      close();
-    }, 'primary'));
-  });
+  }, { info: true });
 }

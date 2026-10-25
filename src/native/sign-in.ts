@@ -1,6 +1,6 @@
 // Signing in to GitHub through the device flow, once per computer: the dialog showing GitHub's code, the account it
 // ends with, and running a GitHub action again once the writer has signed in.
-import { button, el, errorText, fileDialog } from '../ui/dom';
+import { button, copyText, el, errorText, fileDialog, iconButton } from '../ui/dom';
 import { github, isFailure, type Account } from './github';
 
 const watchers = new Set<(account: Account | null) => void>();
@@ -36,16 +36,18 @@ export function signIn({ workflow = false, reason = '' }: SignInOptions = {}) {
     let account: Account | null = null, closed = false;
     fileDialog(workflow ? 'Allow workflow changes' : 'Sign in to GitHub', (body, close, footer) => {
       const why = el('p', { textContent: reason, hidden: !reason });
-      const code = el('output', { className: 'sign-in-code' });
+      const code = el('output');
+      const copy = iconButton('copy', 'Copy code', () => copyText(code.textContent!, 'Code copied.',
+        'Select the code and copy it with your device shortcut.'));
       const status = el('p', { role: 'status' });
-      const open = button('Copy & Open GitHub', () => {}, 'primary');
+      const open = button('Open GitHub', () => {}, 'primary');
       const again = button('Get a new code', () => void ask());
-      body.append(why, code, status);
+      body.append(why, el('div', { className: 'sign-in-code' }, code, copy), status);
       footer.append(open, again);
       const stop = (text: string, retry: boolean) => {
         code.textContent = '';
         status.textContent = text;
-        open.hidden = true;
+        copy.hidden = open.hidden = true;
         again.hidden = !retry;
       };
       const ask = async () => {
@@ -54,14 +56,10 @@ export function signIn({ workflow = false, reason = '' }: SignInOptions = {}) {
           const device = await github.deviceCode(workflow);
           if (closed) return void github.cancelSignIn();
           code.textContent = device.userCode;
-          status.textContent = 'Choose Copy & Open GitHub, paste the code there and authorise Gittin. '
+          status.textContent = 'Copy the code, then choose Open GitHub, paste it there and authorise Gittin. '
             + `The code lasts ${Math.round(device.expiresIn / 60)} minutes.`;
-          // The copy finishes before GitHub opens, which takes the focus a copy needs. Without the clipboard, the
-          // code stays shown to type.
-          open.onclick = () => void (navigator.clipboard?.writeText(device.userCode) ?? Promise.resolve())
-            .catch(() => {})
-            .then(() => window.open(device.verificationUri, '_blank', 'noopener,noreferrer'));
-          open.hidden = false;
+          open.onclick = () => void window.open(device.verificationUri, '_blank', 'noopener,noreferrer');
+          copy.hidden = open.hidden = false;
           const end = await github.deviceWait();
           if (closed) { if (end.kind === 'signedIn') accountChanged(end.account); return; }
           if (end.kind === 'signedIn') {

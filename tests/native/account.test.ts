@@ -33,7 +33,11 @@ test('signed in, both show the avatar, whose menu names the account and disconne
   expect(menu.textContent).toContain('Signed in as octocat');
   expect(buttonNamed('Switch account', menu)).toBeTruthy();
   buttonNamed('Disconnect GitHub', menu)!.click();
-  await vi.waitFor(() => expect(openDialog()?.textContent).toContain('Settings › Applications'));
+  await vi.waitFor(() => expect(openDialog()?.textContent).toContain(
+    "GitHub still lists applications as allowed until you revoke them in GitHub's Settings › Applications."));
+  expect(openDialog()!.querySelector('h2')!.textContent).toBe('Disconnected');
+  expect([...openDialog()!.querySelectorAll('button')].map(button => button.ariaLabel ?? button.textContent))
+    .toEqual(['Close']);
   expect(stand.signOut).toHaveBeenCalled();
   expect(buttonNamed('Sign in to GitHub…', home)).toBeTruthy();
   expect(workspace.querySelector('img')).toBeNull();
