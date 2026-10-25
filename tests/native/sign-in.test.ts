@@ -2,24 +2,27 @@
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { DeviceCode, SignInEnd } from '../../src/native/github';
 import { signIn, signedIn } from '../../src/native/sign-in';
-import { buttonNamed, octocat, openDialog, useDom, useGitHubStand } from './stand-ins';
+import { buttonNamed, noticeText, octocat, openDialog, useDom, useGitHubStand } from './stand-ins';
 
 beforeEach(useDom);
 const code = () => document.querySelector('.sign-in-code')?.textContent;
 
-test("the sign-in dialog shows GitHub's code; Copy & Open GitHub copies it and opens GitHub; it closes once signed in", async () => {
+test("the sign-in dialog shows GitHub's code; Copy code copies it, Open GitHub opens GitHub; it closes once signed in", async () => {
   let finish!: (end: SignInEnd) => void;
   const stand = useGitHubStand({ deviceWait: vi.fn(() => new Promise<SignInEnd>(resolve => { finish = resolve; })) });
   const opened = vi.spyOn(window, 'open').mockReturnValue(null);
   const signing = signIn();
   await vi.waitFor(() => expect(code()).toBe('WDJB-MJHT'));
   expect(stand.deviceCode).toHaveBeenCalledWith(false);
-  expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
-  expect(openDialog()!.textContent).toContain('Choose Copy & Open GitHub, paste the code there and authorise Gittin.');
-  buttonNamed('Copy & Open GitHub', openDialog()!)!.click();
-  await vi.waitFor(() =>
-    expect(opened).toHaveBeenCalledWith('https://github.com/login/device', '_blank', 'noopener,noreferrer'));
+  expect(openDialog()!.textContent)
+    .toContain('Copy the code, then choose Open GitHub, paste it there and authorise Gittin.');
+  buttonNamed('Copy code', openDialog()!)!.click();
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith('WDJB-MJHT');
+  await vi.waitFor(() => expect(noticeText()).toBe('Code copied.'));
+  expect(opened).not.toHaveBeenCalled();
+  buttonNamed('Open GitHub', openDialog()!)!.click();
+  expect(opened).toHaveBeenCalledWith('https://github.com/login/device', '_blank', 'noopener,noreferrer');
+  expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
   finish({ kind: 'signedIn', account: octocat, remembered: true });
   expect(await signing).toEqual(octocat);
   expect(openDialog()).toBeNull();

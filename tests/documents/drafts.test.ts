@@ -125,24 +125,30 @@ test('a document keeps its id when its identity moves to a file', () => {
   expect(s.id).toBe('doc-1');
   expect(new DocumentSession('x', { identity: { kind: 'source', sourceId: 'f', path: 'a.md' } }).id).toMatch(/^[0-9a-f-]{36}$/);
 });
-test('save state says whether a file is saved, unsaved, read-only or only in this browser', () => {
+test('save state says whether a file is saved, unsaved, not saved yet or in a read-only folder', () => {
   const current = { source: 'a', revision: 2 };
-  expect(saveState({ kind: 'local', id: 'x' }, current, null, undefined)).toBe('Only in this browser');
+  expect(saveState({ kind: 'local', id: 'x' }, current, null, undefined)).toBe('Not saved yet');
   const identity = { kind: 'source', sourceId: 'f', path: 'a.md' } as const;
   expect(saveState(identity, current, { source: 'a', revision: 1, version: 'v' }, { kind: 'folder', label: 'project', open: true })).toBe('Saved');
   expect(saveState(identity, current, { source: 'b', revision: 1, version: 'v' }, { kind: 'folder', label: 'project', open: true })).toBe('Unsaved changes (kept in this browser)');
   expect(saveState(identity, current, null, { kind: 'folder-readonly', label: 'project', open: true })).toBe('Read-only folder: Save downloads a copy');
-  expect(saveState(identity, current, null, { kind: 'folder-readonly', label: 'project', open: false })).toBe('Only in this browser (from project)');
+  expect(saveState(identity, current, null, { kind: 'folder-readonly', label: 'project', open: false })).toBe('Read-only folder: Save downloads a copy');
+  // Without a file to write to, the state still compares the text with the file as last opened or saved, as Home does.
+  expect(saveState(identity, current, { source: 'b', revision: 1, version: 'v' }, undefined)).toBe('Unsaved changes (kept in this browser)');
+  expect(saveState(identity, current, { source: 'a', revision: 1, version: 'v' }, { kind: 'file', label: 'a.md', open: false })).toBe('Saved');
 });
 test('location names the folder; a single file was opened on its own', () => {
   expect(locationText({ kind: 'local', id: 'x' }, undefined)).toBe('Only in this browser');
   expect(locationText({ kind: 'source', sourceId: 'f', path: 'notes/a.md' }, { kind: 'folder', label: 'project', open: true })).toBe('project › notes/a.md');
   expect(locationText({ kind: 'source', sourceId: 'f', path: 'a.md' }, { kind: 'file', label: 'a.md', open: true })).toBe('Opened on its own');
 });
-test('Home names the folder under a recent file without repeating the file name', () => {
+test('Home names only the folder under a recent file, without repeating the file name', () => {
   expect(recentFolder({ kind: 'local', id: 'x' }, undefined)).toBe('');
   expect(recentFolder({ kind: 'source', sourceId: 'f', path: 'a.md' }, { kind: 'folder', label: 'project', open: true })).toBe('project');
   expect(recentFolder({ kind: 'source', sourceId: 'f', path: 'notes/a.md' }, { kind: 'folder', label: 'project', open: true })).toBe('project › notes');
-  expect(recentFolder({ kind: 'source', sourceId: 'f', path: 'notes/a.md' }, { kind: 'folder', label: 'project', open: false })).toBe('Folder unavailable: project › notes');
-  expect(recentFolder({ kind: 'source', sourceId: 'f', path: 'a.md' }, { kind: 'file', label: 'a.md', open: true })).toBe('Opened on its own');
+  expect(recentFolder({ kind: 'source', sourceId: 'f', path: 'notes/a.md' }, { kind: 'folder', label: 'project', open: false })).toBe('project › notes');
+  expect(recentFolder({ kind: 'source', sourceId: 'f', path: 'notes/a.md' }, { kind: 'folder-readonly', label: 'project', open: true })).toBe('project › notes');
+  // Not in a folder: a file opened on its own, or one whose source Gittin has no record of.
+  expect(recentFolder({ kind: 'source', sourceId: 'f', path: 'a.md' }, { kind: 'file', label: 'a.md', open: true })).toBe('');
+  expect(recentFolder({ kind: 'source', sourceId: 'f', path: 'a.md' }, undefined)).toBe('');
 });

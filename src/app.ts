@@ -1,11 +1,11 @@
 import './style.css';
 import { DevicePreferences } from './preferences';
 import { readRoute, writeRoute, type Route } from './router';
-import { home } from './screens/home';
+import { focusTargets, home } from './screens/home';
 import type { OpenDocument, Workspace } from './screens/workspace';
 import { DocumentSession } from './documents/session';
 import {
-  DraftAutosave, deleteDraft, deleteDraftsAt, findDraft, listRecent, loadDraft, moveDraft, saveDraft,
+  DraftAutosave, deleteDraft, deleteDraftsAt, findDraft, listRecent, loadDraft, moveDraft, saveDraft, updateDraft,
   type DraftRecord,
 } from './documents/drafts';
 import { downloadFile, exportFile } from './documents/files';
@@ -26,6 +26,7 @@ import type { DirectoryHandle, FileHandle } from './sources/handle';
 import type { FileSource } from './sources/types';
 import { canPickSaveLocation, chooseFile, chooseFolder, pickSaveLocation } from './sources/pickers';
 import { conflictDialog } from './ui/disk-change';
+import { nameDialog, renameDialog } from './ui/file-actions';
 import { openFolderDialog } from './ui/folder-panel';
 import { ask, errorText, notice } from './ui/dom';
 import { place } from './platform';
@@ -68,6 +69,9 @@ const actions = {
   openFolder: openFolderCommand,
   openRecentFolder: (id: string) => void openRecentFolder(id),
   remove: (id: string) => void removeRecent(id),
+  favourite: (id: string, favourite: boolean) => void favouriteRecent(id, favourite),
+  rename: (id: string) => void renameRecent(id).catch(notice),
+  deleteFile: (id: string) => void deleteRecent(id).catch(notice),
   removeFolder: (id: string) => void hideFolder(id).then(() => navigate({ screen: 'home' })),
   createLocal: (source: string, title: string) =>
     openNew(() => newDraft({ source, title, fileType: 'yaml' })),
@@ -258,14 +262,61 @@ async function removeRecent(id: string) {
   const row = (await listRecent()).find(r => r.id === id);
   if (!row) return;
   if (row.unsaved) {
-    const choice = await ask(`Remove ${row.title}?`,
-      `This deletes the unsaved changes kept in ${place}. This can't be undone.`, [['Remove', 'remove', 'danger']]);
+    const lost = row.identity.kind === 'local' ? `This file is only in ${place}. Removing it deletes it.`
+      : `This deletes the unsaved changes kept in ${place}.`;
+    const choice = await ask(`Remove ${row.title}?`, `${lost} This can't be undone.`, [['Remove', 'remove', 'danger']]);
     if (choice !== 'remove') return;
   }
   const open = documents.get(id);
   if (open) forget(open);
   await deleteDraft(id);
-  navigate({ screen: 'home' });
+  await refreshHome();
+}
+/** Home's Favourite switch. An open document changes through its own autosave, which owns its stored draft. */
+async function favouriteRecent(id: string, favourite: boolean) {
+  const open = documents.get(id);
+  await (open ? open.autosave.updateMetadata({ favourite }) : updateDraft(id, { favourite }));
+  await refreshHome();
+}
+/** Home's Rename…, as File › Rename does it: on disk in a folder Gittin can write to, else the name Save as uses.
+ * Home redraws once the dialog has closed and given focus back to the file's ⋯. */
+async function renameRecent(id: string) {
+  const row = (await listRecent()).find(r => r.id === id);
+  if (!row) return;
+  const { identity } = row, source = identity.kind === 'source' ? await restoreSource(identity.sourceId) : undefined;
+  const redraw = () => void refreshHome();
+  if (identity.kind === 'source' && source instanceof FolderSource) {
+    if ((await source.permission(true)) !== 'granted') return notice(`Gittin needs permission to open ${source.label}.`);
+    return renameDialog(identity.path, (from, to) => moveFile(source, from, to), redraw);
+  }
+  nameDialog('Rename file', 'File name', 'Rename', row.title, async title => {
+    const fileType = /\.[^.]+$/.test(title) ? fileTypeForName(title) : row.fileType, open = documents.get(id);
+    await (open ? open.autosave.updateMetadata({ title, fileType }) : updateDraft(id, { title, fileType }));
+    return null;
+  }, '', redraw);
+}
+/** Home's Delete…, for a file in a folder: the Folder panel's delete, after asking for the folder where needed. */
+async function deleteRecent(id: string) {
+  const row = (await listRecent()).find(r => r.id === id);
+  const { identity } = row ?? {}, source = identity?.kind === 'source' ? await restoreSource(identity.sourceId) : undefined;
+  if (identity?.kind !== 'source' || !(source instanceof FolderSource)) return;
+  if ((await source.permission(true)) !== 'granted') return notice(`Gittin needs permission to open ${source.label}.`);
+  await deleteEntry(source, identity.path, 'file');
+  await refreshHome();
+}
+/** Redraws Home after a file action where it was: focus back on the control that had it, or the nearest that is left
+ * (focusTargets), at the same place on screen, though Favourites above it may have grown or shrunk. A dialog the action
+ * opened returns focus by itself, and the page keeps its scroll position. */
+async function refreshHome() {
+  if (current.screen !== 'home') return;
+  const active = document.activeElement, top = active?.getBoundingClientRect().top ?? 0, y = window.scrollY;
+  const targets = focusTargets(active);
+  await transition(() => show(current));
+  window.scrollTo(0, y);
+  const target = targets.map(id => document.getElementById(id)).find(Boolean);
+  if (!target) return;
+  window.scrollBy(0, target.getBoundingClientRect().top - top);
+  target.focus({ preventScroll: true });
 }
 function openFileCommand() {
   void chooseFile().then(async choice => {
@@ -478,7 +529,7 @@ function refocus() {
 /** Delete a file, or a folder and everything in it, after asking.
  * Browsers cannot use the Recycle Bin, so this is permanent. */
 function deleteEntry(source: FolderSource, path: string, kind: 'file' | 'directory') {
-  void transition(async () => {
+  return transition(async () => {
     const name = basename(path), count = kind === 'directory' ? await countFiles(source, path) : 0;
     let text = kind === 'file'
       ? `${name} is deleted permanently and does not go to the Recycle Bin.`

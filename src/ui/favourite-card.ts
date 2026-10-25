@@ -12,7 +12,8 @@ const previewTags = [
   'blockquote', 'ul', 'ol', 'li', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
 ];
 
-export function favouriteCard(row: DraftSummary, open: () => void): HTMLElement {
+/** A favourite's card: its preview and caption open the file, and `more` is its ⋯. */
+export function favouriteCard(row: DraftSummary, open: () => void, more: HTMLElement): HTMLElement {
   const preview = el('div', { className: 'favourite-preview', ariaHidden: 'true' });
   const type = row.fileType;
   const source = row.previewSource ?? '';
@@ -33,5 +34,5 @@ export function favouriteCard(row: DraftSummary, open: () => void): HTMLElement 
   return el('article', { className: 'favourite-card' },
     el('div', { className: 'favourite-thumbnail' }, preview),
     el('div', { className: 'favourite-caption' }, fileTile(type, row.title), openButton,
-      el('small', { textContent: fileDescriptor(type)?.label ?? 'File' })));
+      el('small', { textContent: fileDescriptor(type)?.label ?? 'File' }), more));
 }

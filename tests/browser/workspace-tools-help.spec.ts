@@ -489,7 +489,7 @@ test('Help lists its topics on the left and the chosen topic as headed points, o
   await help.getByRole('button', { name: 'Close', exact: true }).click();
   await home(page);
   await page.getByRole('button', { name: 'Main menu', exact: true }).click();
-  await page.locator('#home-menu').getByRole('button', { name: 'Help', exact: true }).click();
+  await page.locator('#home-menu').getByRole('button', { name: 'Gittin Help', exact: true }).click();
   help = dialog(page, 'Gittin Help');
   await expect(help.getByRole('navigation', { name: 'Help topics' })).toBeVisible();
   await help.getByRole('button', { name: 'Saving and recovery', exact: true }).click();

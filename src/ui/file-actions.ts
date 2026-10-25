@@ -19,9 +19,10 @@ function failureLine() {
 }
 /** Moves or renames a file; resolves with a failure reason to show, or null when done. */
 type Move = (from: string, to: string) => Promise<string | null>;
-/** Ask for a file or folder name. `submit` resolves with a failure reason to show, or null when done. */
+/** Ask for a file or folder name. `submit` resolves with a failure reason to show, or null when done; `onClose` runs
+ * once the dialog has closed and returned focus. */
 export function nameDialog(title: string, label: string, action: string, value: string,
-  submit: (name: string) => Promise<string | null>, note = '') {
+  submit: (name: string) => Promise<string | null>, note = '', onClose?: () => void) {
   fileDialog(title, (body, close, footer) => {
     const input = el('input', { required: true, value }), failure = failureLine();
     body.append(field(label, input));
@@ -42,7 +43,7 @@ export function nameDialog(title: string, label: string, action: string, value: 
     input.oninput = () => input.setCustomValidity('');
     input.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); void go(); } };
     footer.append(confirm);
-  });
+  }, { onClose });
 }
 /** What File details shows about the open file. */
 export interface FileFacts {
@@ -76,10 +77,10 @@ export function detailsDialog(facts: FileFacts) {
   }, { className: 'details-dialog', info: true });
 }
 /** Rename a file where it is. Links to and from it are not rewritten. */
-export function renameDialog(path: string, move: Move) {
+export function renameDialog(path: string, move: Move, onClose?: () => void) {
   const name = basename(path);
   nameDialog('Rename file', 'File name', 'Rename', name, next => move(path, join(dirname(path), next)),
-    `Links to and from ${name} are not updated.`);
+    `Links to and from ${name} are not updated.`, onClose);
 }
 /** Choose the folder to move a file into, from the folder's folders drawn as a tree with the file's own folder marked.
  * New folder… makes one beside the file, to pick next. Links to and from it are not rewritten. */

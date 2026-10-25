@@ -4,12 +4,13 @@
 import './git.css';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { homeDir } from '@tauri-apps/api/path';
 import { openHandles, start } from '../app';
 import type { Extensions } from '../extensions';
 import { notice } from '../ui/dom';
 import { accountButton } from './account';
 import { cloneButton, cloneCommand } from './clone';
-import { DesktopFileHandle, diskPath, installPickers, revive } from './files';
+import { DesktopFileHandle, diskPath, fileFolder, installPickers, revive } from './files';
 import { offerRepository } from './folder';
 import { openHistory } from './history';
 import { askBeforeQuitting } from './quit';
@@ -40,7 +41,11 @@ const extensions: Extensions = {
   commands: doc => [cloneCommand, syncCommand(doc)],
   preferences: gitPreferences, diskPath,
 };
-void start({ revive, extensions }).then(async () => {
+// Home shows a file opened on its own by its folder from the user folder, so that is looked up before the first screen.
+void homeDir().catch(() => '').then(home => {
+  extensions.fileFolder = identity => fileFolder(home, identity);
+  return start({ revive, extensions });
+}).then(async () => {
   colourFrame();
   new MutationObserver(colourFrame).observe(document.documentElement, { attributeFilter: ['data-theme'] });
   await askBeforeQuitting();

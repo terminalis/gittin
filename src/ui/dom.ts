@@ -89,6 +89,8 @@ export const legalPages = [
   ['Terms of Service', site + '/terms.html'],
   ['Third-party notices', site + '/THIRD_PARTY_NOTICES.txt'],
 ] as const;
+/** Send feedback, in Home's menu and the Help menu: a new issue on Gittin's repository. */
+export const feedbackPage = 'https://github.com/terminalis/gittin/issues/new';
 /** Every legal link's rel: the page it opens gets no handle on Gittin and no referrer. */
 export const legalRel = 'noopener noreferrer';
 

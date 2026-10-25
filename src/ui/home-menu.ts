@@ -2,9 +2,9 @@ import type { DevicePreferences, Preferences } from '../preferences';
 import { exportDraftsArchive, importDrafts, readBackup } from '../documents/drafts';
 import { exportFile } from '../documents/files';
 import {
-  button, el, errorText, fileDialog, iconButton, legalPages, legalRel, notice, segmented,
+  button, el, errorText, feedbackPage, fileDialog, iconButton, legalPages, legalRel, notice, segmented,
 } from './dom';
-import { helpDialog, keyboardShortcuts } from './help';
+import { gettingStarted, helpDialog, whatsNew } from './help';
 import { icon, type IconName } from './icons';
 import { desktop, place } from '../platform';
 
@@ -34,7 +34,7 @@ export function homeMenu(
   const nav = el('nav', { ariaLabel: 'Gittin' });
   // Each group is labelled, so assistive technology names the part of the menu it enters.
   const group = (label: string) => {
-    const id = 'home-menu-' + label.toLowerCase();
+    const id = 'home-menu-' + label.toLowerCase().replaceAll(' ', '-');
     const section = el('div', { role: 'group' },
       el('p', { className: 'home-drawer-label', id, textContent: label }));
     section.setAttribute('aria-labelledby', id);
@@ -48,7 +48,7 @@ export function homeMenu(
     to.append(item);
   };
   // Settings that belong to Home: what it lists. Editor settings stay in the editor.
-  const settings = group('Settings');
+  const settings = group('Your files');
   const save = (patch: Preferences) => { void prefs.save(patch); actions.applyHomeOptions(); };
   const switches = [
     ['Show favourites', 'homeFavourites'], ['Show recent folders', 'homeFolders'],
@@ -93,8 +93,11 @@ export function homeMenu(
     input.click();
   }, 'Restore drafts from a backup file. Drafts already on this device are kept unchanged.');
   const help = group('Help');
-  add(help, 'Help', 'help', helpDialog);
-  add(help, 'Shortcuts', 'keyboard', () => keyboardShortcuts());
+  add(help, 'Getting Started', 'school', gettingStarted);
+  add(help, 'Gittin Help', 'help', helpDialog);
+  const about = group('About');
+  add(about, "What's new", 'broadcast', whatsNew);
+  add(about, 'Send feedback', 'message-report', () => void window.open(feedbackPage, '_blank', 'noopener,noreferrer'));
   const footer = el('footer', { className: 'home-drawer-footer' }, ...legalPages.map(([text, href]) =>
     el('a', { href, target: '_blank', rel: legalRel, textContent: text })));
   drawer.append(header, nav, footer);

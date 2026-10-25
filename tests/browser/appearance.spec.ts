@@ -3,6 +3,7 @@ import {
   download,
   editor,
   expectDraftSaved,
+  fileAction,
   home,
   menu,
   newFile,
@@ -71,7 +72,7 @@ for (const width of [1280, 390])
 
 test('Save stays filled for a file that is only in this browser', async ({ page }) => {
   await newFile(page);
-  await expect(page.locator('#save-state')).toHaveText('Only in this browser');
+  await expect(page.locator('#save-state')).toHaveText('Not saved yet');
   await expect(page.locator('.save-split')).not.toHaveClass(/saved/);
 });
 
@@ -340,7 +341,7 @@ test('confirmation dialogs follow Windows: the confirming choice first and fille
   // Close file runs as a transition that ignores hash changes until it ends and un-inerts the app.
   await expect(page.locator('#app')).not.toHaveAttribute('inert', '');
   await home(page);
-  await page.getByRole('button', { name: 'Remove Untitled file', exact: true }).click();
+  await fileAction(page, 'Untitled file', 'Remove');
   const removing = page.getByRole('dialog', { name: 'Remove Untitled file?', exact: true });
   await expect(removing.locator('.dialog-actions > button')).toHaveText(['Remove', 'Cancel']);
   await expect(choice(removing, 'Remove')).toHaveClass(/primary/);

@@ -8,6 +8,7 @@ import {
   download,
   editor,
   expectDraftSaved,
+  fileAction,
   home,
   homeMenu,
   menu,
@@ -33,10 +34,10 @@ const pickFromFolder = (page: Page, path: string) =>
     };
   }, path);
 const openFile = (page: Page) => page.getByRole('button', { name: 'Open file', exact: true }).click();
-/** Home's rows, each as its name and the folder line under it. */
+/** Home's rows, each as its name and the folder line under it (empty when it has none). */
 const recentRows = (page: Page) =>
   page.locator('#recent .recent-row').evaluateAll((rows) =>
-    rows.map((row) => [row.querySelector('.recent-open')!.textContent, row.querySelector('.recent-folder')!.textContent]));
+    rows.map((row) => [row.querySelector('.recent-open')!.textContent, row.querySelector('.recent-folder')?.textContent ?? '']));
 
 /** Opens a.md from the folder, saves each of the texts in turn, and opens its Version history. */
 async function openHistory(page: Page, ...saves: string[]) {
@@ -701,6 +702,39 @@ test.describe('writable folders', () => {
     await expect(panel.getByRole('button', { name: 'a.md', exact: true })).toHaveAttribute('aria-current', 'true');
   });
 
+  test("Home's ⋯ renames and deletes a folder's file on disk; both ⋯ menus show their icons", async ({ page }) => {
+    await useFolder(page, { 'a.md': 'A', 'b.md': 'B' });
+    await openFromFolder(page, 'a.md');
+    const icons = (menu: ReturnType<Page['locator']>) =>
+      menu.locator('[data-icon]').evaluateAll(all => all.map(icon => icon.getAttribute('data-icon')));
+    const actions = page.getByRole('menu', { name: 'Actions for a.md', exact: true });
+    await folderPanel(page).getByRole('button', { name: 'Actions for a.md', exact: true }).click();
+    await expect(actions.locator('button')).toHaveText(['Rename…', 'Move to…', 'Delete…']);
+    expect(await icons(actions)).toEqual(['pencil', 'folder-share', 'trash']);
+    await page.keyboard.press('Escape');
+    await home(page);
+    await page.locator('#recent').getByRole('button', { name: 'Actions for a.md', exact: true }).click();
+    await expect(actions.locator('button')).toHaveText(['Favourite', 'Rename…', 'Remove', 'Delete…']);
+    expect(await icons(actions)).toEqual(['star', 'pencil', 'x', 'trash']);
+    await actions.getByRole('menuitem', { name: 'Rename…', exact: true }).click();
+    const rename = page.getByRole('dialog', { name: 'Rename file', exact: true });
+    await expect(rename).toContainText('Links to and from a.md are not updated.');
+    await rename.getByLabel('File name').fill('c.md');
+    await rename.getByRole('button', { name: 'Rename', exact: true }).click();
+    await expect(rename).toHaveCount(0);
+    expect(await disk.kind(page, 'c.md')).toBe('file');
+    expect(await disk.kind(page, 'a.md')).toBeNull();
+    await expect(page.locator('#recent .recent-open')).toHaveText(['c.md']);
+    await expect(page.locator('#recent').getByRole('button', { name: 'Actions for c.md', exact: true })).toBeFocused();
+    await fileAction(page, 'c.md', 'Delete…');
+    const deleting = page.getByRole('dialog', { name: 'Delete c.md?', exact: true });
+    await expect(deleting).toContainText('c.md is deleted permanently and does not go to the Recycle Bin.');
+    await deleting.getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(page.locator('#recent')).toContainText('Your recent files will appear here.');
+    expect(await disk.kind(page, 'c.md')).toBeNull();
+    expect(await disk.read(page, 'b.md')).toBe('B');
+  });
+
   test('a remembered folder without permission asks for it by name', async ({ page }) => {
     await useFolder(page, { 'a.md': 'A' });
     await openFromFolder(page, 'a.md');
@@ -793,7 +827,7 @@ test.describe('writable folders', () => {
     await expectDraftSaved(page);
     await expect(page.locator('#repository-panel')).toContainText('This file was opened on its own');
     await page.goto('/#/home');
-    await expect.poll(() => recentRows(page)).toEqual([['a.md', 'Opened on its own'], ['b.md', 'Opened on its own']]);
+    await expect.poll(() => recentRows(page)).toEqual([['a.md', ''], ['b.md', '']]);
     await openFromFolder(page, 'docs/a.md');
     await expect(editor(page)).toHaveText('mine');
     await expect(page.locator('#disk-change')).toBeHidden();
@@ -822,10 +856,10 @@ test('Remove from recent warns for browser-only files and deletes the draft', as
   await editor(page).fill('only here');
   await expectDraftSaved(page);
   await page.goto('/#/home');
-  await expect(page.locator('#recent .recent-row').filter({ hasText: 'Untitled file' }).locator('.recent-state')).toHaveText('Only in this browser');
-  await page.getByRole('button', { name: 'Remove Untitled file', exact: true }).click();
+  await expect(page.locator('#recent .recent-row').filter({ hasText: 'Untitled file' }).locator('.recent-state')).toHaveText('Not saved yet');
+  await fileAction(page, 'Untitled file', 'Remove');
   const dialog = page.getByRole('dialog', { name: 'Remove Untitled file?', exact: true });
-  await expect(dialog).toContainText("This deletes the unsaved changes kept in this browser. This can't be undone.");
+  await expect(dialog).toContainText("This file is only in this browser. Removing it deletes it. This can't be undone.");
   await dialog.getByRole('button', { name: 'Remove', exact: true }).click();
   await expect(page.locator('#recent')).not.toContainText('Untitled file');
 });
