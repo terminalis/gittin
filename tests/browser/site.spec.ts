@@ -183,21 +183,23 @@ test('a Light or Dark choice made in the app applies on the site', async ({ page
 test('the demonstrations are screenshots of the app and stay out of the way', async ({ page }) => {
   await page.goto('/');
   const demos = page.locator('#story .demo');
-  await expect(demos).toHaveCount(4);
+  await expect(demos).toHaveCount(6);
   for (const demo of await demos.all()) {
     await expect(demo).toHaveAttribute('aria-hidden', 'true');
     await expect(demo).toHaveAttribute('inert', '');
   }
   const shots = (demo: number) =>
     demos.nth(demo).locator('.shot').evaluateAll(list => list.map(shot => (shot as HTMLElement).dataset.shot));
-  expect(await shots(0)).toEqual(['write-edit', 'write-preview']);
-  expect(await shots(1)).toEqual(['files']);
-  expect(await shots(2)).toEqual(['folder']);
-  expect(await shots(3)).toEqual(['history-diff', 'history-versions']);
+  expect(await shots(0)).toEqual(['git-history']);
+  expect(await shots(1)).toEqual(['github-sync']);
+  expect(await shots(2)).toEqual(['write-edit', 'write-preview']);
+  expect(await shots(3)).toEqual(['files']);
+  expect(await shots(4)).toEqual(['folder']);
+  expect(await shots(5)).toEqual(['history-diff', 'history-versions']);
   // Every variant the page can ask for exists as a WebP image.
   const sources = await page.locator('#story picture').evaluateAll(pictures => pictures.flatMap(picture =>
     [...picture.querySelectorAll('source')].map(source => source.srcset).concat(picture.querySelector('img')!.getAttribute('src')!)));
-  expect(sources).toHaveLength(24);
+  expect(sources).toHaveLength(28);
   for (const source of sources) {
     const response = await page.request.get(source);
     expect(response.ok(), source).toBe(true);
@@ -218,8 +220,10 @@ for (const [width, theme, size] of [[1280, 'light', 'desktop'], [1280, 'dark', '
       for (const image of await demo.locator(`.shot-${theme} img`).all())
         await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
     }
-    expect(requested.length).toBe(6);
-    expect(requested.every(path => path.endsWith(`-${theme}-${size}.webp`))).toBe(true);
+    // The desktop app's shots have no phone size: phones load their desktop image.
+    const desktopOnly = /\/(git-history|github-sync)-/;
+    expect(requested.length).toBe(8);
+    expect(requested.every(path => path.endsWith(`-${theme}-${desktopOnly.test(path) ? 'desktop' : size}.webp`))).toBe(true);
   });
 
 test('a screenshot that cannot load leaves its demo out', async ({ page }) => {
