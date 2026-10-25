@@ -48,11 +48,10 @@ addEventListener('appinstalled', () => {
   offer = undefined;
   offering(false);
 });
+// The button stays: a dismissed prompt brings the browser's next offer at once, and appinstalled ends it.
 installButton.addEventListener('click', () => {
   void offer?.prompt();
   offer = undefined;
-  offering(false);
-  useInBrowser.focus();
 });
 
 const manual = 'Select the command and copy it using your device shortcut.';

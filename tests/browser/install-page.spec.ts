@@ -142,7 +142,7 @@ test('Copy command copies the Flatpak command and says so', async ({ page }) => 
   await expect(page.locator('.install-status')).toHaveText('Command copied.');
 });
 
-test('once the browser offers installation, Install web app takes Use in browser\'s place, prompts once and goes', async ({ page }) => {
+test('while the browser can install Gittin, Install web app replaces Use in browser, which returns once installed', async ({ page }) => {
   await visitAs(page, macChrome, 'macOS');
   await expect(install(page)).toBeHidden();
   await offerInstall(page);
@@ -151,6 +151,9 @@ test('once the browser offers installation, Install web app takes Use in browser
   await expect(primary(page)).toHaveText('Install web app');
   await install(page).click();
   await expect.poll(() => page.evaluate(() => (window as any).prompted)).toBe(1);
+  await expect(install(page)).toBeVisible();
+  await expect(useInBrowser(page)).toBeHidden();
+  await page.evaluate(() => window.dispatchEvent(new Event('appinstalled')));
   await expect(install(page)).toBeHidden();
   await expect(useInBrowser(page)).toBeVisible();
   await expect(primary(page)).toHaveText('Use in browser');
