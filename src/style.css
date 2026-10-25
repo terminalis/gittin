@@ -431,14 +431,14 @@ a:has(> .app-icon) {
   cursor: pointer;
 }
 /* Checkbox rows in dialogs. */
-.workspace-dialog :is(.dialog-option, .preference-option, .statistics-option) {
+.workspace-dialog :is(.dialog-option, .preference-option) {
   display: flex;
   align-items: center;
   gap: 20px;
   min-height: 44px;
   cursor: pointer;
 }
-.workspace-dialog :is(.preference-option, .statistics-option) {
+.workspace-dialog .preference-option {
   margin: 0;
   padding: 8px 12px;
 }
@@ -485,7 +485,7 @@ a:has(> .app-icon) {
 /* Hints in dialogs. */
 .dialog-hint,
 .preferences-hint,
-.statistics-help {
+.details-help {
   color: var(--muted);
   font-size: 13px;
   line-height: 20px;
@@ -651,46 +651,41 @@ a:has(> .app-icon) {
   background: var(--surface);
   border: 1px solid var(--line);
 }
-.statistics-dialog {
-  --dialog-width: 350px;
+.details-dialog {
+  --dialog-width: 520px;
 }
-/* File statistics' table, which File details shares; details' values are words and paths, read from the left, with
-   Copy path at the end. */
-.statistics-dialog table,
+/* File details: muted labels in a column as wide as the longest, each beside the first line of its value. */
 .details-dialog table {
   width: 100%;
   border-collapse: collapse;
 }
-.statistics-dialog th,
-.statistics-dialog td,
 .details-dialog th,
 .details-dialog td {
-  height: 52px;
-  padding: 0 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--line);
   font-weight: 400;
-}
-.statistics-dialog th,
-.details-dialog th {
+  line-height: 24px;
   text-align: left;
+  vertical-align: top;
 }
-.statistics-dialog td {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
+.details-dialog th {
+  width: 1%;
+  color: var(--muted);
+  white-space: nowrap;
 }
 .details-dialog td {
   overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
 }
-.details-dialog td button {
-  margin-left: 6px;
-  vertical-align: middle;
+/* A path's folders wrap as whole pieces; one too long for the line still breaks. */
+.details-path > span {
+  display: inline-block;
+  max-width: 100%;
 }
-.statistics-dialog tr:last-child > *,
 .details-dialog tr:last-child > * {
   border-bottom: 0;
 }
-.statistics-help {
+.details-help {
   margin: 8px 12px 12px;
   line-height: 18px;
 }
@@ -2462,7 +2457,8 @@ label.home-option {
   border: 0;
   line-height: 24px;
 }
-#details {
+#details,
+#copy-path {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2471,7 +2467,7 @@ label.home-option {
   padding: 4px;
   border: 0;
 }
-.workspace-header :where(#document-title, #favourite, #details) {
+.workspace-header :where(#document-title, #favourite, #details, #copy-path) {
   background: transparent;
 }
 .workspace-header .menus > details > summary {
@@ -2508,6 +2504,7 @@ label.home-option {
 }
 #favourite > .app-icon,
 #details > .app-icon,
+#copy-path > .app-icon,
 .open-document button > .app-icon {
   --icon: 18px;
 }
@@ -2996,9 +2993,10 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   #workspace:not(.focus-mode) .workspace-header.menus-hidden {
     display: grid;
   }
-  /* The title needs the room; File › Details and File › Add/remove favourite stay in the menu. */
+  /* The title needs the room; File › Add/remove favourite, Details and Copy path stay in the menu. */
   #favourite,
-  #details {
+  #details,
+  #copy-path {
     display: none;
   }
   .workspace-tools > button > [data-icon^="layout-sidebar"] {

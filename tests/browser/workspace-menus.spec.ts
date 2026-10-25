@@ -55,10 +55,12 @@ test('File keeps file moves with Rename, PDF after Print, and Version history…
     ['Email'],
     ['Save', 'Save as…', 'Version history…'],
     ['Rename…', 'Move to…', 'Delete file…', 'Add/remove favourite'],
-    ['Details', 'Print', 'Export as PDF…', 'Close file'],
+    ['Details', 'Copy path', 'Print', 'Export as PDF…', 'Close file'],
   ]);
-  // A file only in this browser has no saves to list.
+  // A file only in this browser has no saves to list and no path to copy.
   await expect(file.getByRole('button', { name: 'Version history…', exact: true })).toBeDisabled();
+  await expect(file.getByRole('button', { name: 'Copy path', exact: true })).toBeDisabled();
+  await expect(page.locator('#copy-path')).toBeHidden();
   await openText(page, '# Saved', 'saved.md');
   await command(page, 'Version history…');
   await expect(page.getByRole('dialog', { name: 'Version history', exact: true })).toBeVisible();
@@ -189,11 +191,11 @@ test('menu commands return focus to the document unless they open a dialog', asy
   await page.keyboard.press('ArrowRight');
   await page.keyboard.type('Y');
   await expect(editor(page)).toContainText('Y');
-  await menu(page, 'Tools', 'File statistics…');
-  await expect(page.locator('.statistics-dialog')).toBeVisible();
-  await expect(page.locator('.statistics-dialog').locator(':focus')).toHaveCount(1);
+  await menu(page, 'File', 'Details');
+  await expect(page.locator('.details-dialog')).toBeVisible();
+  await expect(page.locator('.details-dialog').locator(':focus')).toHaveCount(1);
   await page.keyboard.press('Escape');
-  await expect(page.locator('.statistics-dialog')).toHaveCount(0);
+  await expect(page.locator('.details-dialog')).toHaveCount(0);
   await expect(editor(page)).toBeFocused();
   await page.keyboard.type('W');
   await expect(editor(page)).toContainText('W');

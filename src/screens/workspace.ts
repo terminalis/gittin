@@ -1,6 +1,6 @@
 import { icon } from '../ui/icons';
 import {
-  fileStatistics, openStatistics, openComparison, openResources, openAttributions, openEmail,
+  fileStatistics, openComparison, openResources, openAttributions, openEmail,
   type FolderLinks,
 } from '../ui/tools-dialogs';
 import { workspaceHelpDialog, gettingStarted, whatsNew, keyboardShortcuts } from '../ui/help';
@@ -31,7 +31,7 @@ import { place } from '../platform';
 import { FindBar } from '../ui/find-bar';
 import { Menus, editorActions, type Action } from '../ui/menus';
 import {
-  brand, button, el, feedbackPage, iconButton, legalPages, markUnsaved, narrow, notice, onDocumentClick, segmented,
+  brand, button, copyText, el, feedbackPage, iconButton, legalPages, markUnsaved, narrow, notice, onDocumentClick, segmented,
 } from '../ui/dom';
 export interface OpenDocument {
   session: DocumentSession;
@@ -77,9 +77,9 @@ type Row = [menu: string, id: string, label: string, run: () => void, more?: Par
 const modeNames: Record<Mode, string> = { markdown: 'Edit', preview: 'Preview', diff: 'Diff' };
 /** What #draft-status says for each autosave state but an error, which names its cause. */
 const draftStatusText: Record<Exclude<DraftStatus['kind'], 'error'>, string> = {
-  saved: 'Draft saved on this device',
-  saving: 'Saving draft on this device…',
-  pending: 'Draft changes waiting to save on this device.',
+  saved: 'Saved on this device',
+  saving: 'Saving on this device…',
+  pending: 'Changes waiting to save on this device',
   conflict: 'A newer draft is stored on this device. '
     + 'Export your work or save a recovery copy to keep both versions.',
 };
@@ -187,7 +187,9 @@ export class Workspace {
     const favourite = Object.assign(iconButton('star', 'Add favourite', () => this.toggleFavourite()),
       { id: 'favourite' });
     const detailsButton = Object.assign(
-      iconButton('folder', 'File details', () => this.details()), { id: 'details' });
+      iconButton('info-circle', 'File details', () => this.details()), { id: 'details' });
+    const copyPath = Object.assign(iconButton('copy', 'Copy path', () => this.copyPath()),
+      { id: 'copy-path', hidden: this.copyablePath() === null });
     const history = versionHistoryButton(identity.kind === 'source', () => this.openHistory());
     const save = Object.assign(button('Save', () => actions.save(false), 'primary'),
       { id: 'save-file', title: `Save (${shortcutHint(keysFor('save')!)})` });
@@ -199,7 +201,7 @@ export class Workspace {
     const header = el('header',
       { id: 'workspace-header', className: 'workspace-header', innerHTML: brand('#/home', true) },
       el('div', { className: 'document-identity' },
-        el('div', { className: 'document-title-row' }, title, favourite, detailsButton)),
+        el('div', { className: 'document-title-row' }, title, favourite, detailsButton, copyPath)),
       el('div', { className: 'workspace-header-actions' }, history,
         el('div', { className: 'save-split' }, save),
         menusToggle));
@@ -306,6 +308,8 @@ export class Workspace {
       ['File', 'favourite', 'Add/remove favourite', () => this.toggleFavourite(),
         selected(() => doc.favourite)],
       ['File', 'details', 'Details', () => this.details()],
+      ['File', 'copy-path', 'Copy path', () => this.copyPath(),
+        { state: () => ({ disabled: this.copyablePath() === null }) }],
       ['File', 'print', 'Print', () => void this.print()],
       ['File', 'download-pdf', 'Export as PDF…', () => void this.print(true)],
       ['File', 'close', 'Close file', () => actions.close(doc.session.id)],
@@ -315,6 +319,9 @@ export class Workspace {
         () => void prefs.save({ lineNumbers: prefs.value.lineNumbers === false }),
         selected(() => prefs.value.lineNumbers !== false)],
       ...display,
+      ['View', 'stats-while-typing', 'Show stats while typing',
+        () => void prefs.save({ showStatsWhileTyping: prefs.value.showStatsWhileTyping !== true }),
+        selected(() => prefs.value.showStatsWhileTyping === true)],
       ['View', 'fullscreen', 'Full screen', () => void this.fullscreen(),
         selected(() => document.fullscreenElement === this.element)],
       ['View', 'focus', 'Focus mode', () => this.toggle('focus'), selected(() => this.focus)],
@@ -324,8 +331,6 @@ export class Workspace {
       ...(['light', 'dark', 'system'] as const).map((theme): Row => ['View/Appearance', theme,
         theme[0].toUpperCase() + theme.slice(1) + ' appearance', () => void prefs.save({ theme }),
         selected(() => prefs.value.theme === theme)]),
-      ['Tools', 'statistics', 'File statistics…',
-        () => openStatistics(doc.session.current.source, prefs)],
       ['Tools', 'compare-files', 'Compare files…', () => openComparison(this.controller),
         { tip: 'Choose another file to compare with this one in Diff. Neither file changes.' }],
       ['Tools', 'attributions', 'Attributions…',
@@ -373,14 +378,24 @@ export class Workspace {
   private toggleFavourite() {
     void this.document.autosave.updateMetadata({ favourite: !this.document.favourite });
   }
+  /** What Copy path copies: the full path on disk where Gittin knows it, else the path in its folder; null for a file
+   * with neither. */
+  private copyablePath() {
+    const identity = this.identity;
+    return extensions.diskPath?.(identity)
+      ?? (identity.kind === 'source' && this.info()?.kind !== 'file' ? identity.path : null);
+  }
+  private copyPath() {
+    const path = this.copyablePath();
+    if (path !== null)
+      copyText(path, 'Path copied.', 'Select the location in File details and copy it with your device shortcut.');
+  }
   private details() {
-    const doc = this.document, identity = this.identity, info = this.info();
-    const disk = extensions.diskPath?.(identity) ?? null;
+    const doc = this.document, identity = this.identity;
     detailsDialog({
       type: doc.fileType,
       source: doc.session.current.source,
-      location: disk ?? locationText(identity, info),
-      path: disk ?? (identity.kind === 'source' && info?.kind !== 'file' ? identity.path : null),
+      location: extensions.diskPath?.(identity) ?? locationText(identity, this.info()),
       state: this.part('#save-state').textContent ?? '',
       draft: this.part('#draft-status').textContent ?? '',
       baseline: !!doc.localBaseline,
@@ -437,6 +452,7 @@ export class Workspace {
     const favourite = doc.favourite ? 'Remove favourite' : 'Add favourite';
     star.replaceChildren(icon(doc.favourite ? 'star-filled' : 'star'));
     Object.assign(star, { ariaLabel: favourite, ariaPressed: `${doc.favourite}`, title: favourite });
+    this.part('#copy-path').hidden = this.copyablePath() === null;
     this.part('#draft-status').textContent = status.kind === 'error'
       ? 'Draft could not be saved on this device. ' + status.message : draftStatusText[status.kind];
     this.part('.recovery-actions').hidden = status.kind !== 'error' && status.kind !== 'conflict';

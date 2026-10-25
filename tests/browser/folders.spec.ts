@@ -383,7 +383,7 @@ test.describe('writable folders', () => {
     expect(await disk.read(page, 'notes/a.md')).toBe('A');
   });
 
-  test('File details shows six rows with the location and Copy path, and opens from the folder button', async ({ page }) => {
+  test('File details lists the file and its counts; Copy path sits beside the name and in the File menu', async ({ page }) => {
     await useFolder(page, { 'docs/a.md': '# A\n' });
     await openFromFolder(page, 'docs/a.md');
     await expectDraftSaved(page);
@@ -396,17 +396,21 @@ test.describe('writable folders', () => {
     const details = page.getByRole('dialog', { name: 'File details', exact: true });
     await expect(details.getByRole('row')).toHaveText([
       'TypeMarkdown',
-      'Size4 bytes',
       'Locationproject › docs/a.md',
       'StateSaved',
-      'DraftDraft saved on this device',
-      'Diff compares withThe file as you opened or last saved it',
+      'DraftSaved on this device',
+      'Diff compares withThe file as opened or last saved',
+      'Words2',
+      'Characters4',
+      'Lines2',
+      'Size4 bytes',
     ]);
-    await details.getByRole('button', { name: 'Copy path', exact: true }).click();
+    await details.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.locator('.workspace-header').getByRole('button', { name: 'Copy path', exact: true }).click();
     await expect.poll(() => page.evaluate(() => (window as any).copied)).toBe('docs/a.md');
     await expect(page.locator('#notice')).toContainText('Path copied.');
-    await details.getByRole('button', { name: 'Close', exact: true }).click();
     await page.locator('.menus > details > summary').filter({ hasText: /^File$/ }).click();
+    await expect(page.locator('.menus .menu-items button').filter({ hasText: /^Copy path$/ })).toBeEnabled();
     await expect(page.locator('.menus .menu-items button').filter({ hasText: /^Location$/ })).toHaveCount(0);
   });
 

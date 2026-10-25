@@ -1,5 +1,4 @@
 import type { GittinController } from '../editor/controller';
-import type { DevicePreferences } from '../preferences';
 import type { FileType } from '../documents/file-types';
 import { attributionText, type AttributionFormat, type Attribution } from '../editor/attributions';
 import { decodeSource, newlineStyle } from '../editor/source-projection';
@@ -10,7 +9,7 @@ import { headingAnchors } from '../editor/heading-anchors';
 import { fragment } from '../sources/paths';
 import { icon } from './icons';
 import {
-  button, checkbox, choiceRow, copyText, dropDown, el, errorText, fileDialog, listRow, notice, textField,
+  button, choiceRow, copyText, dropDown, el, errorText, fileDialog, listRow, notice, textField,
 } from './dom';
 export function fileStatistics(source: string) {
   return {
@@ -27,29 +26,6 @@ export function emailURL(title: string, source: string) {
 export const mailtoLaunchLimit = 1800;
 const paragraph = (text: string) => el('p', { textContent: text });
 const preview = (text: string) => el('pre', { className: 'utility-preview', textContent: text });
-export function openStatistics(source: string, preferences: DevicePreferences) {
-  fileDialog('File statistics', body => {
-    const table = el('table', { ariaLabel: 'Current file statistics' });
-    table.setAttribute('aria-describedby', 'statistics-help');
-    const help = el('p', { id: 'statistics-help', className: 'statistics-help',
-      textContent: 'Counts use the full source text. File size is measured in UTF-8 bytes.' });
-    const stats = fileStatistics(source);
-    for (const [label, value, description] of [
-      ['Words', String(stats.words), 'Whitespace-separated words in the current source.'],
-      ['Characters', String(stats.characters), 'Unicode characters, including line endings and any BOM.'],
-      ['Lines', String(stats.lines), 'Source lines, including a trailing empty line.'],
-      ['File size', `${stats.bytes} bytes`, 'UTF-8 encoded size, including any BOM.'],
-    ]) {
-      const row = table.insertRow();
-      row.append(el('th', { scope: 'row', textContent: label, title: description }));
-      row.insertCell().textContent = value;
-    }
-    const display = checkbox('Display stats while typing',
-      preferences.value.showStatsWhileTyping ?? false, 'statistics-option');
-    display.onchange = () => void preferences.save({ showStatsWhileTyping: display.checked });
-    body.append(table, help, display.parentElement!);
-  }, { className: 'statistics-dialog', info: true });
-}
 /** Tools › Compare files…: the system's file picker, then Diff shows the chosen file against this one. */
 export function openComparison(controller: GittinController) {
   const input = el('input', { type: 'file' });
