@@ -398,8 +398,6 @@ test.describe('writable folders', () => {
       'TypeMarkdown',
       'Locationproject › docs/a.md',
       'StateSaved',
-      'DraftSaved on this device',
-      'Diff compares withThe file as opened or last saved',
       'Words2',
       'Characters4',
       'Lines2',

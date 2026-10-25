@@ -188,7 +188,7 @@ export class Workspace {
       { id: 'favourite' });
     const detailsButton = Object.assign(
       iconButton('info-circle', 'File details', () => this.details()), { id: 'details' });
-    const copyPath = Object.assign(iconButton('copy', 'Copy path', () => this.copyPath()),
+    const copyPath = Object.assign(iconButton('folder-symlink', 'Copy path', () => this.copyPath()),
       { id: 'copy-path', hidden: this.copyablePath() === null });
     const history = versionHistoryButton(identity.kind === 'source', () => this.openHistory());
     const save = Object.assign(button('Save', () => actions.save(false), 'primary'),
@@ -397,8 +397,6 @@ export class Workspace {
       source: doc.session.current.source,
       location: extensions.diskPath?.(identity) ?? locationText(identity, this.info()),
       state: this.part('#save-state').textContent ?? '',
-      draft: this.part('#draft-status').textContent ?? '',
-      baseline: !!doc.localBaseline,
     });
   }
   private openHistory() {

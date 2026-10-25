@@ -53,11 +53,8 @@ export interface FileFacts {
   /** Where it is: its full path on disk where Gittin knows it, else its folder and path. */
   location: string;
   state: string;
-  draft: string;
-  /** Whether Diff has the file as it was opened or last saved. */
-  baseline: boolean;
 }
-/** The open file's type, location, save state, draft and what Diff compares it with, then its counts and size. */
+/** The open file's type, location and save state, then its counts and size. */
 export function detailsDialog(facts: FileFacts) {
   fileDialog('File details', body => {
     const table = el('table', { ariaLabel: 'File details' });
@@ -71,8 +68,6 @@ export function detailsDialog(facts: FileFacts) {
     row('Location', el('span', { className: 'details-path' },
       ...facts.location.split(/(?<=[\\/])/).map(part => el('span', { textContent: part }))));
     row('State', facts.state);
-    row('Draft', facts.draft);
-    row('Diff compares with', facts.baseline ? 'The file as opened or last saved' : 'Nothing yet');
     row('Words', count(stats.words), 'Whitespace-separated words in the current source.');
     row('Characters', count(stats.characters), 'Unicode characters, including line endings and any BOM.');
     row('Lines', count(stats.lines), 'Source lines, including a trailing empty line.');

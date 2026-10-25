@@ -7,7 +7,7 @@ const actionIcons: Record<string, IconName> = {
   save: 'device-floppy', 'save-as': 'file-export', 'version-history': 'history', sync: 'arrows-up-down',
   rename: 'pencil', move: 'folder-share', 'delete-file': 'trash',
   favourite: 'star',
-  details: 'info-circle', 'copy-path': 'copy', print: 'printer', 'download-pdf': 'file-type-pdf', close: 'x', undo: 'arrow-back-up', redo: 'arrow-forward-up',
+  details: 'info-circle', 'copy-path': 'folder-symlink', print: 'printer', 'download-pdf': 'file-type-pdf', close: 'x', undo: 'arrow-back-up', redo: 'arrow-forward-up',
   cut: 'cut', copy: 'copy', paste: 'clipboard', selectAll: 'select-all',
   deleteSelection: 'trash', duplicateLines: 'copy', moveLinesUp: 'arrow-up',
   moveLinesDown: 'arrow-down', deleteLines: 'trash', find: 'search',
