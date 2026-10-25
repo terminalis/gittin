@@ -255,7 +255,9 @@ test.describe('writable folders', () => {
     await openFromFolder(page, 'docs/guide.md');
     const panel = page.getByRole('complementary', { name: 'Folder', exact: true });
     await expect(panel.getByRole('button', { name: 'guide.md', exact: true })).toHaveAttribute('aria-current', 'true');
-    await panel.getByRole('searchbox', { name: 'Find a file in this folder' }).fill('read');
+    const search = panel.getByRole('searchbox', { name: 'Search project', exact: true });
+    await expect(search).toHaveAttribute('placeholder', 'Search project');
+    await search.fill('read');
     await expect(panel.getByRole('button', { name: 'readme.md', exact: true })).toBeVisible();
     await panel.getByRole('searchbox').fill('');
     await panel.getByRole('button', { name: 'New file here', exact: true }).click();
@@ -847,7 +849,7 @@ test.describe('writable folders', () => {
     await useFolder(page, { 'readme.md': '# Readme' });
     await page.getByRole('button', { name: 'Open folder', exact: true }).click();
     const chooser = page.getByRole('dialog', { name: 'Open a file in project', exact: true });
-    await chooser.getByRole('searchbox', { name: 'Find a file in this folder' }).fill('read');
+    await chooser.getByRole('searchbox', { name: 'Search project', exact: true }).fill('read');
     await page.keyboard.press('Escape');
     await expect(chooser).toHaveCount(0);
   });

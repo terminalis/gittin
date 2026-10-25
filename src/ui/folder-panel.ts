@@ -40,8 +40,9 @@ export function renderFolderPanel(panel: HTMLElement, o: FolderPanelOptions) {
     return;
   }
   const expanded = new Set(o.current ? ancestors(o.current) : []);
+  // Named after the folder, since that is all it searches.
   const search = el('input',
-    { type: 'search', placeholder: 'Find a file…', ariaLabel: 'Find a file in this folder' });
+    { type: 'search', placeholder: `Search ${source.label}`, ariaLabel: `Search ${source.label}` });
   const tools = el('div', { className: 'folder-tools' });
   // New files and folders go beside the current file.
   const here = () => (o.current ? dirname(o.current) : '');
