@@ -42,20 +42,16 @@ async function createFile(page: Page) {
   await newFile(page);
 }
 
-test('statistics and temporary Compare preserve exact source and saved baseline', async ({
+test('File details counts and temporary Compare preserve exact source and saved baseline', async ({
   page,
 }) => {
   const original = '\ufeffone 😀\r\ntwo\n';
   await openFile(page, original);
-  await command(page, 'File statistics…');
-  await expect(dialog(page, 'File statistics').getByRole('row')).toHaveText([
-    'Words3',
-    'Characters12',
-    'Lines3',
-    'File size17 bytes',
-  ]);
+  await command(page, 'Details');
+  await expect(dialog(page, 'File details').getByRole('row').filter({ hasText: /^(Words|Characters|Lines|Size)/ }))
+    .toHaveText(['Words3', 'Characters12', 'Lines3', 'Size17 bytes']);
   await page.keyboard.press('Escape');
-  await expect(dialog(page, 'File statistics')).toHaveCount(0);
+  await expect(dialog(page, 'File details')).toHaveCount(0);
   const chooser = page.waitForEvent('filechooser');
   await command(page, 'Compare files…');
   await (await chooser).setFiles({ name: 'other.md', mimeType: 'text/markdown', buffer: Buffer.from('other\r\n') });
@@ -80,22 +76,18 @@ test('statistics and temporary Compare preserve exact source and saved baseline'
   expect(await bytes(page)).toEqual(Buffer.from(original));
 });
 
-test('live statistics apply as the box is ticked, update while typing and persist', async ({
+test('View › Show stats while typing applies at once, updates while typing and persists', async ({
   page,
 }) => {
   await createFile(page);
   await editor(page).pressSequentially('one');
   const stats = page.locator('#file-stats');
   await expect(stats).toHaveText('3 characters');
-  await command(page, 'File statistics…');
-  let d = dialog(page, 'File statistics');
-  const box = d.getByRole('checkbox', { name: 'Display stats while typing', exact: true });
-  await expect(box).not.toBeChecked();
-  await expect(d.locator('.dialog-actions button')).toHaveCount(0);
-  await box.check();
+  await openMenu(page, 'View');
+  const item = page.locator('.menus').getByRole('button', { name: 'Show stats while typing', exact: true });
+  await expect(item).toHaveAttribute('aria-pressed', 'false');
+  await item.click();
   await expect(stats).toHaveText('1 word · 3 characters · 1 line · 3 bytes');
-  await page.keyboard.press('Escape');
-  await expect(d).toHaveCount(0);
   await editor(page).press('ControlOrMeta+End');
   await editor(page).pressSequentially(' two');
   await expect(stats).toHaveText('2 words · 7 characters · 1 line · 7 bytes');
@@ -104,15 +96,9 @@ test('live statistics apply as the box is ticked, update while typing and persis
   await expect.poll(async () => (await savedPreferences(page)).showStatsWhileTyping).toBe(true);
   await page.reload();
   await expect(stats).toHaveText('2 words · 7 characters · 1 line · 7 bytes');
-  await page.setViewportSize({ width: 390, height: 844 });
-  await command(page, 'File statistics…');
-  d = dialog(page, 'File statistics');
-  await expect(d.getByRole('checkbox')).toBeChecked();
-  const bounds = await d.boundingBox();
-  expect(bounds!.x).toBeGreaterThanOrEqual(0);
-  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
-  await d.getByRole('checkbox').uncheck();
-  await close(page, 'File statistics');
+  await openMenu(page, 'View');
+  await expect(item).toHaveAttribute('aria-pressed', 'true');
+  await item.click();
   await expect(stats).toHaveText('7 characters');
   await expect(page.locator('#file-type')).toHaveText('Markdown');
   await expect.poll(async () => (await savedPreferences(page)).showStatsWhileTyping).toBe(false);
@@ -565,8 +551,8 @@ test('Ctrl+Shift+F toggles the menus while non-modal Help is open but not under 
     .focus();
   await page.keyboard.press('Escape');
   await expect(dialog(page, 'Gittin Help')).toHaveCount(0);
-  await command(page, 'File statistics…');
-  await expect(dialog(page, 'File statistics')).toBeVisible();
+  await command(page, 'Details');
+  await expect(dialog(page, 'File details')).toBeVisible();
   await page.keyboard.press('Control+Shift+f');
   await expect(header).toBeVisible();
 });

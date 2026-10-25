@@ -319,26 +319,22 @@ test('coarse Diff retains full versions with bounded DOM and reports newline-onl
   await expect(readable(page).locator('pre').first()).toHaveText('old\n'.repeat(11000));
 });
 
-test('the Outline is drawn as soon as a file opens', async ({ page }) => {
+test("the open file's headings are drawn in Open Files as soon as it opens", async ({ page }) => {
   await withoutPickers(page, 'open');
   for (const [name, source, outline] of [
-    [
-      'site.yaml',
-      '# Site settings\ntitle: "Field notes"\n',
-      'Outline is available for Markdown files.',
-    ],
+    ['site.yaml', '# Site settings\ntitle: "Field notes"\n', ''],
     ['guide.md', '# Guide\n\n## Getting started\n', 'GuideGetting started'],
-    ['notes.md', 'No headings yet.\n', 'Headings in this file appear here.'],
+    ['notes.md', 'No headings yet.\n', ''],
   ]) {
     await home(page);
-    // Records the Outline when the workspace first appears, before any timer can fill it in.
+    // Records the current file's headings when the workspace first appears, before any timer can fill them in.
     await page.evaluate(() => {
       (window as any).outlineAtOpen = new Promise((resolve) =>
         new MutationObserver((_, observer) => {
-          const element = document.querySelector('#outline');
-          if (element) {
+          const row = document.querySelector('#open-documents .open-document:has([aria-current="true"])');
+          if (row) {
             observer.disconnect();
-            resolve(element.textContent);
+            resolve([...row.querySelectorAll('.open-headings button')].map((b) => b.textContent).join(''));
           }
         }).observe(document.body, { childList: true, subtree: true }),
       );

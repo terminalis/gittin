@@ -7,13 +7,13 @@ test('after one visit Gittin starts offline and edits and exports an existing dr
   await expect(page.locator('.offline-status')).toBeVisible();
   await page.getByRole('button', { name: 'New file', exact: true }).click();
   await editor(page).pressSequentially('offline draft');
-  await expect(page.locator('#draft-status')).toHaveText('Draft saved on this device');
+  await expect(page.locator('#draft-status')).toHaveText('Saved on this device');
   await context.setOffline(true);
   await page.reload();
   await expect(editor(page)).toHaveText('offline draft');
   await editor(page).press('End');
   await editor(page).pressSequentially(' edited');
-  await expect(page.locator('#draft-status')).toHaveText('Draft saved on this device');
+  await expect(page.locator('#draft-status')).toHaveText('Saved on this device');
   const saving = page.waitForEvent('download');
   await page.locator('#save-file').click();
   expect((await readFile((await (await saving).path())!)).toString()).toBe('offline draft edited');

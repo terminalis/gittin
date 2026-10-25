@@ -1,5 +1,6 @@
-import { button, copyText, el, field, fileDialog, iconButton, unreadable } from './dom';
+import { button, el, field, fileDialog, unreadable } from './dom';
 import { icon, type IconName } from './icons';
+import { fileStatistics } from './tools-dialogs';
 import { fileDescriptor, type FileType } from '../documents/file-types';
 import { sizeLabel } from '../documents/labels';
 import { basename, dirname, join } from '../sources/paths';
@@ -51,29 +52,28 @@ export interface FileFacts {
   source: string;
   /** Where it is: its full path on disk where Gittin knows it, else its folder and path. */
   location: string;
-  /** What Copy path copies; null for a file with no path. */
-  path: string | null;
   state: string;
-  draft: string;
-  /** Whether Diff has the file as it was opened or last saved. */
-  baseline: boolean;
 }
-/** The open file's type, size, location, save state, draft and what Diff compares it with, laid out as File
- * statistics. */
+/** The open file's type, location and save state, then its counts and size. */
 export function detailsDialog(facts: FileFacts) {
   fileDialog('File details', body => {
     const table = el('table', { ariaLabel: 'File details' });
-    const row = (label: string, ...value: (Node | string)[]) =>
-      table.insertRow().append(el('th', { scope: 'row', textContent: label }), el('td', {}, ...value));
+    table.setAttribute('aria-describedby', 'details-help');
+    const row = (label: string, value: Node | string, description?: string) =>
+      table.insertRow().append(el('th', { scope: 'row', textContent: label, ...description && { title: description } }),
+        el('td', {}, value));
+    const stats = fileStatistics(facts.source), count = (n: number) => n.toLocaleString('en-GB');
     row('Type', fileDescriptor(facts.type)?.label ?? 'Unknown UTF-8 file (readable source)');
-    row('Size', sizeLabel(new TextEncoder().encode(facts.source).length));
-    const path = facts.path;
-    row('Location', el('span', { textContent: facts.location }), ...(path === null ? [] : [iconButton('copy',
-      'Copy path', () => copyText(path, 'Path copied.', 'Select the path and copy it with your device shortcut.'))]));
+    // Each folder in the path is one unbreakable piece, so the path wraps only after a separator.
+    row('Location', el('span', { className: 'details-path' },
+      ...facts.location.split(/(?<=[\\/])/).map(part => el('span', { textContent: part }))));
     row('State', facts.state);
-    row('Draft', facts.draft);
-    row('Diff compares with', facts.baseline ? 'The file as you opened or last saved it' : 'Nothing yet');
-    body.append(table);
+    row('Words', count(stats.words), 'Whitespace-separated words in the current source.');
+    row('Characters', count(stats.characters), 'Unicode characters, including line endings and any BOM.');
+    row('Lines', count(stats.lines), 'Source lines, including a trailing empty line.');
+    row('Size', sizeLabel(stats.bytes), 'UTF-8 encoded size, including any BOM.');
+    body.append(table, el('p', { id: 'details-help', className: 'details-help',
+      textContent: 'Counts use the full source text. File size is measured in UTF-8 bytes.' }));
   }, { className: 'details-dialog', info: true });
 }
 /** Rename a file where it is. Links to and from it are not rewritten. */

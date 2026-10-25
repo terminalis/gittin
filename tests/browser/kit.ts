@@ -101,7 +101,13 @@ export async function openText(
 }
 
 export const expectDraftSaved = (page: Page) =>
-  expect(page.locator('#draft-status')).toHaveText('Draft saved on this device');
+  expect(page.locator('#draft-status')).toHaveText('Saved on this device');
+
+/** Closes an open file from its ⋯ in Open Files. */
+export async function closeOpenFile(page: Page, title: string) {
+  await page.locator('#open-documents').getByRole('button', { name: `Actions for ${title}`, exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Close', exact: true }).click();
+}
 
 export const palette = (page: Page) =>
   page.getByRole('dialog', { name: 'Search commands and settings' });

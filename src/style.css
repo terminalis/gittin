@@ -431,14 +431,14 @@ a:has(> .app-icon) {
   cursor: pointer;
 }
 /* Checkbox rows in dialogs. */
-.workspace-dialog :is(.dialog-option, .preference-option, .statistics-option) {
+.workspace-dialog :is(.dialog-option, .preference-option) {
   display: flex;
   align-items: center;
   gap: 20px;
   min-height: 44px;
   cursor: pointer;
 }
-.workspace-dialog :is(.preference-option, .statistics-option) {
+.workspace-dialog .preference-option {
   margin: 0;
   padding: 8px 12px;
 }
@@ -485,7 +485,7 @@ a:has(> .app-icon) {
 /* Hints in dialogs. */
 .dialog-hint,
 .preferences-hint,
-.statistics-help {
+.details-help {
   color: var(--muted);
   font-size: 13px;
   line-height: 20px;
@@ -651,46 +651,41 @@ a:has(> .app-icon) {
   background: var(--surface);
   border: 1px solid var(--line);
 }
-.statistics-dialog {
-  --dialog-width: 350px;
+.details-dialog {
+  --dialog-width: 520px;
 }
-/* File statistics' table, which File details shares; details' values are words and paths, read from the left, with
-   Copy path at the end. */
-.statistics-dialog table,
+/* File details: muted labels in a column as wide as the longest, each beside the first line of its value. */
 .details-dialog table {
   width: 100%;
   border-collapse: collapse;
 }
-.statistics-dialog th,
-.statistics-dialog td,
 .details-dialog th,
 .details-dialog td {
-  height: 52px;
-  padding: 0 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--line);
   font-weight: 400;
-}
-.statistics-dialog th,
-.details-dialog th {
+  line-height: 24px;
   text-align: left;
+  vertical-align: top;
 }
-.statistics-dialog td {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
+.details-dialog th {
+  width: 1%;
+  color: var(--muted);
+  white-space: nowrap;
 }
 .details-dialog td {
   overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
 }
-.details-dialog td button {
-  margin-left: 6px;
-  vertical-align: middle;
+/* A path's folders wrap as whole pieces; one too long for the line still breaks. */
+.details-path > span {
+  display: inline-block;
+  max-width: 100%;
 }
-.statistics-dialog tr:last-child > *,
 .details-dialog tr:last-child > * {
   border-bottom: 0;
 }
-.statistics-help {
+.details-help {
   margin: 8px 12px 12px;
   line-height: 18px;
 }
@@ -2111,14 +2106,19 @@ label.home-option {
   font-size: 13px;
   margin: 10px 0 20px;
 }
-#open-documents {
-  padding-bottom: 24px;
-  margin-bottom: 22px;
-  border-bottom: 1px solid var(--line);
-}
+/* Open Files: each file's row (its name and ⋯), then its headings while shown. */
 .open-document {
-  display: flex;
   margin: 4px -7px;
+}
+.open-document-row {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius);
+}
+/* The current file's whole row is marked, chevron and buttons included, as the Folder panel marks its row. */
+.open-document-row:has(> .open-document-name[aria-current="true"]) {
+  background: var(--warm);
+  box-shadow: inset 3px 0 var(--accent);
 }
 .open-document button {
   border: 0;
@@ -2126,35 +2126,42 @@ label.home-option {
   font-size: 14px;
   padding: 9px 8px;
 }
-.open-document button:first-child {
+.open-document-name {
   position: relative;
   flex: 1;
+  min-width: 0;
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.open-document button[aria-current="true"] {
-  background: var(--warm);
+.open-document-name[aria-current="true"] {
+  background: transparent;
   color: var(--ink);
-  border-left: 3px solid var(--accent);
 }
-.open-document button:last-child {
+.open-document .open-document-more {
+  flex: none;
   padding: 5px;
   color: var(--muted);
 }
-#outline {
-  font-size: 13px;
-  color: var(--muted);
+.open-headings {
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
 }
-#outline button {
+.open-document .open-headings button {
   display: block;
-  text-align: left;
   width: 100%;
-  border: 0;
-  background: transparent;
-  padding: 8px;
+  padding: 6px 8px;
+  overflow: hidden;
   color: var(--ink);
+  font-size: 13px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.open-document .open-headings button:hover {
+  background: var(--warm);
 }
 .writing-column {
   flex: 1;
@@ -2309,11 +2316,22 @@ label.home-option {
   margin-left: 36px;
 }
 .find-count {
-  min-width: 64px;
+  position: absolute;
+  top: 50%;
+  right: 8px;
   color: var(--muted);
   font-size: 13px;
-  text-align: center;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+/* Once a search reports, the count takes the magnifier's place and the text stops short of it. */
+.find-field:has(.find-count:not(:empty)) .app-icon {
+  display: none;
+}
+.find-field:has(.find-count:not(:empty)) input {
+  padding-right: 84px;
 }
 .find-message {
   margin: 6px 0 0 36px;
@@ -2451,7 +2469,8 @@ label.home-option {
   border: 0;
   line-height: 24px;
 }
-#details {
+#details,
+#copy-path {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2460,7 +2479,7 @@ label.home-option {
   padding: 4px;
   border: 0;
 }
-.workspace-header :where(#document-title, #favourite, #details) {
+.workspace-header :where(#document-title, #favourite, #details, #copy-path) {
   background: transparent;
 }
 .workspace-header .menus > details > summary {
@@ -2497,7 +2516,8 @@ label.home-option {
 }
 #favourite > .app-icon,
 #details > .app-icon,
-.open-document button > .app-icon {
+#copy-path > .app-icon,
+.open-document-more > .app-icon {
   --icon: 18px;
 }
 #documents-toggle[aria-expanded="false"] > [data-icon^="layout-sidebar"],
@@ -2595,34 +2615,43 @@ label.home-option {
   margin: 0;
   flex: 1 1 240px;
 }
+/* The Folder panel: the heading and the folder's own row, the search, then the files, which scroll on their own so a
+   section under them (the desktop app's Repository) stays at the panel's foot. */
+#repository-panel {
+  display: flex;
+  flex-direction: column;
+}
 .folder-header {
   margin: 0 0 10px;
 }
-.folder-name {
-  margin: 0 0 4px;
+.folder-current {
+  position: relative;
+}
+.folder-current > .folder-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 5px 30px 5px 6px;
+  font-size: 13px;
+  line-height: 18px;
+}
+.folder-name > span {
   overflow: hidden;
-  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The buttons' icons line up with the name above them. */
-.folder-tools {
-  display: flex;
-  gap: 2px;
-  margin-left: -5px;
-}
-.folder-tools button {
-  border: 0;
-  background: transparent;
+.folder-name .app-icon {
+  --icon: 16px;
   color: var(--muted);
-  padding: 5px;
 }
-.folder-tools button:hover {
-  color: var(--ink);
-  background: var(--warm);
-}
-.folder-tools .app-icon {
-  --icon: 18px;
+/* The side margins give the rows' ⋯ room for their focus rings inside the scrolling area. */
+#repository-panel .folder-files {
+  flex: 1;
+  min-height: 0;
+  margin: 0 -6px;
+  padding: 0 6px;
+  overflow: auto;
 }
 #repository-panel input[type="search"],
 .folder-chooser input[type="search"] {
@@ -2776,10 +2805,10 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   transform: rotate(90deg);
 }
 /* Unsaved changes: a dot after the file name (the row also gets an accessible description). */
-.open-document button[data-unsaved]:first-child {
+.open-document-name[data-unsaved] {
   padding-right: 24px;
 }
-.open-document button[data-unsaved]::after,
+.open-document-name[data-unsaved]::after,
 .folder-row[data-unsaved]::after {
   content: "";
   width: 8px;
@@ -2787,7 +2816,7 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   border-radius: 50%;
   background: var(--accent);
 }
-.open-document button[data-unsaved]::after {
+.open-document-name[data-unsaved]::after {
   position: absolute;
   right: 9px;
   top: calc(50% - 4px);
@@ -2870,10 +2899,6 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   .find-card {
     width: calc(100% - 16px);
   }
-  .find-count {
-    min-width: 0;
-    font-size: 12px;
-  }
   /* Phone: logo, title and Save share the first row; the menus take the whole second row. */
   .workspace-header {
     position: relative;
@@ -2937,8 +2962,8 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   /* Comfortable touch rows. */
   button.folder-row,
   summary.folder-row,
-  .open-document button,
-  #outline button {
+  .folder-current > .folder-name,
+  .open-document button {
     min-height: 44px;
   }
   /* The row's ⋯ is a full-height touch target. */
@@ -2952,7 +2977,8 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
     align-items: center;
   }
   .folder-tree li:has(> .folder-row-more) > .folder-row,
-  .folder-tree li:has(> .folder-row-more) > details > summary.folder-row {
+  .folder-tree li:has(> .folder-row-more) > details > summary.folder-row,
+  .folder-current > .folder-name {
     padding-right: 44px;
   }
 }
@@ -2989,9 +3015,10 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   #workspace:not(.focus-mode) .workspace-header.menus-hidden {
     display: grid;
   }
-  /* The title needs the room; File › Details and File › Add/remove favourite stay in the menu. */
+  /* The title needs the room; File › Add/remove favourite, Details and Copy path stay in the menu. */
   #favourite,
-  #details {
+  #details,
+  #copy-path {
     display: none;
   }
   .workspace-tools > button > [data-icon^="layout-sidebar"] {
@@ -3001,12 +3028,13 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
     display: inline-block;
   }
 }
-/* With a mouse, ⋯ shows on the row in use; touch screens always show it. */
+/* With a mouse, a file or subfolder's ⋯ shows on the row in use; the current file's, the folder's own and touch
+   screens' always show. */
 @media (hover: hover) {
-  .folder-row-more {
+  .folder-tree .folder-row-more {
     opacity: 0;
   }
-  .folder-tree li:has(> .folder-row:hover, > details > summary:hover) > .folder-row-more,
+  .folder-tree li:has(> .folder-row:hover, > .folder-row[aria-current="true"], > details > summary:hover) > .folder-row-more,
   .folder-row-more:hover,
   .folder-row-more:focus-visible,
   .folder-row-more[aria-expanded="true"] {

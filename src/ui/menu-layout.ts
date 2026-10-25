@@ -8,12 +8,12 @@ const sections: Record<string, readonly (readonly string[])[]> = {
     ['Email'],
     ['save', 'save-as', 'sync', 'version-history'],
     ['rename', 'move', 'delete-file', 'favourite'],
-    ['details', 'print', 'download-pdf', 'close'],
+    ['details', 'copy-path', 'print', 'download-pdf', 'close'],
   ],
   Edit: [['undo', 'redo'], ['cut', 'copy', 'paste'], ['selectAll', 'deleteSelection', 'Lines'], ['find']],
   View: [
     ['Mode', 'showComments'],
-    ['line-numbers', 'syntaxHighlighting', 'whitespace', 'wordWrap', 'Toolbar', 'Appearance'],
+    ['line-numbers', 'syntaxHighlighting', 'whitespace', 'wordWrap', 'stats-while-typing', 'Toolbar', 'Appearance'],
     ['focus', 'fullscreen'],
   ],
   Insert: [
@@ -27,7 +27,7 @@ const sections: Record<string, readonly (readonly string[])[]> = {
     ['clearFormatting'],
   ],
   Tools: [
-    ['statistics', 'compare-files', 'attributions', 'linked-resources'],
+    ['compare-files', 'attributions', 'linked-resources'],
     ['preferences'],
   ],
   Help: [

@@ -3,6 +3,7 @@ import { unzipSync } from 'fflate';
 import {
   EDITOR,
   chromiumOnly,
+  closeOpenFile,
   command,
   disk,
   download,
@@ -242,7 +243,7 @@ test.describe('writable folders', () => {
     await useFolder(page, { 'a.md': 'one' });
     await openFromFolder(page, 'a.md');
     await editor(page).fill('changed');
-    await page.getByRole('button', { name: 'Close a.md', exact: true }).click();
+    await closeOpenFile(page, 'a.md');
     const dialog = page.getByRole('dialog', { name: 'Close a.md?', exact: true });
     await dialog.getByRole('button', { name: 'Discard changes', exact: true }).click();
     await expect(page.locator('#home')).toBeVisible();
@@ -255,29 +256,38 @@ test.describe('writable folders', () => {
     await openFromFolder(page, 'docs/guide.md');
     const panel = page.getByRole('complementary', { name: 'Folder', exact: true });
     await expect(panel.getByRole('button', { name: 'guide.md', exact: true })).toHaveAttribute('aria-current', 'true');
-    await panel.getByRole('searchbox', { name: 'Find a file in this folder' }).fill('read');
+    const search = panel.getByRole('searchbox', { name: 'Search project', exact: true });
+    await expect(search).toHaveAttribute('placeholder', 'Search project');
+    await search.fill('read');
     await expect(panel.getByRole('button', { name: 'readme.md', exact: true })).toBeVisible();
     await panel.getByRole('searchbox').fill('');
-    await panel.getByRole('button', { name: 'New file here', exact: true }).click();
+    // The folder's own ⋯ makes the file at its top, wherever the open file is.
+    await panel.getByRole('button', { name: 'Actions for project', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'New file', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'New file', exact: true });
     await dialog.getByLabel('File name').fill('notes.md');
     await dialog.getByRole('button', { name: 'Create', exact: true }).click();
     await expect(page.locator('#document-title')).toHaveText('notes.md');
-    expect(await disk.read(page, 'docs/notes.md')).toBe('');
+    expect(await disk.read(page, 'notes.md')).toBe('');
   });
 
-  test('New folder creates a folder beside the current file and refuses a name in use', async ({ page }) => {
-    await useFolder(page, { 'docs/guide.md': 'G' });
-    await openFromFolder(page, 'docs/guide.md');
+  test("a subfolder's New folder makes the folder inside it and refuses a name in use", async ({ page }) => {
+    await useFolder(page, { 'docs/guide.md': 'G', 'readme.md': 'R' });
+    await openFromFolder(page, 'readme.md');
     const panel = folderPanel(page);
-    await panel.getByRole('button', { name: 'New folder', exact: true }).click();
+    const newFolder = async (owner: string) => {
+      await panel.getByRole('button', { name: `Actions for ${owner}`, exact: true }).click();
+      await page.getByRole('menuitem', { name: 'New folder', exact: true }).click();
+    };
+    await newFolder('docs');
     const dialog = page.getByRole('dialog', { name: 'New folder', exact: true });
     await dialog.getByLabel('Folder name').fill('img');
     await dialog.getByRole('button', { name: 'Create', exact: true }).click();
     await expect(dialog).toHaveCount(0);
+    // The subfolder opens to show the new folder.
     await expect(panel.locator('summary', { hasText: 'img' })).toBeVisible();
     expect(await disk.kind(page, 'docs/img')).toBe('directory');
-    await panel.getByRole('button', { name: 'New folder', exact: true }).click();
+    await newFolder('docs');
     await dialog.getByLabel('Folder name').fill('img');
     await dialog.getByRole('button', { name: 'Create', exact: true }).click();
     await expect(dialog.getByRole('alert')).toHaveText('img already exists in docs.');
@@ -335,7 +345,7 @@ test.describe('writable folders', () => {
     await useFolder(page, { 'a.md': 'A', 'b.md': 'B', 'docs/c.md': 'C' });
     await openFromFolder(page, 'b.md');
     // Closing a file without changes keeps its draft (its recent entry) but leaves it closed.
-    await page.getByRole('button', { name: 'Close b.md', exact: true }).click();
+    await closeOpenFile(page, 'b.md');
     await openFromFolder(page, 'a.md');
     const panel = folderPanel(page);
     await panel.getByRole('button', { name: 'Actions for b.md', exact: true }).click();
@@ -383,7 +393,7 @@ test.describe('writable folders', () => {
     expect(await disk.read(page, 'notes/a.md')).toBe('A');
   });
 
-  test('File details shows six rows with the location and Copy path, and opens from the folder button', async ({ page }) => {
+  test('File details lists the file and its counts; Copy path sits beside the name and in the File menu', async ({ page }) => {
     await useFolder(page, { 'docs/a.md': '# A\n' });
     await openFromFolder(page, 'docs/a.md');
     await expectDraftSaved(page);
@@ -396,17 +406,19 @@ test.describe('writable folders', () => {
     const details = page.getByRole('dialog', { name: 'File details', exact: true });
     await expect(details.getByRole('row')).toHaveText([
       'TypeMarkdown',
-      'Size4 bytes',
       'Locationproject › docs/a.md',
       'StateSaved',
-      'DraftDraft saved on this device',
-      'Diff compares withThe file as you opened or last saved it',
+      'Words2',
+      'Characters4',
+      'Lines2',
+      'Size4 bytes',
     ]);
-    await details.getByRole('button', { name: 'Copy path', exact: true }).click();
+    await details.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.locator('.workspace-header').getByRole('button', { name: 'Copy path', exact: true }).click();
     await expect.poll(() => page.evaluate(() => (window as any).copied)).toBe('docs/a.md');
     await expect(page.locator('#notice')).toContainText('Path copied.');
-    await details.getByRole('button', { name: 'Close', exact: true }).click();
     await page.locator('.menus > details > summary').filter({ hasText: /^File$/ }).click();
+    await expect(page.locator('.menus .menu-items button').filter({ hasText: /^Copy path$/ })).toBeEnabled();
     await expect(page.locator('.menus .menu-items button').filter({ hasText: /^Location$/ })).toHaveCount(0);
   });
 
@@ -465,7 +477,7 @@ test.describe('writable folders', () => {
     await expect(dialog).toContainText('docs holds 2 files. The folder and everything in it are deleted permanently and do not go to the Recycle Bin.');
     await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(page.locator('#document-title')).toHaveText('a.md');
-    await expect(page.getByRole('button', { name: 'Close b.md', exact: true })).toHaveCount(0);
+    await expect(page.locator('#open-documents').getByRole('button', { name: 'Actions for b.md', exact: true })).toHaveCount(0);
     await expect(panel.locator('summary', { hasText: 'docs' })).toHaveCount(0);
     await expect(editor(page)).toBeFocused();
     expect(await disk.kind(page, 'docs')).toBeNull();
@@ -751,10 +763,11 @@ test.describe('writable folders', () => {
     await expect(page.locator('#notice')).toContainText('Gittin needs permission to open project.');
   });
 
-  test('New file here with a name in use, in any letter case, offers to open that file', async ({ page }) => {
+  test('New file with a name in use, in any letter case, offers to open that file', async ({ page }) => {
     await useFolder(page, { 'a.md': 'A', 'b.md': 'B' });
     await openFromFolder(page, 'a.md');
-    await folderPanel(page).getByRole('button', { name: 'New file here', exact: true }).click();
+    await folderPanel(page).getByRole('button', { name: 'Actions for project', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'New file', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'New file', exact: true });
     await dialog.getByLabel('File name').fill('B.md');
     await dialog.getByRole('button', { name: 'Create', exact: true }).click();
@@ -766,15 +779,20 @@ test.describe('writable folders', () => {
     expect(await disk.read(page, 'b.md')).toBe('B');
   });
 
-  test("the Folder panel reads Current Folder, then the folder's name, then its buttons", async ({ page }) => {
-    await useFolder(page, { 'a.md': 'A' });
+  test("the Folder panel reads Current Folder, then the folder as a row whose ⋯ acts on the whole folder", async ({ page }) => {
+    await useFolder(page, { 'a.md': 'A', 'b.md': 'B' });
     await openFromFolder(page, 'a.md');
     const panel = folderPanel(page);
     await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Current Folder');
     await expect(panel.locator('.folder-name')).toHaveText('project');
-    const name = (await panel.locator('.folder-name').boundingBox())!;
-    const tools = (await panel.locator('.folder-tools').boundingBox())!;
-    expect(tools.y).toBeGreaterThanOrEqual(name.y + name.height);
+    // The folder's ⋯ and the current file's show without hovering; another file's waits for the mouse.
+    const more = panel.getByRole('button', { name: 'Actions for project', exact: true });
+    await expect(more).toHaveCSS('opacity', '1');
+    await expect(panel.getByRole('button', { name: 'Actions for a.md', exact: true })).toHaveCSS('opacity', '1');
+    await expect(panel.getByRole('button', { name: 'Actions for b.md', exact: true })).toHaveCSS('opacity', '0');
+    await more.click();
+    await expect(page.getByRole('menu', { name: 'Actions for project' }).getByRole('menuitem'))
+      .toHaveText(['New file', 'New folder', 'Refresh']);
   });
 
   test('Save as… in the File changed on disk dialog writes a new file and leaves the changed one', async ({ page }) => {
@@ -819,7 +837,7 @@ test.describe('writable folders', () => {
     await pickFromFolder(page, 'b.md');
     await openFile(page);
     await expect(page.locator('#document-title')).toHaveText('b.md');
-    await page.getByRole('button', { name: 'Close b.md', exact: true }).click();
+    await closeOpenFile(page, 'b.md');
     await expect(page.locator('#home')).toBeVisible();
     await pickFromFolder(page, 'docs/a.md');
     await openFile(page);
@@ -845,7 +863,7 @@ test.describe('writable folders', () => {
     await useFolder(page, { 'readme.md': '# Readme' });
     await page.getByRole('button', { name: 'Open folder', exact: true }).click();
     const chooser = page.getByRole('dialog', { name: 'Open a file in project', exact: true });
-    await chooser.getByRole('searchbox', { name: 'Find a file in this folder' }).fill('read');
+    await chooser.getByRole('searchbox', { name: 'Search project', exact: true }).fill('read');
     await page.keyboard.press('Escape');
     await expect(chooser).toHaveCount(0);
   });
@@ -915,9 +933,12 @@ test('without a folder picker, a folder opens read-only, Save downloads and edit
   const openRow = page.locator('#open-documents button[aria-current="true"]');
   const treeRow = page.locator('#repository-panel button.folder-row[title="sub/a.md"]');
   await expect(treeRow).toBeVisible();
-  // Gittin cannot write here, so the panel offers no new files or folders and no ⋯ menus.
+  // Gittin cannot write here, so the folder's ⋯ offers only Refresh, and the rows have none.
   const panel = page.locator('#repository-panel');
-  for (const name of ['New file here', 'New folder', 'Actions for a.md'])
+  await panel.locator('.folder-current .folder-row-more').click();
+  await expect(page.getByRole('menu').getByRole('menuitem')).toHaveText(['Refresh']);
+  await page.keyboard.press('Escape');
+  for (const name of ['Actions for sub', 'Actions for a.md'])
     await expect(panel.getByRole('button', { name })).toHaveCount(0);
   await expect(openRow).not.toHaveAttribute('data-unsaved');
   await editor(page).click();

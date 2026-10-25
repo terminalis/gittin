@@ -1,18 +1,26 @@
-// Start a repository, for an opened folder where neither the folder nor any folder directly inside it is
-// one: a bar until Not now, and a button in the Folder panel's header for good. A folder with files lists them first,
-// all ticked: the ticked ones become the repository's first commit, the others go into its .gitignore.
+// Start a repository, for an opened folder that isn't one: the Folder panel's Repository section offers it. A folder
+// with files lists them first, all ticked: the ticked ones become the repository's first commit, the others go into its
+// .gitignore.
 import { reshow } from '../app';
 import type { FolderSource } from '../sources/folder';
 import { basename } from '../sources/paths';
 import type { TreeEntry } from '../sources/types';
-import { button, checkbox, el, fileDialog, iconButton, notice } from '../ui/dom';
+import { button, checkbox, el, fileDialog, notice } from '../ui/dom';
+import { icon, type IconName } from '../ui/icons';
 import type { DesktopDirectoryHandle } from './files';
 import { git } from './git';
 import { commitFirst } from './save';
 
-const dismissedKey = 'gittin-start-repository-dismissed';
-function dismissed(): string[] {
-  try { return JSON.parse(localStorage.getItem(dismissedKey) ?? '[]'); } catch { return []; }
+/** The Folder panel's Repository section, under the files, made on first use. */
+export function repositorySection(panel: HTMLElement) {
+  return panel.querySelector<HTMLElement>(':scope > .repository-section') ?? panel.appendChild(
+    el('section', { className: 'repository-section' }, el('h2', { textContent: 'Repository' })));
+}
+/** A Repository section button: its icon, then its label. */
+export function repositoryButton(label: string, name: IconName, action: () => void) {
+  const b = button(label, action);
+  b.prepend(icon(name));
+  return b;
 }
 
 /** The names of the entries to commit, all ticked to begin with; null when the writer cancels. */
@@ -59,21 +67,12 @@ export function offerRepository(source: FolderSource, panel: HTMLElement) {
   void git.repositories(folder.path).then(repositories => {
     // The panel may have been drawn again meanwhile.
     if (!header?.isConnected || repositories.includes('')) return;
-    const start = () => void startRepository(source).then(started => {
-      if (!started) return;
-      bar.remove();
-      offer.remove();
-      void reshow();
-    }, notice);
-    const offer = iconButton('git-branch', 'Start a repository', start);
-    header.querySelector('.folder-tools')?.append(offer);
-    const bar = el('div', { className: 'repository-offer', role: 'note' },
-      el('p', { textContent: "Start a repository to keep this folder's history in git." }),
-      button('Start a repository', start, 'primary'),
-      button('Not now', () => {
-        try { localStorage.setItem(dismissedKey, JSON.stringify([...dismissed(), folder.path])); } catch {}
-        bar.remove();
-      }));
-    if (!repositories.length && !dismissed().includes(folder.path)) header.after(bar);
+    const section = repositorySection(panel);
+    section.append(el('p', { textContent: "This folder isn't a repository." }),
+      repositoryButton('Start a repository', 'git-branch', () => void startRepository(source).then(started => {
+        if (!started) return;
+        section.remove();
+        void reshow();
+      }, notice)));
   }, () => {});
 }

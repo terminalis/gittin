@@ -13,7 +13,8 @@ const optionLabels: [Option, string][] = [
 ];
 /**
  * Find and replace as Windows 11 Notepad lays it out: a card over the top centre of the text. The first row holds the
- * chevron that shows Replace, the find field, the count, ↓ and ↑, the options and ✕; Replace takes the second row.
+ * chevron that shows Replace, the find field with the count inside it, ↓ and ↑, the options and ✕; Replace takes the
+ * second row.
  * Replace and regular expressions work on the source, so Preview and Diff grey them out.
  */
 export class FindBar {
@@ -57,7 +58,7 @@ export class FindBar {
     this.optionsButton.setAttribute('aria-expanded', 'false');
     this.element.append(el('div', { className: 'find-card' },
       el('div', { className: 'find-row' }, this.chevron,
-        el('div', { className: 'find-field' }, this.query, icon('search')), this.count, ...this.moves,
+        el('div', { className: 'find-field' }, this.query, icon('search'), this.count), ...this.moves,
         this.optionsButton, tagged('close', iconButton('x', 'Close find', () => this.close()))),
       this.replaceRow, this.message), this.menu.element);
     this.query.addEventListener('input', () => this.searchSoon());

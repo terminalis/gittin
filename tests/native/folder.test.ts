@@ -20,7 +20,7 @@ beforeEach(async () => {
   vi.mocked(reshow).mockClear();
   work = await addFolder(new DesktopDirectoryHandle('/work'));
   panel = document.createElement('aside');
-  panel.innerHTML = '<div class="folder-header"><h2>Current Folder</h2><div class="folder-tools"></div></div>';
+  panel.innerHTML = '<div class="folder-header"><h2>Current Folder</h2></div>';
   document.body.append(panel);
   useGit({
     repositories: async () => [],
@@ -38,10 +38,23 @@ const boxes = () => [...openDialog()!.querySelectorAll<HTMLInputElement>('input[
 test("an empty folder starts at once, with nothing but git's folder", async () => {
   vi.spyOn(work, 'list').mockResolvedValue([]);
   offerRepository(work, panel);
+  await vi.waitFor(() => expect(panel.lastElementChild!.className).toBe('repository-section'));
+  expect(panel.lastElementChild!.textContent).toBe("RepositoryThis folder isn't a repository.Start a repository");
   await start();
   await vi.waitFor(() => expect(reshow).toHaveBeenCalled());
   expect(openDialog()).toBeNull();
   expect(calls).toEqual([['init', '/work', []]]);
+  expect(panel.querySelector('.repository-section')).toBeNull();
+});
+
+test('a folder that is a repository is offered no start; one holding a repository is', async () => {
+  useGit({ repositories: async () => [''] } as unknown as Git);
+  offerRepository(work, panel);
+  await new Promise(resolve => setTimeout(resolve));
+  expect(panel.querySelector('.repository-section')).toBeNull();
+  useGit({ repositories: async () => ['notes'] } as unknown as Git);
+  offerRepository(work, panel);
+  await vi.waitFor(() => expect(buttonNamed('Start a repository', panel)).toBeTruthy());
 });
 
 test("the folder's files are listed ticked; unticked ones go into .gitignore and the rest are the first commit", async () => {

@@ -28,10 +28,32 @@ export interface FolderPanelOptions {
   unsaved?(path: string): boolean;
   signal: AbortSignal;
 }
+/** A ⋯ menu item: its label, icon and what it does. */
+export type MenuItem = [label: string, icon: IconName, run: () => void];
+/** A ⋯ button that opens `items` in `menu` as the actions for `target`; a function gives the items as they are when ⋯
+ * is pressed. */
+export function moreButton(menu: PopupMenu, target: string, items: MenuItem[] | (() => MenuItem[])) {
+  const toggle = iconButton('dots-vertical', `Actions for ${target}`, () => {
+    if (toggle.getAttribute('aria-expanded') === 'true') return menu.close(true);
+    menu.element.setAttribute('aria-label', `Actions for ${target}`);
+    menu.element.replaceChildren(...(typeof items === 'function' ? items() : items).map(([label, name, run]) => {
+      // Focus goes back to ⋯ first, so the dialog that follows returns focus there.
+      const item = Object.assign(button(label, () => { menu.close(true); run(); }), { role: 'menuitem' });
+      item.prepend(icon(name));
+      return item;
+    }));
+    menu.open(toggle);
+  });
+  return Object.assign(toggle, { className: 'folder-row-more', ariaHasPopup: 'menu', ariaExpanded: 'false' });
+}
 export function renderFolderPanel(panel: HTMLElement, o: FolderPanelOptions) {
-  // "Current Folder" heads the panel as "Open Files" heads the Files panel; the folder's name and its buttons follow.
+  // "Current Folder" heads the panel as "Open Files" heads the Files panel; the folder follows as a row of its own,
+  // whose ⋯ holds what acts on the whole folder.
+  const label = o.label ?? o.source?.label ?? null;
   const header = el('div', { className: 'folder-header' }, el('h2', { textContent: 'Current Folder' }));
-  if (o.label) header.append(el('p', { className: 'folder-name', textContent: o.label, title: o.label }));
+  const current = el('div', { className: 'folder-current' },
+    el('p', { className: 'folder-name', title: label ?? '' }, icon('folder'), el('span', { textContent: label ?? '' })));
+  if (label) header.append(current);
   panel.replaceChildren(header);
   const source = o.source;
   if (!source) {
@@ -40,60 +62,44 @@ export function renderFolderPanel(panel: HTMLElement, o: FolderPanelOptions) {
     return;
   }
   const expanded = new Set(o.current ? ancestors(o.current) : []);
+  // Named after the folder, since that is all it searches.
   const search = el('input',
-    { type: 'search', placeholder: 'Find a file…', ariaLabel: 'Find a file in this folder' });
-  const tools = el('div', { className: 'folder-tools' });
-  // New files and folders go beside the current file.
-  const here = () => (o.current ? dirname(o.current) : '');
-  const { newFile, createFolder } = o;
-  if (newFile)
-    tools.append(iconButton('file-plus', 'New file here', () =>
-      nameDialog('New file', 'File name', 'Create', '', async name => {
-        newFile(join(here(), name));
-        return null;
-      })));
-  if (createFolder)
-    tools.append(iconButton('folder-plus', 'New folder', () =>
-      nameDialog('New folder', 'Folder name', 'Create', '', async name => {
-        const reason = await createFolder(join(here(), name));
-        if (reason === null) refresh();
-        return reason;
-      })));
-  header.append(tools);
+    { type: 'search', placeholder: `Search ${source.label}`, ariaLabel: `Search ${source.label}` });
   const tree = el('ul', { className: 'folder-tree' });
   const results = el('div', { className: 'folder-tree' });
+  const menu = new PopupMenu('File actions', 'folder-row-menu', { alignEnd: true });
+  o.signal.addEventListener('abort', () => menu.dispose(), { once: true });
+  const { newFile, createFolder } = o;
+  /** New file and New folder, which make their file or folder inside `directory`. */
+  const create = (directory: string): MenuItem[] => [
+    ...(newFile ? [['New file', 'file-plus', () => nameDialog('New file', 'File name', 'Create', '', async name => {
+      newFile(join(directory, name));
+      return null;
+    })] as MenuItem] : []),
+    ...(createFolder ? [['New folder', 'folder-plus', () => nameDialog('New folder', 'Folder name', 'Create', '',
+      async name => {
+        const reason = await createFolder(join(directory, name));
+        if (reason === null) { expanded.add(directory); refresh(); }
+        return reason;
+      })] as MenuItem] : []),
+  ];
+  current.append(moreButton(menu, label!, [...create(''), ['Refresh', 'refresh', () => refresh()]]));
   const manage = o.move && o.remove && o.createFolder
     ? { move: o.move, remove: o.remove, createFolder: o.createFolder } : null;
-  const menu = manage ? new PopupMenu('File actions', 'folder-row-menu', { alignEnd: true }) : null;
-  if (menu) o.signal.addEventListener('abort', () => menu.dispose(), { once: true });
-  /** The ⋯ menu's items for a row. */
-  const menuItems = (path: string, kind: TreeEntry['kind']): [string, IconName, () => void][] =>
-    !manage ? [] : kind === 'file' ? [
-      ['Rename…', 'pencil', () => renameDialog(path, manage.move)],
-      ['Move to…', 'folder-share', () => moveDialog(source, path, manage.move, async folder => {
-        const reason = await manage.createFolder(folder);
-        if (reason === null) refresh();
-        return reason;
-      })],
-      ['Delete…', 'trash', () => manage.remove(path, 'file')],
-    ] : [['Delete…', 'trash', () => manage.remove(path, 'directory')]];
-  const more = (item: HTMLElement, path: string, kind: TreeEntry['kind']) => {
-    if (!menu) return;
-    const toggle = iconButton('dots-vertical', `Actions for ${basename(path)}`, () => {
-      if (toggle.getAttribute('aria-expanded') === 'true') return menu.close(true);
-      menu.element.setAttribute('aria-label', `Actions for ${basename(path)}`);
-      menu.element.replaceChildren(...menuItems(path, kind).map(([label, name, run]) => {
-        // Focus goes back to ⋯ first, so the dialog that follows returns focus there.
-        const item = Object.assign(button(label, () => { menu.close(true); run(); }), { role: 'menuitem' });
-        item.prepend(icon(name));
-        return item;
-      }));
-      menu.open(toggle);
-    });
-    Object.assign(toggle,
-      { className: 'folder-row-more', ariaHasPopup: 'menu', ariaExpanded: 'false' });
+  /** A row's ⋯ items: a file's Rename, Move to and Delete; a folder's New file, New folder and Delete. */
+  const menuItems = (path: string, kind: TreeEntry['kind']): MenuItem[] => kind === 'file' ? !manage ? [] : [
+    ['Rename…', 'pencil', () => renameDialog(path, manage.move)],
+    ['Move to…', 'folder-share', () => moveDialog(source, path, manage.move, async folder => {
+      const reason = await manage.createFolder(folder);
+      if (reason === null) refresh();
+      return reason;
+    })],
+    ['Delete…', 'trash', () => manage.remove(path, 'file')],
+  ] : [...create(path), ...(manage ? [['Delete…', 'trash', () => manage.remove(path, 'directory')] as MenuItem] : [])];
+  const attach = (item: HTMLElement, path: string, kind: TreeEntry['kind']) => {
+    const items = menuItems(path, kind);
     // A folder's ⋯ comes before its children in tab order.
-    item.insertBefore(toggle, item.querySelector(':scope > details'));
+    if (items.length) item.insertBefore(moreButton(menu, basename(path), items), item.querySelector(':scope > details'));
   };
   const fileButton = (path: string, detail = '') => {
     const b = row(button('', async () => {
@@ -123,12 +129,11 @@ export function renderFolderPanel(panel: HTMLElement, o: FolderPanelOptions) {
         details.open = expanded.has(entry.path);
         item.append(details);
       }
-      more(item, entry.path, entry.kind);
+      attach(item, entry.path, entry.kind);
       return item;
     }));
   };
   const refresh = () => void fill(tree, '');
-  tools.append(iconButton('refresh', 'Refresh', refresh));
   let timer: ReturnType<typeof setTimeout> | undefined, searches = 0;
   search.oninput = () => {
     clearTimeout(timer);
@@ -148,7 +153,7 @@ export function renderFolderPanel(panel: HTMLElement, o: FolderPanelOptions) {
       if (!found.paths.length && !found.limited) results.textContent = 'No matching files.';
     }, 200);
   };
-  panel.append(search, results, tree, ...(menu ? [menu.element] : []));
+  panel.append(search, el('div', { className: 'folder-files' }, results, tree), menu.element);
   refresh();
   window.addEventListener('focus', refresh, { signal: o.signal });
 }

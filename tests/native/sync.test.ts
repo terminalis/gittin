@@ -64,16 +64,18 @@ test("the footer says whether the file is on GitHub, and nothing for a file git 
   expect(footer.querySelector('button')).toBeNull();
 });
 
-test('the Folder panel counts the edited files not yet on GitHub under its buttons, following commits', async () => {
+test("the Folder panel's Repository section counts the edited files not yet on GitHub over Sync, following commits", async () => {
   const stand = useGitHubStand({ remote: vi.fn(async () => onGitHub(['a.md', 'b.md', 'c.md'])) });
   const panel = document.createElement('aside');
-  panel.innerHTML = '<div class="folder-header"><h2>Current Folder</h2><div class="folder-tools"></div></div>';
+  panel.innerHTML = '<div class="folder-header"><h2>Current Folder</h2></div>';
   document.body.append(panel);
   syncInFolder(work, panel);
   const count = () => panel.querySelector('.unsent-count')?.textContent;
   await vi.waitFor(() => expect(count()).toBe('3 edited files not on GitHub yet'));
-  expect(panel.querySelector('.folder-header')!.nextElementSibling!.className).toBe('unsent-count');
-  expect(buttonNamed('Sync', panel)).toBeTruthy();
+  const section = panel.lastElementChild!;
+  expect(section.className).toBe('repository-section');
+  expect([...section.children].map(child => child.textContent)).toEqual(['Repository', count(), 'Sync']);
+  expect(buttonNamed('Sync', section)!.querySelector('[data-icon="arrows-up-down"]')).toBeTruthy();
   vi.mocked(stand.remote).mockResolvedValue(onGitHub(['a.md']));
   commit();
   await vi.waitFor(() => expect(count()).toBe('1 edited file not on GitHub yet'));
@@ -184,10 +186,11 @@ test('Publish has a cloud in the Folder panel and in File, and says there is not
     }),
   });
   const panel = document.createElement('aside');
-  panel.innerHTML = '<div class="folder-header"><h2>Current Folder</h2><div class="folder-tools"></div></div>';
+  panel.innerHTML = '<div class="folder-header"><h2>Current Folder</h2></div>';
   document.body.append(panel);
   syncInFolder(work, panel);
   await vi.waitFor(() => expect(buttonNamed('Publish to GitHub', panel)).toBeTruthy());
+  expect(panel.querySelector('.repository-section p')!.textContent).toBe("This repository isn't on GitHub yet.");
   expect(buttonNamed('Publish to GitHub', panel)!.querySelector('[data-icon="cloud-upload"]')).toBeTruthy();
   buttonNamed('Publish to GitHub', panel)!.click();
   await vi.waitFor(() => expect(noticeText()).toBe("There's nothing to publish yet: save a file in this repository first."));

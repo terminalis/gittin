@@ -63,7 +63,7 @@ function copyOf(doc: OpenDocument, suffix: string) {
 /** What Home and the workspace ask of the app. */
 const actions = {
   home: () => navigate({ screen: 'home' }),
-  switch: (id: string) => navigate({ screen: 'editor', id }),
+  switch: (id: string, section = '') => navigate({ screen: 'editor', id }, false, section),
   new: newDocument,
   open: openFileCommand,
   openFolder: openFolderCommand,
