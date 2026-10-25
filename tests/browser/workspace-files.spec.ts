@@ -296,13 +296,38 @@ test('a file that is not UTF-8 is refused by name and stores no draft', async ({
   expect(await savedSources(page)).toEqual([]);
 });
 
-test('a rename that changes the file type updates the outline at once', async ({ page }) => {
+test("a rename that changes the file type takes the file's headings out of Open Files at once", async ({ page }) => {
   await openText(page, '# One\n\ntext\n\n## Two\n', 'notes.md');
-  const outline = page.locator('#outline');
-  await expect(outline.getByRole('button')).toHaveText(['One', 'Two']);
+  const files = page.locator('#open-documents');
+  await expect(files.locator('.open-headings button')).toHaveText(['One', 'Two']);
   await page.locator('#document-title').click();
   const dialog = page.getByRole('dialog', { name: 'Rename file' });
   await dialog.getByLabel('File name').fill('notes.txt');
   await dialog.getByRole('button', { name: 'Rename', exact: true }).click();
-  await expect(outline).toHaveText('Outline is available for Markdown files.');
+  await expect(files.locator('.open-document-name')).toHaveText(['notes.txt']);
+  await expect(files.locator('.open-headings, .open-document-fold')).toHaveCount(0);
+});
+
+test("Open Files folds each Markdown file's headings under it, and another file's heading switches to it there", async ({
+  page,
+}) => {
+  await openText(page, '# Trip\n\n## Day one\n\ntext\n\n## Day two\n', 'trip.md');
+  await openText(page, '# Packing\n', 'packing.md');
+  const fold = (name: string) => page.getByRole('button', { name: `Headings in ${name}`, exact: true });
+  const headings = (name: string) =>
+    page.locator('#open-documents .open-document').filter({ hasText: name }).locator('.open-headings button');
+  // The current file's headings show; another file's start folded.
+  await expect(fold('packing.md')).toHaveAttribute('aria-expanded', 'true');
+  await expect(headings('packing.md')).toHaveText(['Packing']);
+  await expect(fold('trip.md')).toHaveAttribute('aria-expanded', 'false');
+  await expect(headings('trip.md').first()).toBeHidden();
+  await fold('trip.md').click();
+  await expect(headings('trip.md')).toHaveText(['Trip', 'Day one', 'Day two']);
+  await headings('trip.md').filter({ hasText: 'Day two' }).click();
+  await expect(page.locator('#document-title')).toHaveText('trip.md');
+  await expect(page.locator('#caret-status')).toHaveText('Ln 7, Col 1');
+  // A file opened on its own can only be renamed from its ⋯, as from File › Rename…; with a mouse, ⋯ shows on hover.
+  await page.locator('.open-document-row').filter({ hasText: 'packing.md' }).hover();
+  await page.getByRole('button', { name: 'Actions for packing.md', exact: true }).click();
+  await expect(page.getByRole('menu', { name: 'Actions for packing.md' }).getByRole('menuitem')).toHaveText(['Rename…']);
 });

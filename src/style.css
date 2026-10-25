@@ -2106,14 +2106,19 @@ label.home-option {
   font-size: 13px;
   margin: 10px 0 20px;
 }
-#open-documents {
-  padding-bottom: 24px;
-  margin-bottom: 22px;
-  border-bottom: 1px solid var(--line);
-}
+/* Open Files: each file's row (a chevron when it has headings, its name, ⋯ and ×), then its headings while unfolded. */
 .open-document {
-  display: flex;
   margin: 4px -7px;
+}
+.open-document-row {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius);
+}
+/* The current file's whole row is marked, chevron and buttons included, as the Folder panel marks its row. */
+.open-document-row:has(> .open-document-name[aria-current="true"]) {
+  background: var(--warm);
+  box-shadow: inset 3px 0 var(--accent);
 }
 .open-document button {
   border: 0;
@@ -2121,35 +2126,55 @@ label.home-option {
   font-size: 14px;
   padding: 9px 8px;
 }
-.open-document button:first-child {
+.open-document-name {
   position: relative;
   flex: 1;
+  min-width: 0;
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.open-document button[aria-current="true"] {
-  background: var(--warm);
-  color: var(--ink);
-  border-left: 3px solid var(--accent);
-}
-.open-document button:last-child {
-  padding: 5px;
-  color: var(--muted);
-}
-#outline {
-  font-size: 13px;
-  color: var(--muted);
-}
-#outline button {
-  display: block;
-  text-align: left;
-  width: 100%;
-  border: 0;
+.open-document-name[aria-current="true"] {
   background: transparent;
-  padding: 8px;
   color: var(--ink);
+}
+/* Once any file has a chevron, a file without one lines its name up with the names after a chevron. */
+#open-documents:has(.open-document-fold) .open-document-name:first-child {
+  margin-left: 20px;
+}
+.open-document .open-document-fold,
+.open-document .open-document-more,
+.open-document .open-document-close {
+  flex: none;
+  padding: 4px;
+  color: var(--muted);
+}
+.open-document .open-document-fold {
+  width: 20px;
+  padding-inline: 2px;
+}
+.open-document-fold[aria-expanded="true"] > .app-icon {
+  transform: rotate(90deg);
+}
+.open-headings {
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+.open-document .open-headings button {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 13px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.open-document .open-headings button:hover {
+  background: var(--warm);
 }
 .writing-column {
   flex: 1;
@@ -2505,8 +2530,12 @@ label.home-option {
 #favourite > .app-icon,
 #details > .app-icon,
 #copy-path > .app-icon,
-.open-document button > .app-icon {
+.open-document-close > .app-icon {
   --icon: 18px;
+}
+.open-document-fold > .app-icon,
+.open-document-more > .app-icon {
+  --icon: 16px;
 }
 #documents-toggle[aria-expanded="false"] > [data-icon^="layout-sidebar"],
 #repository-toggle[aria-expanded="false"] > [data-icon^="layout-sidebar"] {
@@ -2793,10 +2822,10 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   transform: rotate(90deg);
 }
 /* Unsaved changes: a dot after the file name (the row also gets an accessible description). */
-.open-document button[data-unsaved]:first-child {
+.open-document-name[data-unsaved] {
   padding-right: 24px;
 }
-.open-document button[data-unsaved]::after,
+.open-document-name[data-unsaved]::after,
 .folder-row[data-unsaved]::after {
   content: "";
   width: 8px;
@@ -2804,7 +2833,7 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   border-radius: 50%;
   background: var(--accent);
 }
-.open-document button[data-unsaved]::after {
+.open-document-name[data-unsaved]::after {
   position: absolute;
   right: 9px;
   top: calc(50% - 4px);
@@ -2951,8 +2980,7 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   button.folder-row,
   summary.folder-row,
   .folder-current > .folder-name,
-  .open-document button,
-  #outline button {
+  .open-document button {
     min-height: 44px;
   }
   /* The row's ⋯ is a full-height touch target. */
@@ -3021,6 +3049,18 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
 @media (hover: hover) {
   .folder-tree .folder-row-more {
     opacity: 0;
+  }
+  /* Open Files' ⋯ takes no room until shown, so the names keep the row's width; it stays reachable from the keyboard. */
+  .open-document .open-document-more {
+    width: 0;
+    padding-inline: 0;
+    overflow: hidden;
+  }
+  .open-document-row:hover > .open-document-more,
+  .open-document .open-document-more:focus-visible,
+  .open-document .open-document-more[aria-expanded="true"] {
+    width: 24px;
+    padding-inline: 4px;
   }
   .folder-tree li:has(> .folder-row:hover, > details > summary:hover) > .folder-row-more,
   .folder-row-more:hover,

@@ -29,7 +29,22 @@ export interface FolderPanelOptions {
   signal: AbortSignal;
 }
 /** A ⋯ menu item: its label, icon and what it does. */
-type Item = [label: string, icon: IconName, run: () => void];
+export type MenuItem = [label: string, icon: IconName, run: () => void];
+/** A ⋯ button that opens `items` in `menu` as the actions for `target`. */
+export function moreButton(menu: PopupMenu, target: string, items: MenuItem[]) {
+  const toggle = iconButton('dots-vertical', `Actions for ${target}`, () => {
+    if (toggle.getAttribute('aria-expanded') === 'true') return menu.close(true);
+    menu.element.setAttribute('aria-label', `Actions for ${target}`);
+    menu.element.replaceChildren(...items.map(([label, name, run]) => {
+      // Focus goes back to ⋯ first, so the dialog that follows returns focus there.
+      const item = Object.assign(button(label, () => { menu.close(true); run(); }), { role: 'menuitem' });
+      item.prepend(icon(name));
+      return item;
+    }));
+    menu.open(toggle);
+  });
+  return Object.assign(toggle, { className: 'folder-row-more', ariaHasPopup: 'menu', ariaExpanded: 'false' });
+}
 export function renderFolderPanel(panel: HTMLElement, o: FolderPanelOptions) {
   // "Current Folder" heads the panel as "Open Files" heads the Files panel; the folder follows as a row of its own,
   // whose ⋯ holds what acts on the whole folder.
@@ -53,40 +68,25 @@ export function renderFolderPanel(panel: HTMLElement, o: FolderPanelOptions) {
   const results = el('div', { className: 'folder-tree' });
   const menu = new PopupMenu('File actions', 'folder-row-menu', { alignEnd: true });
   o.signal.addEventListener('abort', () => menu.dispose(), { once: true });
-  /** A ⋯ button that opens `items` as the actions for `target`. */
-  const more = (target: string, items: Item[]) => {
-    const toggle = iconButton('dots-vertical', `Actions for ${target}`, () => {
-      if (toggle.getAttribute('aria-expanded') === 'true') return menu.close(true);
-      menu.element.setAttribute('aria-label', `Actions for ${target}`);
-      menu.element.replaceChildren(...items.map(([label, name, run]) => {
-        // Focus goes back to ⋯ first, so the dialog that follows returns focus there.
-        const item = Object.assign(button(label, () => { menu.close(true); run(); }), { role: 'menuitem' });
-        item.prepend(icon(name));
-        return item;
-      }));
-      menu.open(toggle);
-    });
-    return Object.assign(toggle, { className: 'folder-row-more', ariaHasPopup: 'menu', ariaExpanded: 'false' });
-  };
   const { newFile, createFolder } = o;
   /** New file and New folder, which make their file or folder inside `directory`. */
-  const create = (directory: string): Item[] => [
+  const create = (directory: string): MenuItem[] => [
     ...(newFile ? [['New file', 'file-plus', () => nameDialog('New file', 'File name', 'Create', '', async name => {
       newFile(join(directory, name));
       return null;
-    })] as Item] : []),
+    })] as MenuItem] : []),
     ...(createFolder ? [['New folder', 'folder-plus', () => nameDialog('New folder', 'Folder name', 'Create', '',
       async name => {
         const reason = await createFolder(join(directory, name));
         if (reason === null) { expanded.add(directory); refresh(); }
         return reason;
-      })] as Item] : []),
+      })] as MenuItem] : []),
   ];
-  current.append(more(label!, [...create(''), ['Refresh', 'refresh', () => refresh()]]));
+  current.append(moreButton(menu, label!, [...create(''), ['Refresh', 'refresh', () => refresh()]]));
   const manage = o.move && o.remove && o.createFolder
     ? { move: o.move, remove: o.remove, createFolder: o.createFolder } : null;
   /** A row's ⋯ items: a file's Rename, Move to and Delete; a folder's New file, New folder and Delete. */
-  const menuItems = (path: string, kind: TreeEntry['kind']): Item[] => kind === 'file' ? !manage ? [] : [
+  const menuItems = (path: string, kind: TreeEntry['kind']): MenuItem[] => kind === 'file' ? !manage ? [] : [
     ['Rename…', 'pencil', () => renameDialog(path, manage.move)],
     ['Move to…', 'folder-share', () => moveDialog(source, path, manage.move, async folder => {
       const reason = await manage.createFolder(folder);
@@ -94,11 +94,11 @@ export function renderFolderPanel(panel: HTMLElement, o: FolderPanelOptions) {
       return reason;
     })],
     ['Delete…', 'trash', () => manage.remove(path, 'file')],
-  ] : [...create(path), ...(manage ? [['Delete…', 'trash', () => manage.remove(path, 'directory')] as Item] : [])];
+  ] : [...create(path), ...(manage ? [['Delete…', 'trash', () => manage.remove(path, 'directory')] as MenuItem] : [])];
   const attach = (item: HTMLElement, path: string, kind: TreeEntry['kind']) => {
     const items = menuItems(path, kind);
     // A folder's ⋯ comes before its children in tab order.
-    if (items.length) item.insertBefore(more(basename(path), items), item.querySelector(':scope > details'));
+    if (items.length) item.insertBefore(moreButton(menu, basename(path), items), item.querySelector(':scope > details'));
   };
   const fileButton = (path: string, detail = '') => {
     const b = row(button('', async () => {

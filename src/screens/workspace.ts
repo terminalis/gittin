@@ -23,7 +23,8 @@ import { versionKey } from '../documents/versions';
 import { extensions } from '../extensions';
 import { isAt, sourceFor, sourceInfoFor } from '../sources/registry';
 import { FolderSource } from '../sources/folder';
-import { renderFolderPanel, imageFromFolderDialog } from '../ui/folder-panel';
+import { renderFolderPanel, imageFromFolderDialog, moreButton, type MenuItem } from '../ui/folder-panel';
+import { PopupMenu } from '../ui/popup-menu';
 import { detailsDialog, moveDialog, nameDialog, renameDialog } from '../ui/file-actions';
 import { versionHistoryButton, openVersionHistory } from '../ui/version-history';
 import { basename, dirname, fragment, join, relativePath, resolvePath, imageType, suffixed } from '../sources/paths';
@@ -60,7 +61,8 @@ export interface WorkspaceActions {
   createFolder(source: FolderSource, path: string): Promise<string | null>;
   moveFile(source: FolderSource, from: string, to: string): Promise<string | null>;
   deleteEntry(source: FolderSource, path: string, kind: 'file' | 'directory'): void;
-  switch(id: string): void;
+  /** Shows an open file, at the heading with id `section` when one is given. */
+  switch(id: string, section?: string): void;
   close(id: string): void;
   exportCopy(): void;
   save(saveAs: boolean): void;
@@ -71,6 +73,13 @@ export interface WorkspaceActions {
 /** Whether a file opened from a source has changes its file lacks. */
 const unsaved = ({ session, localBaseline }: OpenDocument) =>
   hasUnsavedChanges(session.identity, session.current, localBaseline);
+/** An open file's folder, when Gittin can rename, move and delete files in it. */
+const folderOf = ({ session }: OpenDocument) => {
+  const source = sourceFor(session.identity);
+  return source instanceof FolderSource ? source : null;
+};
+/** An open file's path in its source; empty for a file only in this browser. */
+const pathOf = ({ session: { identity } }: OpenDocument) => identity.kind === 'source' ? identity.path : '';
 /** One command: its menu, id, label and action, then any other fields of Action. */
 type Row = [menu: string, id: string, label: string, run: () => void, more?: Partial<Action>];
 /** Each view's name: its button reads "Preview", its command "Preview view". */
@@ -104,6 +113,10 @@ export class Workspace {
   private subscriptions: (() => void)[] = [];
   private abort = new AbortController();
   private pauseTimer?: ReturnType<typeof setTimeout>;
+  /** Open Files' ⋯ menu, filled for the file whose ⋯ opens it. */
+  private fileMenu = new PopupMenu('File actions', 'folder-row-menu', { alignEnd: true });
+  /** The open files whose headings Open Files shows: the current one until folded, and any unfolded since. */
+  private unfolded: Set<string>;
   private left = !narrow.matches;
   private right = this.left;
   private focus = false;
@@ -117,6 +130,7 @@ export class Workspace {
     private readonly actions: WorkspaceActions
   ) {
     this.document = doc;
+    this.unfolded = new Set([doc.session.id]);
     this.element.append(...this.markup());
     this.controller.mount(this.part('#editor'), doc.session, 'markdown', doc.fileType);
     this.find = new FindBar(this.controller);
@@ -159,9 +173,9 @@ export class Workspace {
     doc.session.endGroup();
     this.renderDocuments();
     this.update();
-    // The outline and the counts wait for typing to pause; a file that has just opened shows them at once.
+    // The current file's headings and the counts wait for typing to pause; a file that has just opened shows them at
+    // once, its headings drawn with Open Files.
     clearTimeout(this.pauseTimer);
-    this.updateOutline();
     this.updateStatistics();
     this.layout();
     window.addEventListener('keydown', e => this.onKeyDown(e), { signal: this.abort.signal });
@@ -171,14 +185,11 @@ export class Workspace {
   }
   private get identity() { return this.document.session.identity; }
   /** The open file's path in its source; empty for a file only in this browser. */
-  private path() { const id = this.identity; return id.kind === 'source' ? id.path : ''; }
+  private path() { return pathOf(this.document); }
   private info() { return sourceInfoFor(this.identity); }
   private source() { return sourceFor(this.identity) ?? null; }
   /** The open file's folder, when Gittin can rename, move and delete files in it. */
-  private managed() {
-    const source = this.source();
-    return source instanceof FolderSource ? source : null;
-  }
+  private managed() { return folderOf(this.document); }
   /** The header, tools row, side panels, writing column and recovery bar, wired to their commands. */
   private markup() {
     const doc = this.document, actions = this.actions, identity = this.identity;
@@ -227,9 +238,7 @@ export class Workspace {
     const tools = el('div', { className: 'workspace-tools' }, files, view, folder);
 
     const documents = el('aside', { id: 'documents-panel', ariaLabel: 'Open Files' },
-      el('h2', { textContent: 'Open Files' }), el('div', { id: 'open-documents' }),
-      el('h2', { textContent: 'Outline' }),
-      el('nav', { id: 'outline', ariaLabel: 'Document outline' }));
+      el('h2', { textContent: 'Open Files' }), el('div', { id: 'open-documents' }), this.fileMenu.element);
     // Status only, with Focus its one button: the file on the left, its save state in the middle, and what needs
     // attention on the right.
     const status = el('div', { className: 'editor-status' },
@@ -356,23 +365,22 @@ export class Workspace {
   }
   // In a managed folder Rename renames the file on disk; elsewhere it names the title used for Save as
   // and downloads.
-  private rename() {
-    const folder = this.managed();
-    if (folder) renameDialog(this.path(), (from, to) => this.actions.moveFile(folder, from, to));
-    else nameDialog('Rename file', 'File name', 'Rename', this.document.title, async title => {
-      const doc = this.document;
+  private rename(doc = this.document) {
+    const folder = folderOf(doc);
+    if (folder) renameDialog(pathOf(doc), (from, to) => this.actions.moveFile(folder, from, to));
+    else nameDialog('Rename file', 'File name', 'Rename', doc.title, async title => {
       const fileType = /\.[^.]+$/.test(title) ? fileTypeForName(title) : doc.fileType;
-      this.controller.setFileType(fileType);
+      if (doc === this.document) this.controller.setFileType(fileType);
       const saved = await doc.autosave.updateMetadata({ title, fileType });
-      this.updateOutline();
+      this.renderDocuments();
       return saved ? null
         : 'Rename is kept in this session, but recovery storage could not be updated. '
           + 'Use the device status actions.';
     });
   }
-  private move() {
-    const folder = this.managed();
-    if (folder) moveDialog(folder, this.path(), (from, to) => this.actions.moveFile(folder, from, to),
+  private move(doc = this.document) {
+    const folder = folderOf(doc);
+    if (folder) moveDialog(folder, pathOf(doc), (from, to) => this.actions.moveFile(folder, from, to),
       path => this.actions.createFolder(folder, path));
   }
   private toggleFavourite() {
@@ -581,15 +589,52 @@ export class Workspace {
       this.toggle('focus');
   }
   private renderDocuments() {
-    this.part('#open-documents').replaceChildren(...this.documents.map(doc => {
-      const b = button(doc.title, () => this.actions.switch(doc.session.id));
-      b.setAttribute('aria-current', String(doc === this.document));
-      const identity = doc.session.identity;
-      b.title = identity.kind === 'source' ? identity.path : `Only in ${place}`;
-      markUnsaved(b, unsaved(doc));
-      return el('div', { className: 'open-document' }, b,
-        iconButton('x', 'Close ' + doc.title, () => this.actions.close(doc.session.id)));
+    this.part('#open-documents').replaceChildren(...this.documents.map(doc => this.documentRow(doc)));
+  }
+  /** An open file's row: a chevron that folds its headings when it has any, its name, its ⋯ and ×, then its headings
+   * while unfolded. A heading goes to its place, switching to the file first when it isn't the current one. */
+  private documentRow(doc: OpenDocument) {
+    const id = doc.session.id, current = doc === this.document;
+    const name = Object.assign(button(doc.title, () => this.actions.switch(id)), { className: 'open-document-name' });
+    name.setAttribute('aria-current', String(current));
+    const identity = doc.session.identity;
+    name.title = identity.kind === 'source' ? identity.path : `Only in ${place}`;
+    markUnsaved(name, unsaved(doc));
+    const folder = folderOf(doc);
+    const more = Object.assign(moreButton(this.fileMenu, doc.title, [
+      ['Rename…', 'pencil', () => this.rename(doc)],
+      ...(folder ? [['Move to…', 'folder-share', () => this.move(doc)],
+        ['Delete…', 'trash', () => this.actions.deleteEntry(folder, pathOf(doc), 'file')]] as MenuItem[] : []),
+    // The id lets a dialog give focus back to this ⋯ once Open Files has been drawn again.
+    ]), { className: 'open-document-more', id: `open-actions-${id}` });
+    const close = Object.assign(iconButton('x', 'Close ' + doc.title, () => this.actions.close(id)),
+      { className: 'open-document-close' });
+    const row = el('div', { className: 'open-document-row' }, name, more, close);
+    const item = el('div', { className: 'open-document' }, row);
+    item.dataset.session = id;
+    const headings = doc.fileType === 'markdown' ? headingAnchors(doc.session.current.source) : [];
+    if (!headings.length) return item;
+    const list = el('ul', { className: 'open-headings', id: `headings-${id}`, hidden: !this.unfolded.has(id) });
+    list.append(...headings.map(heading => {
+      const b = button(heading.text, () => current
+        ? this.controller.goToSource(heading.from) : this.actions.switch(id, heading.id));
+      b.style.paddingLeft = `${28 + (heading.level - 1) * 12}px`;
+      return el('li', {}, b);
     }));
+    const fold = Object.assign(iconButton('chevron-right', `Headings in ${doc.title}`, () => {
+      list.hidden = !list.hidden;
+      fold.setAttribute('aria-expanded', String(!list.hidden));
+      if (list.hidden) this.unfolded.delete(id); else this.unfolded.add(id);
+    }), { className: 'open-document-fold' });
+    attrs(fold, { 'aria-expanded': String(!list.hidden), 'aria-controls': list.id });
+    row.prepend(fold);
+    item.append(list);
+    return item;
+  }
+  /** Draws the current file's row again, once typing pauses, for headings added, changed or removed. */
+  private updateHeadings() {
+    this.element.querySelector(`#open-documents [data-session="${this.document.session.id}"]`)
+      ?.replaceWith(this.documentRow(this.document));
   }
   private updatePreviewTooltip() {
     const button = this.part('[data-mode="preview"]');
@@ -606,7 +651,7 @@ export class Workspace {
     this.updateCaret();
     this.part('#file-type').textContent = fileDescriptor(this.document.fileType)?.label ?? 'Text';
     clearTimeout(this.pauseTimer);
-    this.pauseTimer = setTimeout(() => { this.updateOutline(); this.updateStatistics(); }, 150);
+    this.pauseTimer = setTimeout(() => { this.updateHeadings(); this.updateStatistics(); }, 150);
     const current = this.document.fileStatusRevision === this.document.session.current.revision;
     this.part('#file-status').textContent = current ? this.document.fileStatus : '';
     this.updateSaveState();
@@ -644,22 +689,6 @@ export class Workspace {
     const column = this.part('.writing-column');
     const bounds = column.getBoundingClientRect();
     column.scrollTop += top - (bounds.top + bounds.height / 2);
-  }
-  private updateOutline() {
-    const outline = this.part('#outline');
-    outline.replaceChildren();
-    if (this.document.fileType !== 'markdown') {
-      outline.textContent = 'Outline is available for Markdown files.';
-      return;
-    }
-    const headings = headingAnchors(this.document.session.current.source);
-    if (!headings.length) outline.textContent = 'Headings in this file appear here.';
-    for (const heading of headings) {
-      const b = button(heading.text, () => this.controller.goToSource(heading.from));
-      b.style.paddingLeft = `${8 + (heading.level - 1) * 12}px`;
-      b.dataset.headingId = heading.id;
-      outline.append(b);
-    }
   }
   private async fullscreen() {
     try {
@@ -745,6 +774,7 @@ export class Workspace {
     this.subscriptions.forEach((fn) => fn());
     this.find.dispose();
     this.menus.dispose();
+    this.fileMenu.dispose();
     this.controls.dispose();
     this.controller.dispose();
     this.element.remove();
