@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 import { strFromU8, unzipSync } from 'fflate';
 import {
+  closeOpenFile,
   command,
   download,
   drafts,
@@ -183,12 +184,7 @@ test('a draft changed in another window is kept beside a recovery copy, and Clos
   await expect(page.locator('#document-title')).toHaveText('conflict (recovery copy).md');
   await expectDraftSaved(page);
   await expect(page.locator('.recovery-actions')).toBeHidden();
-  await page
-    .getByRole('button', {
-      name: 'Close conflict (recovery copy).md',
-      exact: true,
-    })
-    .click();
+  await closeOpenFile(page, 'conflict (recovery copy).md');
   const closing = page.getByRole('dialog', { name: 'Close conflict (recovery copy).md?' });
   await expect(closing).toContainText('This file is only in this browser. Discarding deletes it.');
   await closing.getByRole('button', { name: 'Cancel', exact: true }).click();

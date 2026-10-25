@@ -30,12 +30,13 @@ export interface FolderPanelOptions {
 }
 /** A ⋯ menu item: its label, icon and what it does. */
 export type MenuItem = [label: string, icon: IconName, run: () => void];
-/** A ⋯ button that opens `items` in `menu` as the actions for `target`. */
-export function moreButton(menu: PopupMenu, target: string, items: MenuItem[]) {
+/** A ⋯ button that opens `items` in `menu` as the actions for `target`; a function gives the items as they are when ⋯
+ * is pressed. */
+export function moreButton(menu: PopupMenu, target: string, items: MenuItem[] | (() => MenuItem[])) {
   const toggle = iconButton('dots-vertical', `Actions for ${target}`, () => {
     if (toggle.getAttribute('aria-expanded') === 'true') return menu.close(true);
     menu.element.setAttribute('aria-label', `Actions for ${target}`);
-    menu.element.replaceChildren(...items.map(([label, name, run]) => {
+    menu.element.replaceChildren(...(typeof items === 'function' ? items() : items).map(([label, name, run]) => {
       // Focus goes back to ⋯ first, so the dialog that follows returns focus there.
       const item = Object.assign(button(label, () => { menu.close(true); run(); }), { role: 'menuitem' });
       item.prepend(icon(name));

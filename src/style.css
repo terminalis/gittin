@@ -2106,7 +2106,7 @@ label.home-option {
   font-size: 13px;
   margin: 10px 0 20px;
 }
-/* Open Files: each file's row (a chevron when it has headings, its name, ⋯ and ×), then its headings while unfolded. */
+/* Open Files: each file's row (its name and ⋯), then its headings while shown. */
 .open-document {
   margin: 4px -7px;
 }
@@ -2139,23 +2139,10 @@ label.home-option {
   background: transparent;
   color: var(--ink);
 }
-/* Once any file has a chevron, a file without one lines its name up with the names after a chevron. */
-#open-documents:has(.open-document-fold) .open-document-name:first-child {
-  margin-left: 20px;
-}
-.open-document .open-document-fold,
-.open-document .open-document-more,
-.open-document .open-document-close {
+.open-document .open-document-more {
   flex: none;
-  padding: 4px;
+  padding: 5px;
   color: var(--muted);
-}
-.open-document .open-document-fold {
-  width: 20px;
-  padding-inline: 2px;
-}
-.open-document-fold[aria-expanded="true"] > .app-icon {
-  transform: rotate(90deg);
 }
 .open-headings {
   margin: 0 0 6px;
@@ -2530,12 +2517,8 @@ label.home-option {
 #favourite > .app-icon,
 #details > .app-icon,
 #copy-path > .app-icon,
-.open-document-close > .app-icon {
-  --icon: 18px;
-}
-.open-document-fold > .app-icon,
 .open-document-more > .app-icon {
-  --icon: 16px;
+  --icon: 18px;
 }
 #documents-toggle[aria-expanded="false"] > [data-icon^="layout-sidebar"],
 #repository-toggle[aria-expanded="false"] > [data-icon^="layout-sidebar"] {
@@ -3045,24 +3028,13 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
     display: inline-block;
   }
 }
-/* With a mouse, a file or subfolder's ⋯ shows on the row in use; the folder's own ⋯ and touch screens always show it. */
+/* With a mouse, a file or subfolder's ⋯ shows on the row in use; the current file's, the folder's own and touch
+   screens' always show. */
 @media (hover: hover) {
   .folder-tree .folder-row-more {
     opacity: 0;
   }
-  /* Open Files' ⋯ takes no room until shown, so the names keep the row's width; it stays reachable from the keyboard. */
-  .open-document .open-document-more {
-    width: 0;
-    padding-inline: 0;
-    overflow: hidden;
-  }
-  .open-document-row:hover > .open-document-more,
-  .open-document .open-document-more:focus-visible,
-  .open-document .open-document-more[aria-expanded="true"] {
-    width: 24px;
-    padding-inline: 4px;
-  }
-  .folder-tree li:has(> .folder-row:hover, > details > summary:hover) > .folder-row-more,
+  .folder-tree li:has(> .folder-row:hover, > .folder-row[aria-current="true"], > details > summary:hover) > .folder-row-more,
   .folder-row-more:hover,
   .folder-row-more:focus-visible,
   .folder-row-more[aria-expanded="true"] {

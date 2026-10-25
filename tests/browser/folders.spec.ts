@@ -3,6 +3,7 @@ import { unzipSync } from 'fflate';
 import {
   EDITOR,
   chromiumOnly,
+  closeOpenFile,
   command,
   disk,
   download,
@@ -242,7 +243,7 @@ test.describe('writable folders', () => {
     await useFolder(page, { 'a.md': 'one' });
     await openFromFolder(page, 'a.md');
     await editor(page).fill('changed');
-    await page.getByRole('button', { name: 'Close a.md', exact: true }).click();
+    await closeOpenFile(page, 'a.md');
     const dialog = page.getByRole('dialog', { name: 'Close a.md?', exact: true });
     await dialog.getByRole('button', { name: 'Discard changes', exact: true }).click();
     await expect(page.locator('#home')).toBeVisible();
@@ -344,7 +345,7 @@ test.describe('writable folders', () => {
     await useFolder(page, { 'a.md': 'A', 'b.md': 'B', 'docs/c.md': 'C' });
     await openFromFolder(page, 'b.md');
     // Closing a file without changes keeps its draft (its recent entry) but leaves it closed.
-    await page.getByRole('button', { name: 'Close b.md', exact: true }).click();
+    await closeOpenFile(page, 'b.md');
     await openFromFolder(page, 'a.md');
     const panel = folderPanel(page);
     await panel.getByRole('button', { name: 'Actions for b.md', exact: true }).click();
@@ -476,7 +477,7 @@ test.describe('writable folders', () => {
     await expect(dialog).toContainText('docs holds 2 files. The folder and everything in it are deleted permanently and do not go to the Recycle Bin.');
     await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(page.locator('#document-title')).toHaveText('a.md');
-    await expect(page.getByRole('button', { name: 'Close b.md', exact: true })).toHaveCount(0);
+    await expect(page.locator('#open-documents').getByRole('button', { name: 'Actions for b.md', exact: true })).toHaveCount(0);
     await expect(panel.locator('summary', { hasText: 'docs' })).toHaveCount(0);
     await expect(editor(page)).toBeFocused();
     expect(await disk.kind(page, 'docs')).toBeNull();
@@ -779,15 +780,16 @@ test.describe('writable folders', () => {
   });
 
   test("the Folder panel reads Current Folder, then the folder as a row whose ⋯ acts on the whole folder", async ({ page }) => {
-    await useFolder(page, { 'a.md': 'A' });
+    await useFolder(page, { 'a.md': 'A', 'b.md': 'B' });
     await openFromFolder(page, 'a.md');
     const panel = folderPanel(page);
     await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Current Folder');
     await expect(panel.locator('.folder-name')).toHaveText('project');
-    // The folder's ⋯ shows without hovering, unlike the files' ones.
+    // The folder's ⋯ and the current file's show without hovering; another file's waits for the mouse.
     const more = panel.getByRole('button', { name: 'Actions for project', exact: true });
     await expect(more).toHaveCSS('opacity', '1');
-    await expect(panel.getByRole('button', { name: 'Actions for a.md', exact: true })).toHaveCSS('opacity', '0');
+    await expect(panel.getByRole('button', { name: 'Actions for a.md', exact: true })).toHaveCSS('opacity', '1');
+    await expect(panel.getByRole('button', { name: 'Actions for b.md', exact: true })).toHaveCSS('opacity', '0');
     await more.click();
     await expect(page.getByRole('menu', { name: 'Actions for project' }).getByRole('menuitem'))
       .toHaveText(['New file', 'New folder', 'Refresh']);
@@ -835,7 +837,7 @@ test.describe('writable folders', () => {
     await pickFromFolder(page, 'b.md');
     await openFile(page);
     await expect(page.locator('#document-title')).toHaveText('b.md');
-    await page.getByRole('button', { name: 'Close b.md', exact: true }).click();
+    await closeOpenFile(page, 'b.md');
     await expect(page.locator('#home')).toBeVisible();
     await pickFromFolder(page, 'docs/a.md');
     await openFile(page);

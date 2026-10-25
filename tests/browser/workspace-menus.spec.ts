@@ -175,7 +175,7 @@ test('icon-only buttons show their name as a tooltip', async ({ page }) => {
       .filter(b => !b.textContent!.trim() && !b.getAttribute('title'))
       .map(b => b.outerHTML));
   expect(untitled).toEqual([]);
-  for (const name of ['Close find', 'Close Untitled file'])
+  for (const name of ['Close find', 'Actions for Untitled file'])
     await expect(page.getByRole('button', { name, exact: true })).toHaveAttribute('title', name);
 });
 

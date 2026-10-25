@@ -591,8 +591,9 @@ export class Workspace {
   private renderDocuments() {
     this.part('#open-documents').replaceChildren(...this.documents.map(doc => this.documentRow(doc)));
   }
-  /** An open file's row: a chevron that folds its headings when it has any, its name, its ⋯ and ×, then its headings
-   * while unfolded. A heading goes to its place, switching to the file first when it isn't the current one. */
+  /** An open file's row: its name and ⋯, then its headings while shown. The ⋯ shows or hides the headings when it has
+   * any, and holds Rename…, Close and, in a folder Gittin can write to, Move to… and Delete…. A heading goes to its
+   * place, switching to the file first when it isn't the current one. */
   private documentRow(doc: OpenDocument) {
     const id = doc.session.id, current = doc === this.document;
     const name = Object.assign(button(doc.title, () => this.actions.switch(id)), { className: 'open-document-name' });
@@ -600,35 +601,35 @@ export class Workspace {
     const identity = doc.session.identity;
     name.title = identity.kind === 'source' ? identity.path : `Only in ${place}`;
     markUnsaved(name, unsaved(doc));
-    const folder = folderOf(doc);
-    const more = Object.assign(moreButton(this.fileMenu, doc.title, [
-      ['Rename…', 'pencil', () => this.rename(doc)],
-      ...(folder ? [['Move to…', 'folder-share', () => this.move(doc)],
-        ['Delete…', 'trash', () => this.actions.deleteEntry(folder, pathOf(doc), 'file')]] as MenuItem[] : []),
-    // The id lets a dialog give focus back to this ⋯ once Open Files has been drawn again.
-    ]), { className: 'open-document-more', id: `open-actions-${id}` });
-    const close = Object.assign(iconButton('x', 'Close ' + doc.title, () => this.actions.close(id)),
-      { className: 'open-document-close' });
-    const row = el('div', { className: 'open-document-row' }, name, more, close);
-    const item = el('div', { className: 'open-document' }, row);
-    item.dataset.session = id;
     const headings = doc.fileType === 'markdown' ? headingAnchors(doc.session.current.source) : [];
-    if (!headings.length) return item;
-    const list = el('ul', { className: 'open-headings', id: `headings-${id}`, hidden: !this.unfolded.has(id) });
+    const list = el('ul', { className: 'open-headings', ariaLabel: `Headings in ${doc.title}`,
+      hidden: !this.unfolded.has(id) });
     list.append(...headings.map(heading => {
       const b = button(heading.text, () => current
         ? this.controller.goToSource(heading.from) : this.actions.switch(id, heading.id));
-      b.style.paddingLeft = `${28 + (heading.level - 1) * 12}px`;
+      b.style.paddingLeft = `${20 + (heading.level - 1) * 12}px`;
       return el('li', {}, b);
     }));
-    const fold = Object.assign(iconButton('chevron-right', `Headings in ${doc.title}`, () => {
+    const fold = () => {
       list.hidden = !list.hidden;
-      fold.setAttribute('aria-expanded', String(!list.hidden));
       if (list.hidden) this.unfolded.delete(id); else this.unfolded.add(id);
-    }), { className: 'open-document-fold' });
-    attrs(fold, { 'aria-expanded': String(!list.hidden), 'aria-controls': list.id });
-    row.prepend(fold);
-    item.append(list);
+    };
+    const folder = folderOf(doc);
+    const items = (): MenuItem[] => [
+      ...(headings.length ? [[list.hidden ? 'Show headings' : 'Hide headings', 'list-details', fold]] as MenuItem[]
+        : []),
+      ['Rename…', 'pencil', () => this.rename(doc)],
+      ...(folder ? [['Move to…', 'folder-share', () => this.move(doc)]] as MenuItem[] : []),
+      ['Close', 'x', () => this.actions.close(id)],
+      ...(folder ? [['Delete…', 'trash', () => this.actions.deleteEntry(folder, pathOf(doc), 'file')]] as MenuItem[]
+        : []),
+    ];
+    // The id lets a dialog give focus back to this ⋯ once Open Files has been drawn again.
+    const more = Object.assign(moreButton(this.fileMenu, doc.title, items),
+      { className: 'open-document-more', id: `open-actions-${id}` });
+    const item = el('div', { className: 'open-document' }, el('div', { className: 'open-document-row' }, name, more));
+    item.dataset.session = id;
+    if (headings.length) item.append(list);
     return item;
   }
   /** Draws the current file's row again, once typing pauses, for headings added, changed or removed. */

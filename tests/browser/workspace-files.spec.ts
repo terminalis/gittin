@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
+  closeOpenFile,
   command,
   download,
   editor,
@@ -220,7 +221,7 @@ test('close waits for the captured file save, then asks about later changes', as
   await command(page, 'Save');
   await expect.poll(() => page.evaluate(() => !!(window as any).delayedSave.release)).toBe(true);
   await editor(page).fill('later draft');
-  await page.getByRole('button', { name: 'Close Untitled file', exact: true }).click();
+  await closeOpenFile(page, 'Untitled file');
   await expect(page.locator('#app')).toHaveAttribute('inert', '');
   await expect(editor(page)).toBeVisible();
   await page.evaluate(() => (window as any).delayedSave.release());
@@ -305,29 +306,32 @@ test("a rename that changes the file type takes the file's headings out of Open 
   await dialog.getByLabel('File name').fill('notes.txt');
   await dialog.getByRole('button', { name: 'Rename', exact: true }).click();
   await expect(files.locator('.open-document-name')).toHaveText(['notes.txt']);
-  await expect(files.locator('.open-headings, .open-document-fold')).toHaveCount(0);
+  await expect(files.locator('.open-headings')).toHaveCount(0);
 });
 
-test("Open Files folds each Markdown file's headings under it, and another file's heading switches to it there", async ({
+test("Open Files shows a Markdown file's headings under it from its ⋯, and another file's heading switches to it there", async ({
   page,
 }) => {
   await openText(page, '# Trip\n\n## Day one\n\ntext\n\n## Day two\n', 'trip.md');
   await openText(page, '# Packing\n', 'packing.md');
-  const fold = (name: string) => page.getByRole('button', { name: `Headings in ${name}`, exact: true });
-  const headings = (name: string) =>
-    page.locator('#open-documents .open-document').filter({ hasText: name }).locator('.open-headings button');
-  // The current file's headings show; another file's start folded.
-  await expect(fold('packing.md')).toHaveAttribute('aria-expanded', 'true');
+  const files = page.locator('#open-documents');
+  const headings = (name: string) => files.getByRole('list', { name: `Headings in ${name}` }).getByRole('button');
+  const actions = async (name: string) => {
+    await files.getByRole('button', { name: `Actions for ${name}`, exact: true }).click();
+    return page.getByRole('menu', { name: `Actions for ${name}` }).getByRole('menuitem');
+  };
+  // The current file's headings show; another file's are hidden until its ⋯ shows them.
   await expect(headings('packing.md')).toHaveText(['Packing']);
-  await expect(fold('trip.md')).toHaveAttribute('aria-expanded', 'false');
-  await expect(headings('trip.md').first()).toBeHidden();
-  await fold('trip.md').click();
+  await expect(headings('trip.md')).toHaveCount(0);
+  // A file opened on its own can be renamed and closed, as from the File menu.
+  await expect(await actions('trip.md')).toHaveText(['Show headings', 'Rename…', 'Close']);
+  await page.getByRole('menuitem', { name: 'Show headings', exact: true }).click();
   await expect(headings('trip.md')).toHaveText(['Trip', 'Day one', 'Day two']);
+  await expect(await actions('trip.md')).toHaveText(['Hide headings', 'Rename…', 'Close']);
+  await page.keyboard.press('Escape');
   await headings('trip.md').filter({ hasText: 'Day two' }).click();
   await expect(page.locator('#document-title')).toHaveText('trip.md');
   await expect(page.locator('#caret-status')).toHaveText('Ln 7, Col 1');
-  // A file opened on its own can only be renamed from its ⋯, as from File › Rename…; with a mouse, ⋯ shows on hover.
-  await page.locator('.open-document-row').filter({ hasText: 'packing.md' }).hover();
-  await page.getByRole('button', { name: 'Actions for packing.md', exact: true }).click();
-  await expect(page.getByRole('menu', { name: 'Actions for packing.md' }).getByRole('menuitem')).toHaveText(['Rename…']);
+  await closeOpenFile(page, 'packing.md');
+  await expect(files.locator('.open-document-name')).toHaveText(['trip.md']);
 });
