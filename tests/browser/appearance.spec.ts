@@ -380,3 +380,52 @@ test('the system appearance holds while the page is laid out for printing in the
   await page.emulateMedia({ colorScheme: 'light' });
   await expect.poll(theme).toBe('light');
 });
+
+test('a notice sits on the theme peach with a red outline and rises in, again when another replaces it', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {} } });
+  });
+  await home(page);
+  await page.evaluate(() => {
+    (window as any).entrances = 0;
+    document.querySelector('#notice')!.addEventListener('animationstart', () => (window as any).entrances++);
+  });
+  const entrances = () => page.evaluate(() => (window as any).entrances);
+  await page.locator('.home-header').getByRole('button', { name: 'Install', exact: true }).click();
+  const copy = page.getByRole('dialog').getByRole('button', { name: 'Copy command', exact: true });
+  const notice = page.locator('#notice');
+  await copy.click();
+  await expect(notice).toContainText('Command copied.');
+  await expect.poll(entrances).toBe(1);
+  await copy.click();
+  await expect.poll(entrances).toBe(2);
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme });
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe(colorScheme);
+    const look = await notice.evaluate(element => {
+      const paint = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!;
+      const rgb = (colour: string) => {
+        paint.fillStyle = colour;
+        paint.fillRect(0, 0, 1, 1);
+        const [r, g, b] = paint.getImageData(0, 0, 1, 1).data;
+        return `rgb(${r}, ${g}, ${b})`;
+      };
+      const probe = document.body.appendChild(document.createElement('div'));
+      probe.style.cssText = 'background: var(--warm); color: var(--accent)';
+      const theme = getComputedStyle(probe), own = getComputedStyle(element);
+      const colours = {
+        background: rgb(own.backgroundColor), border: rgb(own.borderTopColor), text: rgb(own.color),
+        dismiss: rgb(getComputedStyle(element.querySelector('button')!).color),
+        warm: rgb(theme.backgroundColor), accent: rgb(theme.color),
+      };
+      probe.remove();
+      return colours;
+    });
+    expect(look.background).toBe(look.warm);
+    expect(look.border).toBe(look.accent);
+    expect(contrast(look.text, look.background)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(look.dismiss, look.background)).toBeGreaterThanOrEqual(4.5);
+  }
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(notice).toHaveCSS('animation-name', 'none');
+});
