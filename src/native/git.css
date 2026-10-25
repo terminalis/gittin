@@ -1,16 +1,29 @@
-/* The desktop app's git and GitHub: the Start a repository bar, the save dialog's sections, the account button
-   and the sign-in code. */
-.repository-offer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--line);
+/* The desktop app's git and GitHub: the Folder panel's Repository section, the save dialog's sections, the account
+   button and the sign-in code. */
+#repository-panel .repository-section {
+  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
 }
-.repository-offer p {
-  flex-basis: 100%;
-  margin: 0;
+#repository-panel .repository-section h2 {
+  margin: 0 0 8px;
+}
+#repository-panel .repository-section p {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+#repository-panel .repository-section button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+#repository-panel .repository-section .app-icon {
+  --icon: 16px;
+  color: var(--muted);
 }
 /* Start a repository's list of the folder's entries, scrolling when it is long. */
 .start-entries {
@@ -123,10 +136,6 @@
 /* The status footer's word on GitHub, and the Folder panel's count of edited files not there yet. */
 .github-status:empty {
   display: none;
-}
-#repository-panel .unsent-count {
-  margin: 0 0 10px;
-  color: var(--muted);
 }
 /* Home's four buttons, with Clone repository, in two rows of two; on narrow windows New file and Clone repository
    take a row each, Open file and Open folder sharing the one between. The id outweighs the shared stylesheet's rules,

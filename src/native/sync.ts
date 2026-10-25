@@ -5,9 +5,10 @@ import { compareFile, reshow, saveTools, unsavedFiles } from '../app';
 import { decodeSource } from '../editor/source-projection';
 import type { OpenDocument } from '../screens/workspace';
 import type { FolderSource } from '../sources/folder';
-import { ask, el, iconButton, notice } from '../ui/dom';
+import { ask, el, notice } from '../ui/dom';
 import type { Action } from '../ui/menus';
 import { incomingDialog } from './conflicts';
+import { repositoryButton, repositorySection } from './folder';
 import { git } from './git';
 import { github, isFailure, type Choice, type Fetched, type Stop, type Synced } from './github';
 import { publishDialog } from './publish';
@@ -125,8 +126,8 @@ function run(repo: Repo) {
 const edited = (count: number) => !count ? 'All edited files on GitHub'
   : `${count} edited ${count === 1 ? 'file' : 'files'} not on GitHub yet`;
 
-/** The Folder panel's line counting a repository's edited files not yet on GitHub, following commits until the panel is
- * drawn again. */
+/** The Repository section's line counting a repository's edited files not yet on GitHub, following commits until the
+ * panel is drawn again. */
 function unsentCount(repo: Repo, count: number) {
   const line = el('p', { className: 'unsent-count', role: 'status', textContent: edited(count) });
   const draw = async () => {
@@ -138,19 +139,19 @@ function unsentCount(repo: Repo, count: number) {
   return line;
 }
 
-/** The Folder panel's Sync, for an opened folder that is itself a repository, and for one on GitHub a line under the
- * buttons counting its edited files not yet there; Publish to GitHub without a remote. */
+/** The Folder panel's Repository section, for an opened folder that is itself a repository: Sync, with a line counting
+ * the edited files not yet on GitHub for one there; Publish to GitHub, saying it isn't there yet, without a remote. */
 export function syncInFolder(source: FolderSource, panel: HTMLElement) {
   const repo = repoOfFolder(source), header = panel.querySelector('.folder-header');
-  const tools = header?.querySelector('.folder-tools');
   void git.repositories(repo.root).then(async repositories => {
     if (!repositories.includes('')) return;
     const state = await github.remote(repo.root);
     // The panel may have been drawn again meanwhile.
-    if (!tools?.isConnected) return;
-    tools.append(state.remotes ? iconButton('arrows-up-down', 'Sync', () => run(repo))
-      : iconButton('cloud-upload', 'Publish to GitHub', () => run(repo)));
-    if (state.github) header!.after(unsentCount(repo, state.unsent.length));
+    if (!header?.isConnected) return;
+    const line = state.github ? [unsentCount(repo, state.unsent.length)]
+      : state.remotes ? [] : [el('p', { textContent: "This repository isn't on GitHub yet." })];
+    repositorySection(panel).append(...line, state.remotes ? repositoryButton('Sync', 'arrows-up-down', () => run(repo))
+      : repositoryButton('Publish to GitHub', 'cloud-upload', () => run(repo)));
   }).catch(() => {});
 }
 

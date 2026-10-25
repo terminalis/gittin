@@ -2603,34 +2603,43 @@ label.home-option {
   margin: 0;
   flex: 1 1 240px;
 }
+/* The Folder panel: the heading and the folder's own row, the search, then the files, which scroll on their own so a
+   section under them (the desktop app's Repository) stays at the panel's foot. */
+#repository-panel {
+  display: flex;
+  flex-direction: column;
+}
 .folder-header {
   margin: 0 0 10px;
 }
-.folder-name {
-  margin: 0 0 4px;
+.folder-current {
+  position: relative;
+}
+.folder-current > .folder-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 5px 30px 5px 6px;
+  font-size: 13px;
+  line-height: 18px;
+}
+.folder-name > span {
   overflow: hidden;
-  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The buttons' icons line up with the name above them. */
-.folder-tools {
-  display: flex;
-  gap: 2px;
-  margin-left: -5px;
-}
-.folder-tools button {
-  border: 0;
-  background: transparent;
+.folder-name .app-icon {
+  --icon: 16px;
   color: var(--muted);
-  padding: 5px;
 }
-.folder-tools button:hover {
-  color: var(--ink);
-  background: var(--warm);
-}
-.folder-tools .app-icon {
-  --icon: 18px;
+/* The side margins give the rows' ⋯ room for their focus rings inside the scrolling area. */
+#repository-panel .folder-files {
+  flex: 1;
+  min-height: 0;
+  margin: 0 -6px;
+  padding: 0 6px;
+  overflow: auto;
 }
 #repository-panel input[type="search"],
 .folder-chooser input[type="search"] {
@@ -2941,6 +2950,7 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
   /* Comfortable touch rows. */
   button.folder-row,
   summary.folder-row,
+  .folder-current > .folder-name,
   .open-document button,
   #outline button {
     min-height: 44px;
@@ -2956,7 +2966,8 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
     align-items: center;
   }
   .folder-tree li:has(> .folder-row-more) > .folder-row,
-  .folder-tree li:has(> .folder-row-more) > details > summary.folder-row {
+  .folder-tree li:has(> .folder-row-more) > details > summary.folder-row,
+  .folder-current > .folder-name {
     padding-right: 44px;
   }
 }
@@ -3006,9 +3017,9 @@ details[open] > summary.folder-row > [data-icon="chevron-right"] {
     display: inline-block;
   }
 }
-/* With a mouse, ⋯ shows on the row in use; touch screens always show it. */
+/* With a mouse, a file or subfolder's ⋯ shows on the row in use; the folder's own ⋯ and touch screens always show it. */
 @media (hover: hover) {
-  .folder-row-more {
+  .folder-tree .folder-row-more {
     opacity: 0;
   }
   .folder-tree li:has(> .folder-row:hover, > details > summary:hover) > .folder-row-more,
