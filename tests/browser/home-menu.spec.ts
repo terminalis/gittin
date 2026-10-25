@@ -12,7 +12,7 @@ const trigger = (page: Page) => page.getByRole('button', { name: 'Main menu', ex
 const drawer = (page: Page) => page.getByRole('dialog', { name: 'Main menu', exact: true });
 
 test('drawer order, focus, Escape and backdrop at 1280px and 390px', async ({ page }) => {
-  await page.goto('/#/home');
+  await page.goto('/use/#/home');
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await trigger(page).focus();
@@ -73,7 +73,7 @@ test('drawer order, focus, Escape and backdrop at 1280px and 390px', async ({ pa
 
 test('a click that starts in the drawer and ends outside it closes the drawer', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 844 });
-  await page.goto('/#/home');
+  await page.goto('/use/#/home');
   await trigger(page).click();
   // The drawer slides in; measure where it ends up.
   await drawer(page).evaluate(d => Promise.all(d.getAnimations().map(a => a.finished)));
@@ -89,7 +89,7 @@ test('a click that starts in the drawer and ends outside it closes the drawer', 
 const settings = (page: Page) => drawer(page).getByRole('group', { name: 'Your files', exact: true });
 
 test('appearance and Home options change in place and persist without creating a file', async ({ page }) => {
-  await page.goto('/#/home');
+  await page.goto('/use/#/home');
   await trigger(page).click();
   const titleBarColour = page.locator('meta[name="theme-color"]');
   await drawer(page).getByRole('button', { name: 'Dark', exact: true }).click();
@@ -121,7 +121,7 @@ test('appearance and Home options change in place and persist without creating a
 for (const [system, choice, label] of [['light', 'dark', 'Dark'], ['dark', 'light', 'Light']] as const) {
   test(`a saved ${choice} appearance is applied before the page loads under a ${system} system`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: system });
-    await page.goto('/#/home');
+    await page.goto('/use/#/home');
     await trigger(page).click();
     await drawer(page).getByRole('button', { name: label, exact: true }).click();
     await expect.poll(async () => (await savedPreferences(page)).theme).toBe(choice);
@@ -138,7 +138,7 @@ for (const [system, choice, label] of [['light', 'dark', 'Dark'], ['dark', 'ligh
 }
 
 test('Home options hide Favourites and recent folders and shorten Recently worked on', async ({ page }) => {
-  await page.goto('/#/home');
+  await page.goto('/use/#/home');
   await seedDrafts(
     page,
     Array.from({ length: 12 }, (_, i) => ({
@@ -176,7 +176,7 @@ test('Home options hide Favourites and recent folders and shorten Recently worke
 
 test("Home's Help and About items open, and leaving Home closes their dialogs", async ({ page }) => {
   const errors = pageErrors(page);
-  await page.goto('/#/home');
+  await page.goto('/use/#/home');
   for (const name of ['Getting Started', "What's new"]) {
     await homeMenu(page, name);
     await expect(page.getByRole('dialog', { name, exact: true })).toBeVisible();
@@ -192,6 +192,6 @@ test("Home's Help and About items open, and leaving Home closes their dialogs", 
   await expect(help.getByText('Kept in this browser, which you or the browser can clear.', { exact: true })).toBeVisible();
   await page.evaluate(() => { location.hash = '#/'; });
   await expect(help).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Use Gittin in your browser' })).toBeVisible();
+  await expect(page.locator('#home')).toBeVisible();
   expect(errors).toEqual([]);
 });

@@ -3,16 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <!-- Only Gittin's own scripts run, even if document HTML gets past the sanitizer. Documents may show
-         images from anywhere; KaTeX and Mermaid need inline styles. -->
+    <!-- Only the site's own scripts run. Vite's development server adds styles as style elements. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src * data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'none'"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'none'"
     />
     <meta name="theme-color" content="#F7F6F3" />
     <meta
       name="description"
-      content="An IDE? A word processor? It's just plain text. Edit Markdown, notes, code and config files in your browser and save straight back. No account needed."
+      content="An IDE? A word processor? It's just plain text. Edit Markdown, notes, code and config files and save straight back, with git built into the desktop app. No account needed."
     />
     <!-- The card chat and social apps show for a shared link. They read only these tags, and need full addresses. -->
     <meta property="og:type" content="website" />
@@ -20,7 +19,7 @@
     <meta property="og:title" content="Gittin" />
     <meta
       property="og:description"
-      content="An IDE? A word processor? It's just plain text. Edit Markdown, notes, code and config files in your browser and save straight back. No account needed."
+      content="An IDE? A word processor? It's just plain text. Edit Markdown, notes, code and config files and save straight back, with git built into the desktop app. No account needed."
     />
     <meta property="og:image" content="https://gittin.app/landing/link-preview.png" />
     <meta property="og:image:width" content="1200" />
@@ -28,17 +27,114 @@
     <meta property="og:image:alt" content="Gittin. An IDE? A word processor? It's just plain text." />
     <meta name="twitter:card" content="summary_large_image" />
     <title>Gittin</title>
-    <!-- favicon.ico serves browsers that can't show SVG icons, and pages without icon tags. -->
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/gittin-logo.svg" type="image/svg+xml" />
-    <!-- iPhones use this for the home screen and fill see-through corners with black, so it has a solid background. -->
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <script src="/redirect.js"></script>
     <script src="/theme.js"></script>
+    <script type="module" src="/src/site/landing.ts"></script>
   </head>
-  <body>
-    <div id="app"></div>
-    <div id="notice" role="status" aria-live="polite"></div>
-    <script type="module" src="/src/web/main.ts"></script>
+  <body class="site">
+    <header class="site-bar">
+      <a class="brand" href="/" aria-label="Gittin home"><img src="/gittin-logo.svg" alt="" width="36" height="36"><strong>Gittin</strong></a>
+      <a class="action" href="/use/">Use in browser</a>
+      <a class="action primary" href="/install/">Install</a>
+    </header>
+    <main>
+      <section class="doorway" aria-labelledby="doorway-title">
+        <div class="doorway-stage">
+          <div class="doorway-copy">
+            <h1 id="doorway-title">Gittin</h1>
+            <p class="tagline">An IDE? A word processor? <br>It's just plain text.</p>
+            <a class="doorway-use" href="/use/">Use in browser</a>
+          </div>
+          <div class="door">
+            <img class="door-logo" src="/gittin-logo.svg" alt="" width="900" height="900">
+            <a class="ring" href="/install/" aria-label="Install Gittin"><span>Install</span><span>Gittin</span><svg class="app-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12l14 0" /><path d="M13 18l6 -6" /><path d="M13 6l6 6" /></svg></a>
+          </div>
+        </div>
+        <div class="doorway-links">
+          <a href="/use/">Use in browser</a>
+          <a class="explore" href="#story"><svg class="app-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5l0 14" /><path d="M18 13l-6 6" /><path d="M6 13l6 6" /></svg>Learn more</a>
+        </div>
+      </section>
+      <div id="story">
+        <section class="feature" aria-labelledby="feature-01">
+          <div class="feature-text">
+            <p class="feature-kicker"><span class="feature-number" aria-hidden="true">01</span></p>
+            <h2 id="feature-01">Every save, in git.</h2>
+            <p>In a folder that's a git repository, saving also commits, with a message that says what changed. Version history lists each file's commits.</p>
+            <ul><li>Git is built in, so there's nothing else to install</li><li>Start a repository to give any folder git history</li></ul>
+          </div>
+          <div class="demo demo-git" aria-hidden="true" inert data-shots="git-history"></div>
+        </section>
+        <section class="feature alt" aria-labelledby="feature-02">
+          <div class="feature-text">
+            <p class="feature-kicker"><span class="feature-number" aria-hidden="true">02</span></p>
+            <h2 id="feature-02">Sync with GitHub.</h2>
+            <p>Sign in to GitHub to clone, sync and publish your repositories.</p>
+            <ul><li>Your files go to GitHub only when you sync or publish</li><li>Gittin asks you to sign in only when GitHub needs it</li></ul>
+          </div>
+          <div class="demo demo-github" aria-hidden="true" inert data-shots="github-sync"></div>
+        </section>
+        <section class="feature" aria-labelledby="feature-03">
+          <div class="feature-text">
+            <p class="feature-kicker"><span class="feature-number" aria-hidden="true">03</span></p>
+            <h2 id="feature-03">Write, then preview.</h2>
+            <p>Format Markdown with the toolbar you already know. Switch to Preview to read the finished page.</p>
+            <ul><li>Tables, maths, diagrams and emoji render in Preview</li><li>Preview never changes your source</li></ul>
+          </div>
+          <div class="demo demo-write demo-pair" aria-hidden="true" inert data-shots="write-edit write-preview"></div>
+        </section>
+        <section class="feature alt" aria-labelledby="feature-04">
+          <div class="feature-text">
+            <p class="feature-kicker"><span class="feature-number" aria-hidden="true">04</span></p>
+            <h2 id="feature-04">More than Markdown.</h2>
+            <p>Notes, code and config open just as easily, each with its own syntax colours.</p>
+            <ul><li>Plain text, JSON, YAML, HTML, CSS, JavaScript and TypeScript</li><li>Any other text file opens as plain text</li></ul>
+          </div>
+          <div class="demo demo-files" aria-hidden="true" inert data-shots="files"></div>
+        </section>
+        <section class="feature" aria-labelledby="feature-05">
+          <div class="feature-text">
+            <p class="feature-kicker"><span class="feature-number" aria-hidden="true">05</span></p>
+            <h2 id="feature-05">Bring the whole folder.</h2>
+            <p>Open a folder, find the file you need and save each one straight back where it came from.</p>
+            <ul><li>Unsaved changes wait until you save</li><li>A dot marks files with unsaved changes</li></ul>
+          </div>
+          <div class="demo demo-folder" aria-hidden="true" inert data-shots="folder"></div>
+        </section>
+        <section class="feature alt" aria-labelledby="feature-06">
+          <div class="feature-text">
+            <p class="feature-kicker"><span class="feature-number" aria-hidden="true">06</span></p>
+            <h2 id="feature-06">Nothing gets lost.</h2>
+            <p>Diff shows what changed since you last saved. Version history keeps your recent saves, so you can compare or restore them.</p>
+            <ul><li>Up to 20 recent saves of each file, kept on your device</li><li>Your file only changes when you save</li></ul>
+          </div>
+          <div class="demo demo-history demo-pair" aria-hidden="true" inert data-shots="history-diff history-versions"></div>
+        </section>
+        <section class="landing-faq" aria-labelledby="faq-title">
+          <h2 id="faq-title">A few things to know</h2>
+          <dl>
+            <div><dt>Do I need an account?</dt><dd>No. Gittin has no accounts of its own; the desktop app can sign in to GitHub to sync repositories.</dd></div>
+            <div><dt>Where are unsaved changes kept?</dt><dd>On this device, in the desktop app or your browser, until you save. A browser can clear its storage, so save to keep them in a file.</dd></div>
+            <div><dt>Does Preview change my Markdown?</dt><dd>No. Preview is read-only and shows source snippets for anything it can't render fully. Switching views leaves your source and undo history unchanged.</dd></div>
+            <div><dt>Can I work offline?</dt><dd>Yes. <a href="/install/">The desktop app</a> works offline from the start. In a browser, Gittin starts without a connection once it has loaded on this device.</dd></div>
+          </dl>
+        </section>
+        <section class="farewell" aria-labelledby="farewell-title">
+          <div class="door">
+            <img class="door-logo" src="/gittin-logo.svg" alt="" width="900" height="900">
+            <a class="ring" href="/install/" aria-label="Install Gittin"><span>Install</span><span>Gittin</span><svg class="app-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12l14 0" /><path d="M13 18l6 -6" /><path d="M13 6l6 6" /></svg></a>
+          </div>
+          <div class="farewell-text"><h2 id="farewell-title">Bring a file. <br>Start writing.</h2><p>No account needed.</p></div>
+        </section>
+      </div>
+    </main>
+    <footer class="site-footer">
+      <a class="brand" href="/" aria-label="Gittin home"><img src="/gittin-logo.svg" alt="" width="36" height="36"><strong>Gittin</strong></a>
+      <nav class="site-legal" aria-label="Legal"><a href="/privacy.html" rel="noopener noreferrer">Privacy Policy</a><a href="/terms.html" rel="noopener noreferrer">Terms of Service</a><a href="/THIRD_PARTY_NOTICES.txt" rel="noopener noreferrer">Third-party notices</a></nav>
+    </footer>
   </body>
 </html>

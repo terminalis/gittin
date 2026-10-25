@@ -1,0 +1,235 @@
+/* The palette, interface type and base elements, shared by the app (style.css) and the website (site/site.css). */
+@import "@fontsource/source-sans-3/latin-400.css";
+@import "@fontsource/source-sans-3/latin-600.css";
+@import "@fontsource/courier-prime/latin-400.css";
+@import "@fontsource/courier-prime/latin-400-italic.css";
+@import "@fontsource/courier-prime/latin-700.css";
+@import "@fontsource/courier-prime/latin-700-italic.css";
+/* Tokens and base elements. */
+:root {
+  --font-primary: "Courier Prime", "Courier New", monospace;
+  --font-secondary: "Source Sans 3", system-ui, sans-serif;
+  font-family: var(--font-secondary);
+  color: var(--ink);
+  background: var(--bg);
+  color-scheme: light;
+  --radius: 5px;
+  --radius-panel: 8px;
+  --shadow-popover: 0 2px 6px #0003, 0 8px 20px #0002;
+  --shadow-dialog: 0 8px 32px #0003;
+  --scrim: #0005;
+  --icon: 20px;
+  --gutter: max(48px, calc((100% - 1120px) / 2));
+}
+/* The light palette, also pinned on favourite thumbnails, which stay light in dark appearance. */
+:root,
+.favourite-thumbnail {
+  --bg: #f7f6f3;
+  --surface: #fff;
+  --ink: #292623;
+  --muted: #69635e;
+  --accent: #c43e2c;
+  --action-ink: #fff;
+  --warm: #fbe7df;
+  --line: #dedbd5;
+  /* Text-field edges: at least 3:1 against page, surface and peach (WCAG 1.4.11), with margin (U17). */
+  --control-line: #7f7872;
+  --code: #f2f0ec;
+  --hover: color-mix(in srgb, var(--ink) 8%, transparent);
+  --syntax-comment: #6b8568;
+  --syntax-string: #a25470;
+  --syntax-url: #327fbe;
+  --syntax-keyword: #8b4daf;
+  --syntax-number: #a3671f;
+}
+/* Paper is always light: the dark palette is for screens. */
+@media screen {
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    /* 30 September 2026: darker surround and lighter page so the page separates (1.26:1, was 1.10:1). */
+    --bg: #161514;
+    --surface: #2b2926;
+    --ink: #f4f1ed;
+    --muted: #b9b2ab;
+    --accent: #f27d69;
+    --action-ink: #292623;
+    --warm: #3c2722;
+    --line: #46413c;
+    --control-line: #8a8279;
+    --code: #35322e;
+    --syntax-comment: #9db497;
+    --syntax-string: #e2a0b5;
+    --syntax-url: #7db6e4;
+    --syntax-keyword: #c9a0ec;
+    --syntax-number: #e3b67e;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+h1,
+h2,
+h3,
+h4,
+p {
+  margin-top: 0;
+}
+strong {
+  font-weight: 600;
+}
+/* The typewriter face is for display type: headings, the brand and the document name. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.brand {
+  font-family: var(--font-primary);
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.brand strong {
+  font-weight: 700;
+}
+h1 {
+  font-size: 34px;
+  line-height: 1.2;
+}
+h2 {
+  font-size: 23px;
+}
+p {
+  line-height: 1.5;
+}
+a {
+  color: var(--accent);
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button,
+.action {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 7px 12px;
+  cursor: pointer;
+  text-decoration: none;
+}
+/* :where keeps this as weak as a plain button:hover, so component rules still override it. */
+button:hover:where(:not(:disabled)),
+.action:hover {
+  border-color: var(--accent);
+  background: var(--warm);
+}
+button:disabled,
+input:disabled {
+  opacity: 0.52;
+  cursor: default;
+}
+input {
+  min-width: 0;
+  padding: 8px 10px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+input:not([type=checkbox]):not([type=radio]),
+select,
+textarea {
+  border-color: var(--control-line);
+}
+button[aria-pressed="true"],
+button[aria-current="true"] {
+  background: var(--warm);
+  color: var(--accent);
+}
+button.primary,
+.primary {
+  background: var(--accent);
+  color: var(--action-ink);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+button.primary:hover:where(:not(:disabled)),
+.primary:hover:where(:not(:disabled)) {
+  filter: brightness(0.95);
+  background: var(--accent);
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+/* Fields already have an edge: the focus ring sits directly on it rather than 3px outside. */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: 0;
+}
+::selection {
+  background: var(--warm);
+  color: var(--ink);
+}
+/* !important: a component's own display rule must never reveal a hidden element. */
+[hidden] {
+  display: none !important;
+}
+small {
+  color: var(--muted);
+}
+summary {
+  cursor: pointer;
+}
+.app-icon {
+  display: inline-block;
+  width: var(--icon);
+  height: var(--icon);
+  flex-shrink: 0;
+  vertical-align: middle;
+  pointer-events: none;
+}
+button:has(> .app-icon),
+a:has(> .app-icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+/* 760px matches narrow in ui/dom.ts. */
+@media (max-width: 760px) {
+  :root {
+    --gutter: 24px;
+  }
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.brand strong {
+  font-size: 27px;
+  letter-spacing: -1px;
+}
+.brand img {
+  flex-shrink: 0;
+}

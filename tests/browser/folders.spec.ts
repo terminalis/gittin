@@ -170,7 +170,7 @@ test.describe('writable folders', () => {
     await editor(page).fill('mine');
     await expectDraftSaved(page);
     await disk.write(page, 'a.md', 'theirs');
-    await page.goto('/#/home');
+    await page.goto('/use/#/home');
     await openFromFolder(page, 'a.md');
     await expect(editor(page)).toHaveText('mine');
     const banner = page.locator('#disk-change');
@@ -188,7 +188,7 @@ test.describe('writable folders', () => {
     await editor(page).fill('mine');
     await expectDraftSaved(page);
     await disk.write(page, 'a.md', 'theirs');
-    await page.goto('/#/home');
+    await page.goto('/use/#/home');
     await openFromFolder(page, 'a.md');
     const banner = page.locator('#disk-change');
     await expect(banner).toContainText('a.md changed on disk');
@@ -208,17 +208,17 @@ test.describe('writable folders', () => {
   test('reopening from Home checks the disk; after a reload Home keeps folder files available', async ({ page }) => {
     await useFolder(page, { 'a.md': 'one', 'b.md': 'one' });
     await openFromFolder(page, 'a.md');
-    await page.goto('/#/home');
+    await page.goto('/use/#/home');
     await openFromFolder(page, 'b.md');
     await editor(page).fill('mine');
     await expectDraftSaved(page);
-    await page.goto('/#/home');
+    await page.goto('/use/#/home');
     await disk.write(page, 'a.md', 'theirs');
     await disk.write(page, 'b.md', 'theirs');
     const recent = page.locator('#recent');
     await recent.getByRole('button', { name: 'a.md', exact: true }).click();
     await expect(editor(page)).toHaveText('theirs');
-    await page.goto('/#/home');
+    await page.goto('/use/#/home');
     await recent.getByRole('button', { name: 'b.md', exact: true }).click();
     await expect(editor(page)).toHaveText('mine');
     await expect(page.locator('#disk-change')).toContainText('b.md changed on disk');
@@ -232,7 +232,7 @@ test.describe('writable folders', () => {
         tx.onerror = () => reject(tx.error);
       };
     }));
-    await page.goto('/#/home');
+    await page.goto('/use/#/home');
     await page.reload();
     const row = recent.locator('.recent-row').filter({ hasText: 'a.md' });
     await expect(row.locator('.recent-folder')).toHaveText('project');
@@ -317,7 +317,7 @@ test.describe('writable folders', () => {
     await expect(page.getByRole('button', { name: 'Remove favourite', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Version history', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Version history', exact: true })).toContainText('Opened');
-    await page.goto('/#/home');
+    await page.goto('/use/#/home');
     await expect(page.locator('#recent')).toContainText('c.md');
     await expect(page.locator('#recent')).not.toContainText('a.md');
   });
@@ -369,7 +369,7 @@ test.describe('writable folders', () => {
     await expect(moveOpen).toHaveCount(0);
     await expect(panel.getByRole('button', { name: 'a.md', exact: true })).toHaveAttribute('title', 'docs/a.md');
     expect(await disk.read(page, 'docs/a.md')).toBe('A');
-    await page.goto('/#/home');
+    await page.goto('/use/#/home');
     const row = page.locator('#recent .recent-row').filter({ hasText: 'b.md' });
     await expect(row.locator('.recent-folder')).toHaveText('project › docs');
     await page.locator('#recent').getByRole('button', { name: 'b.md', exact: true }).click();
@@ -468,7 +468,7 @@ test.describe('writable folders', () => {
   test('deleting a folder says how many files it holds and closes their tabs', async ({ page }) => {
     await useFolder(page, { 'a.md': 'A', 'docs/b.md': 'B', 'docs/img/c.png': 'C' });
     await openFromFolder(page, 'docs/b.md');
-    await page.goto('/#/home');
+    await page.goto('/use/#/home');
     await openFromFolder(page, 'a.md');
     const panel = folderPanel(page);
     await panel.getByRole('button', { name: 'Actions for docs', exact: true }).click();
@@ -704,7 +704,7 @@ test.describe('writable folders', () => {
     });
     await useFolder(page, { 'a.md': 'A' });
     await openFromFolder(page, 'a.md');
-    await page.goto('/#/home');
+    await page.goto('/use/#/home');
     await page.evaluate(() => { (window as any).needsPermission = true; });
     await page.locator('#recent').getByRole('button', { name: 'a.md', exact: true }).click();
     const bar = page.locator('#access-bar'), panel = folderPanel(page);
@@ -750,7 +750,7 @@ test.describe('writable folders', () => {
   test('a remembered folder without permission asks for it by name', async ({ page }) => {
     await useFolder(page, { 'a.md': 'A' });
     await openFromFolder(page, 'a.md');
-    await page.goto('/#/home');
+    await page.goto('/use/#/home');
     await page.evaluate(() => {
       const handle = FileSystemDirectoryHandle.prototype as any;
       handle.queryPermission = async () => 'prompt';
@@ -827,7 +827,7 @@ test.describe('writable folders', () => {
     await openFile(page);
     await expect(page.locator('#document-title')).toHaveText('a.md');
     await expect(folderPanel(page).getByRole('button', { name: 'a.md', exact: true })).toHaveAttribute('aria-current', 'true');
-    await page.goto('/#/home');
+    await page.goto('/use/#/home');
     await expect.poll(() => recentRows(page)).toEqual([['a.md', 'project › docs']]);
   });
 
@@ -844,7 +844,7 @@ test.describe('writable folders', () => {
     await editor(page).fill('mine');
     await expectDraftSaved(page);
     await expect(page.locator('#repository-panel')).toContainText('This file was opened on its own');
-    await page.goto('/#/home');
+    await page.goto('/use/#/home');
     await expect.poll(() => recentRows(page)).toEqual([['a.md', ''], ['b.md', '']]);
     await openFromFolder(page, 'docs/a.md');
     await expect(editor(page)).toHaveText('mine');
@@ -852,7 +852,7 @@ test.describe('writable folders', () => {
     await page.getByRole('button', { name: 'Version history', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Version history', exact: true }).locator('li')).toHaveCount(1);
     await page.keyboard.press('Escape');
-    await page.goto('/#/home');
+    await page.goto('/use/#/home');
     await expect.poll(() => recentRows(page)).toEqual([['a.md', 'project › docs'], ['b.md', 'project']]);
     await page.locator('#recent').getByRole('button', { name: 'b.md', exact: true }).click();
     await expect(editor(page)).toHaveText('B');
@@ -873,7 +873,7 @@ test('Remove from recent warns for browser-only files and deletes the draft', as
   await newFile(page);
   await editor(page).fill('only here');
   await expectDraftSaved(page);
-  await page.goto('/#/home');
+  await page.goto('/use/#/home');
   await expect(page.locator('#recent .recent-row').filter({ hasText: 'Untitled file' }).locator('.recent-state')).toHaveText('Not saved yet');
   await fileAction(page, 'Untitled file', 'Remove');
   const dialog = page.getByRole('dialog', { name: 'Remove Untitled file?', exact: true });
@@ -895,10 +895,7 @@ test('a relative link in Preview stays in Gittin for a file opened on its own', 
 
 test('no Git or GitHub wording appears in the web app', async ({ page }) => {
   const banned = /\bcommit|github|repositor/i;
-  const desktopAccountAnswer = /^No\. Gittin has no accounts of its own; the desktop app .*$/m;
-  await page.goto('/');
-  expect((await page.locator('body').innerText()).replace(desktopAccountAnswer, '')).not.toMatch(banned);
-  await page.goto('/#/home');
+  await page.goto('/use/#/home');
   await expect(page.locator('#home')).toBeVisible();
   expect(await page.locator('body').innerText()).not.toMatch(banned);
   await page.getByRole('button', { name: 'Main menu', exact: true }).click();

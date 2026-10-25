@@ -89,7 +89,6 @@ export function home(
     favourite(id: string, favourite: boolean): void;
     rename(id: string): void;
     deleteFile(id: string): void;
-    install?(): void;
   },
   failed = false
 ) {
@@ -129,7 +128,7 @@ export function home(
     ? '<section class="home-favourites"><div class="favourites-head"><h2>Favourites</h2></div>'
       + '<div id="favourites"></div></section>'
     : '';
-  screen.innerHTML = `<header class="home-header">${brand('#/')}`
+  screen.innerHTML = `<header class="home-header">${brand(desktop ? '#/home' : '/')}`
     + '<button type="button" class="home-menu-trigger" aria-label="Main menu" title="Main menu">'
     + `${iconMarkup('menu-2')}</button></header>`
     + `<main><div class="home-welcome">${snippet}<div class="home-welcome-copy">`
@@ -242,7 +241,8 @@ export function home(
   };
   applyOptions();
   const trigger = screen.querySelector<HTMLButtonElement>('.home-menu-trigger')!;
-  if (actions.install) trigger.before(button('Install', actions.install, 'home-install'));
+  // On the web, the website's install page; the desktop app is installed already.
+  if (!desktop) trigger.before(el('a', { className: 'home-install', href: '/install/', textContent: 'Install' }));
   screen.append(homeMenu(trigger, prefs, { refresh: actions.home, applyHomeOptions: applyOptions }), fileMenu.element);
   extensions.home?.(screen.querySelector<HTMLElement>('.home-header')!, screen.querySelector<HTMLElement>('.document-actions')!);
   return screen;

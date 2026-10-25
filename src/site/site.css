@@ -1,10 +1,13 @@
-/* Landing: the doorway, the slide-in bar, feature sections with screenshots of the app, FAQ and closing band. */
-.landing {
+@import "../base.css";
+/* The website: the landing page (the doorway, the slide-in bar, feature sections with screenshots of the app, the
+   questions and the closing band) and the install page. */
+.site {
   overflow-x: clip;
 }
 
-/* Slide-in bar: hidden (and out of the tab order) while any of the doorway shows. */
-.landing-bar {
+/* The bar. On the landing it is hidden (and out of the tab order) while any of the doorway shows, then slides in; the
+   install page shows it from the start. */
+.site-bar {
   display: flex;
   align-items: center;
   gap: 20px;
@@ -20,29 +23,24 @@
   transform: translateY(-100%);
   transition: transform .3s cubic-bezier(.2, .8, .2, 1), visibility 0s linear .3s;
 }
-.landing-bar.shown {
+.site-bar.shown {
   visibility: visible;
   transform: none;
   transition: transform .3s cubic-bezier(.2, .8, .2, 1);
 }
-.landing-bar .brand {
+.site-bar .brand {
   margin-right: auto;
 }
-.landing-bar .brand img {
+.site-bar .brand img {
   width: 28px;
   height: 28px;
 }
-.landing-bar .brand strong {
+.site-bar .brand strong {
   font-size: 22px;
 }
-.landing-bar .action {
-  display: inline-flex;
-  align-items: center;
-  column-gap: 10px;
+.site-bar .action {
   padding: 9px 18px;
-}
-.landing-bar .install {
-  padding: 9px 18px;
+  white-space: nowrap;
 }
 
 /* Doorway: one composition scaled to fit the screen's shape (1280×800 landscape, 768×1024 for upright tablets,
@@ -82,6 +80,19 @@
   font-size: calc(30 * var(--u));
   line-height: 1.3;
 }
+/* Use in browser under the tagline, for the upright arrangements, which have no quiet links at the foot. */
+.doorway-use {
+  display: none;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 18px;
+  color: var(--muted);
+  font: 17px var(--font-secondary);
+  text-decoration: none;
+}
+.doorway-use:hover {
+  color: var(--ink);
+}
 .doorway .door {
   right: calc(-280 * var(--u));
   top: calc(-50 * var(--u));
@@ -98,15 +109,11 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 0;
-  border: 0;
-  background: none;
   color: var(--muted);
   font: 16px var(--font-secondary);
   text-decoration: none;
 }
 .doorway-links > :hover {
-  background: none;
   color: var(--ink);
 }
 
@@ -178,8 +185,13 @@
 .feature.alt .feature-text {
   order: 2;
 }
+.feature-kicker {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin: 0;
+}
 .feature-number {
-  display: block;
   font-family: var(--font-primary);
   font-weight: 700;
   font-size: 18px;
@@ -192,7 +204,7 @@
   letter-spacing: -0.035em;
   line-height: 1.02;
 }
-.feature-text p {
+.feature-text p:not(.feature-kicker) {
   margin: 0;
   font: 20px/1.5 var(--font-secondary);
 }
@@ -267,7 +279,7 @@
   display: none;
 }
 
-/* FAQ: always open. */
+/* Questions: always open. */
 .landing-faq {
   display: grid;
   grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
@@ -301,16 +313,8 @@
   color: var(--muted);
   font: 18px/1.5 var(--font-secondary);
 }
-.landing-faq .install {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  text-decoration: underline;
-}
 
-/* Closing band: the logo returns at the left, its ring holding Open Gittin again.
+/* Closing band: the logo returns at the left, its ring holding Install Gittin again.
    Narrower than about 1080px, the band scales with the window, so the logo keeps clear of the words. */
 .farewell {
   --u: min(0.845px, calc(100vw / 1280));
@@ -343,7 +347,7 @@
   font: 19px var(--font-secondary);
 }
 
-.landing > footer {
+.site-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -352,7 +356,7 @@
   border-top: 1px solid var(--line);
   font: 15px var(--font-secondary);
 }
-.landing-legal {
+.site-legal {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -378,6 +382,9 @@
   .doorway .tagline {
     margin-top: calc(30 * var(--u));
     font-size: calc(34 * var(--u));
+  }
+  .doorway-use {
+    display: inline-flex;
   }
   .doorway .door {
     width: calc(860 * var(--u));
@@ -417,6 +424,9 @@
     margin-top: calc(22 * var(--u));
     font-size: calc(22 * var(--u));
   }
+  .doorway-use {
+    display: inline-flex;
+  }
   .doorway .door {
     width: calc(560 * var(--u));
     height: calc(560 * var(--u));
@@ -434,15 +444,228 @@
     display: none;
   }
 }
-@media (max-width: 760px) {
-  .landing-bar {
-    height: 56px;
+/* The install page: a tint band with the heading, the three cards, then the comparison. */
+.install-page main {
+  padding-top: 64px;
+}
+.install-head {
+  position: relative;
+  overflow: hidden;
+  padding: 72px var(--gutter) 64px;
+  background: var(--warm);
+}
+.install-head-copy {
+  position: relative;
+  max-width: 600px;
+}
+/* As on Home: a faint editor window describing Gittin in YAML, clear of the words, cut off at the content column's
+   right edge and the band's bottom. */
+.install-art {
+  position: absolute;
+  inset: 0 var(--gutter);
+  overflow: hidden;
+  pointer-events: none;
+}
+.install-snippet {
+  position: absolute;
+  top: 28px;
+  left: calc(600px + clamp(64px, (100% - 600px) * 0.25, 140px));
+  width: 640px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 24px 70px #00000024;
+  opacity: 0.14;
+}
+.install-snippet-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  font: 600 14px var(--font-secondary);
+}
+.install-snippet-tile {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  background: var(--warm);
+  color: var(--accent);
+  font: 700 8px var(--font-primary);
+  letter-spacing: .02em;
+}
+.install-snippet pre {
+  margin: 0;
+  padding: 14px 0;
+  font: 15px/1.7 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+.install-snippet-number {
+  display: inline-block;
+  width: 3ch;
+  margin-right: 2ch;
+  color: var(--muted);
+  text-align: right;
+}
+.syntax-comment {
+  color: var(--syntax-comment);
+}
+.syntax-string {
+  color: var(--syntax-string);
+}
+.syntax-keyword {
+  color: var(--syntax-keyword);
+}
+.syntax-number {
+  color: var(--syntax-number);
+}
+.install-head h1 {
+  margin: 0;
+  font-size: clamp(40px, 5.4vw, 72px);
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+}
+.install-head p {
+  max-width: 40em;
+  margin: 18px 0 0;
+  font: 20px/1.5 var(--font-secondary);
+}
+.install-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  padding: 56px var(--gutter);
+}
+.install-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+.install-card h2 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+.install-card p {
+  margin: 0;
+  font: 16px/1.5 var(--font-secondary);
+}
+.install-hint,
+.install-lead-note {
+  color: var(--muted);
+}
+/* The actions sit at each card's foot, so the three line up. */
+.install-card .install-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+.install-actions > * {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 16px;
+}
+.install-terminal {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.install-terminal small {
+  font-size: 12px;
+}
+/* One shaded box: the command on one line, scrolling sideways when it doesn't fit, and Copy beside it. */
+.install-command {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border-radius: var(--radius);
+  background: var(--code);
+}
+.install-command code {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  white-space: pre;
+  overflow-x: auto;
+  user-select: all;
+}
+.install-command button,
+.install-command button:hover {
+  flex: none;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.install-command button:hover {
+  color: var(--ink);
+}
+.install-command button:focus-visible {
+  outline-offset: -2px;
+}
+.install-card .install-status {
+  color: var(--muted);
+  font-size: 13px;
+}
+.install-compare {
+  padding: 24px var(--gutter) 120px;
+}
+.install-compare h2 {
+  margin: 0 0 24px;
+  font-size: clamp(30px, 3.4vw, 44px);
+  letter-spacing: -0.03em;
+}
+.install-compare table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 17px/1.4 var(--font-secondary);
+}
+.install-compare th,
+.install-compare td {
+  padding: 14px 16px 14px 0;
+  border-top: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.install-compare thead th,
+.install-compare thead td {
+  border-top: 0;
+  font: 700 18px var(--font-primary);
+}
+.install-compare tbody th {
+  font-weight: 600;
+}
+.install-compare tbody td {
+  color: var(--muted);
+}
+/* Narrower, the Store button's label would wrap in a third of the width and stand taller than the others; stacked,
+   every card keeps its button at its foot. */
+@media (max-width: 960px) {
+  .install-cards {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .landing-bar .brand strong {
+}
+@media (max-width: 760px) {
+  .site-bar {
+    height: 56px;
+    gap: 12px;
+  }
+  .site-bar .brand strong {
     font-size: 20px;
   }
-  .landing-bar .action,
-  .landing-bar .install {
+  .site-bar .action {
     padding: 8px 14px;
   }
   .feature,
@@ -454,7 +677,7 @@
   .feature.alt .feature-text {
     order: 0;
   }
-  .feature-text p {
+  .feature-text p:not(.feature-kicker) {
     font-size: 18px;
   }
   .demo-pair > .shot-back {
@@ -494,83 +717,53 @@
     bottom: -150px;
     translate: none;
   }
-  .landing > footer {
+  .site-footer {
     flex-direction: column;
     align-items: flex-start;
     gap: 14px;
     padding: 20px var(--gutter);
     font-size: 12px;
   }
-  .landing-legal {
+  .site-legal {
     justify-content: flex-start;
   }
+  .install-page main {
+    padding-top: 56px;
+  }
+  .install-head {
+    padding: 48px var(--gutter) 40px;
+  }
+  /* The editor window needs more room than a phone has beside the words. */
+  .install-art {
+    display: none;
+  }
+  .install-head p {
+    font-size: 18px;
+  }
+  .install-cards {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 40px var(--gutter);
+  }
+  .install-compare {
+    padding-bottom: 72px;
+  }
+  .install-compare table {
+    font-size: 15px;
+  }
+  .install-compare th,
+  .install-compare td {
+    padding: 12px 10px 12px 0;
+  }
 }
-/* Install: a quiet button beside Home's menu, and the Flatpak command in its dialog. Phones can't run the
-   desktop app, so the bar and Home leave the button out. */
-.home-install {
-  min-height: 44px;
-  margin-right: 4px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 22px;
-  background: transparent;
-}
-.home-install:hover {
-  background: color-mix(in srgb, var(--surface) 55%, transparent);
-}
-.install-dialog .version-row {
-  flex-wrap: wrap;
-}
-.install-terminal {
-  display: grid;
-  flex-basis: 100%;
-  gap: 4px;
-  min-width: 0;
-}
-.install-terminal small {
-  font-size: 12px;
-}
-/* One shaded box: the command wraps inside it, and the copy button sits in its top corner. */
-.install-command {
-  position: relative;
-  min-width: 0;
-  border-radius: var(--radius);
-  background: var(--code);
-}
-.install-command code {
-  display: block;
-  padding: 8px 44px 8px 10px;
-  font: 13px var(--font-document-mono);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  user-select: all;
-}
-.install-command button,
-.install-command button:hover {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  min-height: 32px;
-  padding: 0 10px;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-}
-.install-command button:hover {
-  color: var(--ink);
-}
-.install-command button:focus-visible {
-  outline-offset: -2px;
-}
-@media (max-width: 600px) {
-  .landing-bar .install,
-  .home-install {
+/* The logo, Use in browser and Install need about 400px with the wordmark. */
+@media (max-width: 480px) {
+  .site-bar .brand strong {
     display: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .landing-bar,
-  .landing-bar.shown,
+  .site-bar,
+  .site-bar.shown,
   .ring,
   .ring .app-icon {
     transition: none;

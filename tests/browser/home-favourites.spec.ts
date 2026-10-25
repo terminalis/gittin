@@ -15,7 +15,7 @@ for (const width of [1280, 390]) {
   test(`Home shows safe, clickable favourite thumbnails at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
     const outside = outsideRequests(page);
-    await page.goto('/#/home');
+    await page.goto('/use/#/home');
     await seedDrafts(page, [
       { id: 'note-preview', title: 'Project notes', favourite: true, source: noteSource },
       {
@@ -66,7 +66,7 @@ for (const width of [1280, 390]) {
 
 test('Favourites switch between cards and rows, sort four ways and keep both choices', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto('/#/home');
+  await page.goto('/use/#/home');
   const now = Date.now();
   await seedDrafts(page, [
     { title: 'Recent only', source: 'R', lastOpened: now },
