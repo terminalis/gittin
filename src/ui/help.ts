@@ -209,6 +209,26 @@ export function gettingStarted() {
 }
 /** Every release, newest first: its name, its date and its changes. */
 const releases: [name: string, date: string, changes: string[]][] = [
+  ...desktop ? [['The Repository section', '26 October 2026', [
+    'Start a repository, Sync and Publish to GitHub sit in a Repository section at the foot of the Folder panel, in '
+      + "place of the header's git buttons.",
+    'Signing in to GitHub shows a Copy button beside the code, then Open GitHub.',
+  ]] as [string, string, string[]]] : [],
+  ['Home, panels and menus', '26 October 2026', [
+    'Every file on Home has a ⋯ menu: Favourite, Rename…, Remove and Delete….',
+    'Favourites show as cards or rows, sorted by title or by last opened.',
+    "Home's menu is grouped as Your files, Drafts, Help and About, and a file not yet saved to disk reads Not saved "
+      + 'yet.',
+    "Open Files gives each file a ⋯ menu and shows the current file's headings beneath it, in place of the Outline "
+      + 'section.',
+    "In the Folder panel, the folder's own ⋯ holds New file, New folder and Refresh, and the search box is named after "
+      + 'the folder.',
+    'File details takes in File statistics and opens from the info button beside the file name; Copy path is in the '
+      + 'File menu and beside the name.',
+    "Menus and dialogs fit their contents, notices use the theme's peach with a red outline, and a dialog over another "
+      + 'dims the page once.',
+    "On phones the status footer takes two rows: the file's details, then the save state with Focus.",
+  ]],
   ...desktop ? [['GitHub in the desktop apps', '24 October 2026', [
     'Sign in to GitHub from the GitHub button at the right of the header.',
     'Clone repository, on Home and in File › Open, copies a repository into a new folder in the folder you choose.',

@@ -329,9 +329,9 @@ test('Help opens as a dialog, guides separate, shortcuts assigned/platform-speci
   await command(page, "What's new");
   const news = dialog(page, "What's new").locator('details');
   await expect(news.first()).toHaveAttribute('open', '');
-  await expect(news.first().locator('summary')).toHaveText('Find, Help and dialogs24 October 2026');
+  await expect(news.first().locator('summary')).toHaveText('Home, panels and menus26 October 2026');
   await expect(news.first().locator('li').first())
-    .toHaveText('Find and replace floats over the text as one bar, with its options in a menu.');
+    .toHaveText('Every file on Home has a ⋯ menu: Favourite, Rename…, Remove and Delete….');
   await expect(news.nth(1)).not.toHaveAttribute('open', '');
   await expect(news.nth(1).locator('li').first()).toBeHidden();
   await expect(dialog(page, "What's new")).toContainText('27 September 2026');
