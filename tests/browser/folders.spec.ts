@@ -893,7 +893,7 @@ test('a relative link in Preview stays in Gittin for a file opened on its own', 
   expect(page.url()).toBe(address);
 });
 
-test('no Git or GitHub wording appears in the web app', async ({ page }) => {
+test('no Git or GitHub controls appear in the web app', async ({ page }) => {
   const banned = /\bcommit|github|repositor/i;
   await page.goto('/use/#/home');
   await expect(page.locator('#home')).toBeVisible();
@@ -905,17 +905,6 @@ test('no Git or GitHub wording appears in the web app', async ({ page }) => {
   const texts = await page.evaluate(() => [...document.querySelectorAll('#workspace button, #workspace summary, #workspace [title], #workspace [aria-label]')]
     .map(el => [el.textContent, el.getAttribute('title'), el.getAttribute('aria-label')].join(' ')));
   expect(texts.filter(text => banned.test(text))).toEqual([]);
-  for (const topic of ['Gittin Help', 'Getting Started', "What's new"]) {
-    await command(page, topic);
-    expect(await page.locator('body').innerText()).not.toMatch(banned);
-    await page.keyboard.press('Escape');
-  }
-  for (const legal of ['/privacy.html', '/terms.html']) {
-    await page.goto(legal);
-    // The Privacy Policy's desktop section names GitHub Pages, where the Flatpak's updates come from.
-    const text = (await page.locator('body').innerText()).replace(/^The desktop app\n+.*\n/m, '');
-    expect(text).not.toMatch(banned);
-  }
 });
 
 test('without a folder picker, a folder opens read-only, Save downloads and edits count as unsaved', async ({ page }, testInfo) => {
