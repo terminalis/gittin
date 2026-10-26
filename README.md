@@ -1,26 +1,29 @@
 # Gittin
 
-Gittin is a writing app for Markdown, notes, code and config files. It runs in your browser: open a file or a whole folder, format with a toolbar you already know, and save straight back to the file it came from. There are no accounts, and your files stay on your device.
+Gittin is a writing app for Markdown, notes, code and config files. Open a file or a whole folder, format with a toolbar you already know, and save straight back to the file it came from. The desktop app has git built in and can sync with GitHub. Gittin also runs in your browser, without git.
 
-- Use it in the browser at [gittin.app/use](https://gittin.app/use/).
 - On Windows, get the desktop app from the [Microsoft Store](https://apps.microsoft.com/detail/9NDJ4HR0FF1H).
 - On Linux, install it with Flatpak:
 
       flatpak install --user https://terminalis.github.io/packages/flatpak/gittin.flatpakref
 
-The desktop apps also commit your saves in git repositories and sync them with GitHub.
+- Or use it in the browser at [gittin.app/use](https://gittin.app/use/).
+
+Gittin has no accounts of its own; the desktop app can sign in to GitHub to sync repositories.
 
 ## What it does
 
+- **Every save, in git.** In a folder that's a git repository, the desktop app commits each save with a message that says what changed, and Version history lists each file's commits.
+- **Sync with GitHub.** Sign in to GitHub to clone, sync and publish your repositories. Your files go to GitHub only when you sync or publish.
 - **Write, then preview.** Format Markdown from the toolbar, then switch to Preview to read the finished page, with tables, maths, diagrams and emoji. Preview never changes your source.
 - **More than Markdown.** Plain text, JSON, YAML, HTML, CSS, JavaScript and TypeScript open with their own syntax colours.
 - **Bring the whole folder.** Open a folder, find the file you need and save each one back where it came from.
-- **Nothing gets lost.** Unsaved changes wait in your browser until you save. Diff shows what changed since your last save, and version history keeps your recent saves so you can compare or restore them.
-- **Works offline.** After one visit, Gittin starts without a connection.
+- **Nothing gets lost.** Unsaved changes wait on your device until you save. Diff shows what changed since your last save, and version history keeps your recent saves so you can compare or restore them.
+- **Works offline.** The desktop app works offline from the start; in a browser, Gittin starts without a connection after one visit.
 
 Your documents stay ordinary files that open in any other app.
 
-Saving back to files and folders needs a browser that can write to them, such as Chrome or Edge. In other browsers, saving downloads a copy instead.
+In the browser, saving back to files needs one that can write to them, such as Chrome or Edge; in others, saving downloads a copy instead.
 
 ## Development
 
