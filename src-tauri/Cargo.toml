@@ -46,7 +46,7 @@ webkit2gtk = "2.0"
 gtk = "0.18"
 # The GitHub sign-in, in a file encrypted with the key the Secret portal gives the Flatpak. OpenSSL does the
 # encryption, as it is linked already.
-oo7 = { version = "0.6", default-features = false, features = ["tokio", "openssl_crypto"] }
+oo7 = { version = "0.7", default-features = false, features = ["tokio", "openssl_crypto"] }
 
 [features]
 default = ["custom-protocol"]
