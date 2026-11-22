@@ -73,7 +73,7 @@ describe('sanitizeHTML', () => {
           '<svg><svg></svg></svg>'
         );
         expect(sanitizeHTML('<svg><svg x=">" onload=alert(1)>')).toBe(
-          '<svg><svg x=">"></svg></svg>'
+          '<svg><svg x="&gt;"></svg></svg>'
         );
         expect(sanitizeHTML('<p><svg><svg onload=onload=alert(1)></svg></svg></p>')).toBe(
           '<p><svg><svg></svg></svg></p>'
