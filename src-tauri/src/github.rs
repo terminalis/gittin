@@ -479,14 +479,14 @@ mod store {
 
     async fn keyring() -> Option<UnlockedKeyring> {
         let secret = oo7::ashpd::desktop::secret::retrieve().await.ok()?;
-        UnlockedKeyring::open("default", oo7::Secret::from(secret))
+        UnlockedKeyring::open("default", Some(oo7::Secret::from(secret)))
             .await
             .ok()
     }
 
     pub async fn load() -> Option<Signed> {
         let items = keyring().await?.search_items(&SERVICE).await.ok()?;
-        let secret = items.first()?.as_unlocked().secret();
+        let secret = items.first()?.secret();
         serde_json::from_slice(&secret).ok()
     }
 
