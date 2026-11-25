@@ -19,10 +19,10 @@
     "@fontsource-variable/mona-sans": "5.3.0",
     "@fontsource/courier-prime": "5.3.0",
     "@fontsource/source-sans-3": "5.3.1",
-    "@tauri-apps/api": "2.12.4",
+    "@tauri-apps/api": "2.12.5",
     "@tauri-apps/plugin-dialog": "2.8.4",
     "@tauri-apps/plugin-fs": "2.7.1",
-    "dompurify": "3.4.17",
+    "dompurify": "3.4.18",
     "entities": "9.0.0",
     "fflate": "0.8.3",
     "gemoji": "8.1.0",
@@ -34,17 +34,17 @@
     "prosemirror-keymap": "1.2.3",
     "prosemirror-model": "1.25.13",
     "prosemirror-state": "1.4.4",
-    "prosemirror-transform": "1.12.5",
+    "prosemirror-transform": "1.12.6",
     "prosemirror-view": "1.42.9"
   },
   "devDependencies": {
-    "@playwright/test": "1.65.0",
-    "@tauri-apps/cli": "2.12.4",
+    "@playwright/test": "1.65.1",
+    "@tauri-apps/cli": "2.12.6",
     "@types/node": "26.6.6",
-    "jsdom": "31.0.0",
-    "type-fest": "5.10.0",
+    "jsdom": "31.0.1",
+    "type-fest": "6.0.2",
     "typescript": "7.0.2",
     "vite": "8.3.8",
-    "vitest": "5.1.0"
+    "vitest": "5.1.1"
   }
 }
